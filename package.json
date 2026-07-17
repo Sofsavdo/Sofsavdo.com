@@ -1,0 +1,15 @@
+{
+  "name": "rosti-platform",
+  "version": "0.0.1",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev --workspace=@rosti/api",
+    "dev:web": "npm run dev --workspace=@rosti/web",
+    "prisma:validate": "npm run prisma:validate --workspace=@rosti/api",
+    "prisma:generate": "npm run prisma:generate --workspace=@rosti/api"
+  }
+}

@@ -1,0 +1,1016 @@
+// Rosti — Creator Affiliate Commerce Platform
+// Prisma schema — Phase 1 architecture artifact.
+// Convention: every monetary field is an Int in minor currency units (tiyin/kopeck
+// equivalent for so'm — 1 so'm = 100 minor units) — never Float/Decimal-as-float.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Connection URL lives in prisma.config.ts (Prisma 7 driver-adapter model), not here.
+datasource db {
+  provider = "postgresql"
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Auth / RBAC
+// ────────────────────────────────────────────────────────────────────────────
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+model User {
+  id            String     @id @default(cuid())
+  email         String?    @unique
+  phone         String?    @unique
+  passwordHash  String
+  status        UserStatus @default(ACTIVE)
+  emailVerified DateTime?
+  phoneVerified DateTime?
+  lastLoginAt   DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  roles          UserRole[]
+  creatorProfile CreatorProfile?
+  refreshTokens  RefreshToken[]
+  auditLogsActed AuditLog[]      @relation("AuditActor")
+  notifications  Notification[]
+
+  @@index([status])
+}
+
+model RefreshToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model Role {
+  id          String  @id @default(cuid())
+  key         String  @unique // e.g. "super_admin", "admin", "manager", "creator"
+  name        String
+  description String?
+
+  permissions RolePermission[]
+  users       UserRole[]
+}
+
+model Permission {
+  id    String @id @default(cuid())
+  key   String @unique // e.g. "orders.write", "payouts.approve"
+  label String
+
+  roles RolePermission[]
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model UserRole {
+  userId String
+  roleId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Creator
+// ────────────────────────────────────────────────────────────────────────────
+
+enum CreatorApplicationStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  REVISION_REQUESTED
+  APPROVED
+  REJECTED
+}
+
+model CreatorProfile {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  displayName   String
+  city          String?
+  bio           String?
+  contentNiches String[] // e.g. ["beauty", "edtech"]
+  avatarFileId  String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  socialAccounts       SocialAccount[]
+  applications         CreatorApplication[]
+  campaigns            CreatorCampaign[]
+  campaignApplications CampaignApplication[]
+  referralLinks        ReferralLink[]
+  promoCodes           PromoCode[]
+  content              CreatorContent[]
+  commissions          Commission[]
+  payoutMethods        PayoutMethod[]
+  payouts              Payout[]
+
+  @@index([city])
+}
+
+enum SocialPlatform {
+  INSTAGRAM
+  TIKTOK
+  YOUTUBE
+  TELEGRAM
+}
+
+model SocialAccount {
+  id            String         @id @default(cuid())
+  creatorId     String
+  creator       CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  platform      SocialPlatform
+  handle        String
+  profileUrl    String
+  followerCount Int            @default(0)
+  createdAt     DateTime       @default(now())
+
+  @@index([creatorId])
+}
+
+model CreatorApplication {
+  id           String                   @id @default(cuid())
+  creatorId    String
+  creator      CreatorProfile           @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  status       CreatorApplicationStatus @default(DRAFT)
+  currentStep  Int                      @default(1)
+  formData     Json // audience info, experience, payout details, etc.
+  reviewNote   String?
+  reviewedById String?
+  reviewedAt   DateTime?
+  submittedAt  DateTime?
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
+
+  @@index([creatorId])
+  @@index([status])
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Product / Offer / Landing
+// ────────────────────────────────────────────────────────────────────────────
+
+enum ProductType {
+  PHYSICAL_PRODUCT
+  DIGITAL_PRODUCT
+  COURSE
+  SERVICE
+  CONSULTATION
+}
+
+enum ProductStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+model Product {
+  id               String        @id @default(cuid())
+  name             String
+  slug             String        @unique
+  type             ProductType
+  shortDescription String?
+  description      String?
+  brand            String?
+  sku              String?       @unique
+  status           ProductStatus @default(DRAFT)
+  images           String[]
+  videos           String[]
+  attributes       Json?
+  costPriceMinor   Int?
+  currency         String        @default("UZS")
+  internalNotes    String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  offers Offer[]
+
+  @@index([type, status])
+}
+
+enum OfferType {
+  ONE_TIME
+  INSTALLMENT
+  SUBSCRIPTION
+  APPLICATION_BASED
+}
+
+enum OfferCtaType {
+  BUY_NOW
+  ORDER_FORM
+  APPLY_NOW
+  BOOK_CALL
+  PAY_INSTALLMENT
+}
+
+enum OfferStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  EXPIRED
+  ARCHIVED
+}
+
+model Offer {
+  id                  String       @id @default(cuid())
+  productId           String
+  product             Product      @relation(fields: [productId], references: [id])
+  name                String
+  slug                String       @unique
+  offerType           OfferType
+  headline            String
+  subheadline         String?
+  priceMinor          Int
+  compareAtPriceMinor Int?
+  currency            String       @default("UZS")
+  bonuses             Json?
+  deliveryInfo        Json?
+  paymentOptions      String[] // e.g. ["CLICK","PAYME","CARD","COD"]
+  installmentOptions  Json?
+  ctaType             OfferCtaType @default(BUY_NOW)
+  startsAt            DateTime?
+  expiresAt           DateTime?
+  status              OfferStatus  @default(DRAFT)
+  seoTitle            String?
+  seoDescription      String?
+  isIndexable         Boolean      @default(false)
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  variants       OfferVariant[]
+  landingPage    LandingPage?
+  campaigns      Campaign[]
+  referralLinks  ReferralLink[]
+  promoCodes     PromoCode[]
+  orders         Order[]
+  referralVisits ReferralVisit[]
+
+  @@index([status])
+}
+
+model OfferVariant {
+  id         String  @id @default(cuid())
+  offerId    String
+  offer      Offer   @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  name       String // "1 dona", "Premium tarif", etc.
+  priceMinor Int
+  sortOrder  Int     @default(0)
+  isDefault  Boolean @default(false)
+  metadata   Json?
+
+  orderItems OrderItem[]
+
+  @@index([offerId])
+}
+
+model LandingPage {
+  id        String   @id @default(cuid())
+  offerId   String   @unique
+  offer     Offer    @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  template  String   @default("default")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sections LandingSection[]
+}
+
+enum LandingSectionType {
+  HERO
+  PROBLEM
+  SOLUTION
+  BENEFITS
+  HOW_IT_WORKS
+  AUDIENCE
+  NOT_FOR
+  CREATOR_VIDEO
+  PRODUCT_GALLERY
+  PRICING
+  OFFER_VARIANTS
+  BONUSES
+  REVIEWS
+  GUARANTEE
+  DELIVERY
+  PAYMENT
+  FAQ
+  FINAL_CTA
+  CUSTOM_RICH_TEXT
+}
+
+model LandingSection {
+  id            String             @id @default(cuid())
+  landingPageId String
+  landingPage   LandingPage        @relation(fields: [landingPageId], references: [id], onDelete: Cascade)
+  type          LandingSectionType
+  sortOrder     Int                @default(0)
+  isActive      Boolean            @default(true)
+  content       Json // text, image/video refs, CTA label, background/layout variant
+
+  @@index([landingPageId, sortOrder])
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Campaign
+// ────────────────────────────────────────────────────────────────────────────
+
+enum CommissionType {
+  PERCENTAGE
+  FIXED_PER_SALE
+  FIXED_CONTENT_FEE
+  HYBRID
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
+enum CampaignStatus {
+  DRAFT
+  OPEN
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+model Campaign {
+  id                    String           @id @default(cuid())
+  offerId               String
+  offer                 Offer            @relation(fields: [offerId], references: [id])
+  name                  String
+  slug                  String           @unique
+  description           String?
+  goal                  String?
+  targetAudience        String?
+  platforms             SocialPlatform[]
+  contentFormats        String[]
+  requiredElements      String[]
+  forbiddenElements     String[]
+  referenceContent      String[]
+  startDate             DateTime?
+  endDate               DateTime?
+  applicationDeadline   DateTime?
+  creatorLimit          Int?
+  requiresApproval      Boolean          @default(true)
+  commissionType        CommissionType
+  commissionValue       Int // percentage in basis points OR minor-unit fixed amount, see COMMISSION.md
+  fixedPaymentMinor     Int?
+  customerDiscountType  DiscountType?
+  // Basis points if customerDiscountType == PERCENTAGE, minor-unit amount if FIXED_AMOUNT —
+  // same dual-meaning convention as commissionValue above and PromoCode.discountValue below.
+  customerDiscountValue Int?
+  barterEnabled         Boolean          @default(false)
+  freeProduct           String?
+  attributionWindowDays Int              @default(30)
+  status                CampaignStatus   @default(DRAFT)
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+
+  assets           CampaignAsset[]
+  applications     CampaignApplication[]
+  creatorCampaigns CreatorCampaign[]
+  referralLinks    ReferralLink[]
+  promoCodes       PromoCode[]
+  referralVisits   ReferralVisit[]
+  orders           Order[]
+  commissionRules  CommissionRule[]
+
+  @@index([status])
+}
+
+model CampaignAsset {
+  id         String    @id @default(cuid())
+  campaignId String
+  campaign   Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  fileId     String
+  file       FileAsset @relation(fields: [fileId], references: [id])
+  kind       String // "image" | "video" | "brief" | "logo" | "caption_template"
+  label      String?
+
+  @@index([campaignId])
+}
+
+enum CampaignApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model CampaignApplication {
+  id           String                    @id @default(cuid())
+  campaignId   String
+  campaign     Campaign                  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  creatorId    String
+  creator      CreatorProfile            @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  status       CampaignApplicationStatus @default(PENDING)
+  message      String?
+  reviewedById String?
+  reviewedAt   DateTime?
+  createdAt    DateTime                  @default(now())
+
+  @@unique([campaignId, creatorId])
+  @@index([status])
+}
+
+enum CreatorCampaignStatus {
+  ACTIVE
+  PAUSED
+  ENDED
+}
+
+model CreatorCampaign {
+  id         String                @id @default(cuid())
+  campaignId String
+  campaign   Campaign              @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  creatorId  String
+  creator    CreatorProfile        @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  status     CreatorCampaignStatus @default(ACTIVE)
+  joinedAt   DateTime              @default(now())
+  endedAt    DateTime?
+
+  content CreatorContent[]
+
+  @@unique([campaignId, creatorId])
+}
+
+enum CreatorContentStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  REVISION_REQUESTED
+  APPROVED
+  PUBLISHED
+  REJECTED
+}
+
+model CreatorContent {
+  id                String               @id @default(cuid())
+  creatorCampaignId String
+  creatorCampaign   CreatorCampaign      @relation(fields: [creatorCampaignId], references: [id], onDelete: Cascade)
+  creatorId         String
+  creator           CreatorProfile       @relation(fields: [creatorId], references: [id])
+  status            CreatorContentStatus @default(DRAFT)
+  draftFileIds      String[]
+  caption           String?
+  publishedUrl      String?
+  platform          SocialPlatform?
+  reviewNote        String?
+  submittedAt       DateTime?
+  reviewedAt        DateTime?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  @@index([status])
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Referral / Attribution / Promo
+// ────────────────────────────────────────────────────────────────────────────
+
+enum ReferralLinkStatus {
+  ACTIVE
+  PAUSED
+  EXPIRED
+}
+
+model ReferralLink {
+  id                    String             @id @default(cuid())
+  code                  String             @unique // short slug e.g. "malika-serum"
+  creatorId             String
+  creator               CreatorProfile     @relation(fields: [creatorId], references: [id])
+  campaignId            String
+  campaign              Campaign           @relation(fields: [campaignId], references: [id])
+  offerId               String
+  offer                 Offer              @relation(fields: [offerId], references: [id])
+  promoCodeId           String?            @unique
+  promoCode             PromoCode?         @relation(fields: [promoCodeId], references: [id])
+  status                ReferralLinkStatus @default(ACTIVE)
+  startsAt              DateTime           @default(now())
+  expiresAt             DateTime?
+  attributionWindowDays Int                @default(30)
+  createdAt             DateTime           @default(now())
+
+  visits ReferralVisit[]
+
+  // One referral link per creator per campaign — prevents the "generate link" action from
+  // silently minting duplicates if called twice.
+  @@unique([creatorId, campaignId])
+  @@index([creatorId])
+  @@index([campaignId])
+}
+
+model ReferralVisit {
+  id             String        @id @default(cuid())
+  referralLinkId String?
+  referralLink   ReferralLink? @relation(fields: [referralLinkId], references: [id])
+  creatorId      String?
+  campaignId     String?
+  campaign       Campaign?     @relation(fields: [campaignId], references: [id])
+  offerId        String
+  offer          Offer         @relation(fields: [offerId], references: [id])
+  visitorId      String // server-issued, first-party — not solely a client cookie
+  sessionId      String
+  landingPage    String
+  utmSource      String?
+  utmMedium      String?
+  utmCampaign    String?
+  ipHash         String
+  userAgent      String?
+  referrer       String?
+  expiresAt      DateTime // createdAt + attributionWindowDays
+  createdAt      DateTime      @default(now())
+
+  // One visit can back more than one Attribution/Order (see Attribution.referralVisitId note).
+  attributions Attribution[]
+
+  @@index([offerId, createdAt])
+  @@index([visitorId])
+  @@index([creatorId])
+  @@index([campaignId])
+}
+
+enum PromoDiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
+model PromoCode {
+  id                 String            @id @default(cuid())
+  // Always written/compared in canonical UPPERCASE by PromoCodesModule so the unique constraint
+  // enforces the spec's "case-insensitive" rule without depending on a citext extension.
+  code               String            @unique
+  creatorId          String
+  creator            CreatorProfile    @relation(fields: [creatorId], references: [id])
+  campaignId         String
+  campaign           Campaign          @relation(fields: [campaignId], references: [id])
+  offerId            String
+  offer              Offer             @relation(fields: [offerId], references: [id])
+  discountType       PromoDiscountType
+  discountValue      Int // percentage in basis points OR minor-unit amount
+  minimumOrderAmount Int?
+  usageLimit         Int?
+  perCustomerLimit   Int?
+  usageCount         Int               @default(0)
+  startsAt           DateTime          @default(now())
+  expiresAt          DateTime?
+  isActive           Boolean           @default(true)
+  createdAt          DateTime          @default(now())
+
+  referralLink ReferralLink?
+  usages       PromoCodeUsage[]
+  orders       Order[]
+
+  // One promo code per creator per campaign — mirrors the ReferralLink constraint above.
+  @@unique([creatorId, campaignId])
+  @@index([campaignId])
+}
+
+model PromoCodeUsage {
+  id          String    @id @default(cuid())
+  promoCodeId String
+  promoCode   PromoCode @relation(fields: [promoCodeId], references: [id], onDelete: Cascade)
+  orderId     String    @unique
+  order       Order     @relation(fields: [orderId], references: [id])
+  customerId  String?
+  createdAt   DateTime  @default(now())
+
+  @@index([promoCodeId])
+}
+
+enum AttributionSource {
+  PROMO_CODE
+  REFERRAL_VISIT
+  MANUAL
+}
+
+// One row per Order — the resolved, immutable record of which creator gets credit.
+model Attribution {
+  id              String            @id @default(cuid())
+  orderId         String            @unique
+  order           Order             @relation(fields: [orderId], references: [id])
+  creatorId       String
+  campaignId      String
+  offerId         String
+  source          AttributionSource
+  // NOT unique: one ReferralVisit (one click) legitimately backs multiple Orders/Attributions
+  // when a buyer returns and purchases more than once inside the attribution window. The
+  // uniqueness guarantee that matters is Attribution.orderId above — one order, one attribution.
+  referralVisitId String?
+  referralVisit   ReferralVisit?    @relation(fields: [referralVisitId], references: [id])
+  promoCodeId     String?
+  isSelfReferral  Boolean           @default(false)
+  fraudRiskFlags  String[]
+  manualById      String? // admin userId, required if source == MANUAL
+  manualReason    String?
+  createdAt       DateTime          @default(now())
+
+  @@index([creatorId])
+  @@index([campaignId])
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Customer / Order
+// ────────────────────────────────────────────────────────────────────────────
+
+model Customer {
+  id        String   @id @default(cuid())
+  fullName  String
+  phone     String
+  email     String?
+  createdAt DateTime @default(now())
+
+  addresses Address[]
+  orders    Order[]
+
+  @@index([phone])
+}
+
+model Address {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  region     String
+  city       String
+  district   String?
+  line1      String
+  comment    String?
+
+  orders Order[]
+}
+
+enum OrderType {
+  PHYSICAL
+  DIGITAL
+  COURSE
+  SERVICE
+  LEAD
+}
+
+enum OrderStatus {
+  NEW
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  COMPLETED
+  CANCELLED
+  RETURNED
+  REFUNDED
+}
+
+model Order {
+  id             String      @id @default(cuid())
+  publicToken    String      @unique @default(cuid())
+  idempotencyKey String      @unique
+  type           OrderType
+  offerId        String
+  offer          Offer       @relation(fields: [offerId], references: [id])
+  campaignId     String?
+  campaign       Campaign?   @relation(fields: [campaignId], references: [id])
+  customerId     String
+  customer       Customer    @relation(fields: [customerId], references: [id])
+  addressId      String?
+  address        Address?    @relation(fields: [addressId], references: [id])
+  promoCodeId    String?
+  promoCode      PromoCode?  @relation(fields: [promoCodeId], references: [id])
+  status         OrderStatus @default(NEW)
+  offerSnapshot  Json // frozen offer/variant content at purchase time
+  subtotalMinor  Int
+  discountMinor  Int         @default(0)
+  shippingMinor  Int         @default(0)
+  totalMinor     Int
+  currency       String      @default("UZS")
+  notes          String?
+  fraudRiskFlags String[]
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  items          OrderItem[]
+  statusHistory  OrderStatusHistory[]
+  payment        Payment?
+  shipment       Shipment?
+  attribution    Attribution?
+  commission     Commission?
+  refunds        Refund[]
+  promoCodeUsage PromoCodeUsage?
+
+  @@index([status])
+  @@index([offerId])
+  @@index([customerId])
+  @@index([campaignId])
+}
+
+model OrderItem {
+  id             String        @id @default(cuid())
+  orderId        String
+  order          Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  variantId      String?
+  variant        OfferVariant? @relation(fields: [variantId], references: [id])
+  nameSnapshot   String
+  quantity       Int           @default(1)
+  unitPriceMinor Int
+  totalMinor     Int
+
+  @@index([orderId])
+}
+
+model OrderStatusHistory {
+  id          String       @id @default(cuid())
+  orderId     String
+  order       Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  fromStatus  OrderStatus?
+  toStatus    OrderStatus
+  changedById String?
+  note        String?
+  createdAt   DateTime     @default(now())
+
+  @@index([orderId])
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Payment / Shipping
+// ────────────────────────────────────────────────────────────────────────────
+
+enum PaymentProviderType {
+  CLICK
+  PAYME
+  UZUM_NASIYA
+  CARD
+  CASH_ON_DELIVERY
+  MANUAL
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+model Payment {
+  id                String              @id @default(cuid())
+  orderId           String              @unique
+  order             Order               @relation(fields: [orderId], references: [id])
+  provider          PaymentProviderType
+  status            PaymentStatus       @default(PENDING)
+  amountMinor       Int
+  currency          String              @default("UZS")
+  providerReference String?
+  webhookPayloads   Json[]
+  idempotencyKey    String              @unique
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@index([status])
+  @@index([providerReference])
+}
+
+enum ShipmentStatus {
+  PENDING
+  PICKED_UP
+  IN_TRANSIT
+  DELIVERED
+  FAILED
+}
+
+model Shipment {
+  id             String         @id @default(cuid())
+  orderId        String         @unique
+  order          Order          @relation(fields: [orderId], references: [id])
+  method         String // courier | region_delivery | pickup | cargo | cod
+  trackingNumber String?
+  costMinor      Int            @default(0)
+  status         ShipmentStatus @default(PENDING)
+  shippedAt      DateTime?
+  deliveredAt    DateTime?
+
+  @@index([status])
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Commission / Refund / Payout
+// ────────────────────────────────────────────────────────────────────────────
+
+// Snapshot of the rule in effect for a Campaign at the moment an order is placed.
+// Orders reference the snapshot, never the live Campaign row, for commission math.
+model CommissionRule {
+  id                String         @id @default(cuid())
+  campaignId        String
+  campaign          Campaign       @relation(fields: [campaignId], references: [id])
+  commissionType    CommissionType
+  commissionValue   Int
+  fixedPaymentMinor Int?
+  effectiveFrom     DateTime       @default(now())
+  effectiveTo       DateTime?
+
+  commissions Commission[]
+
+  @@index([campaignId])
+}
+
+enum CommissionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  REFUNDED
+  PAYABLE
+  PAID
+}
+
+model Commission {
+  id               String           @id @default(cuid())
+  orderId          String           @unique
+  order            Order            @relation(fields: [orderId], references: [id])
+  creatorId        String
+  creator          CreatorProfile   @relation(fields: [creatorId], references: [id])
+  commissionRuleId String
+  commissionRule   CommissionRule   @relation(fields: [commissionRuleId], references: [id])
+  baseAmountMinor  Int // order subtotal after discount, before shipping/tax/fees
+  amountMinor      Int
+  currency         String           @default("UZS")
+  status           CommissionStatus @default(PENDING)
+  approvedAt       DateTime?
+  payableAt        DateTime?
+  paidAt           DateTime?
+  payoutId         String?
+  payout           Payout?          @relation(fields: [payoutId], references: [id])
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  ledgerEntries CommissionLedger[]
+
+  @@index([creatorId, status])
+}
+
+enum LedgerEntryType {
+  ACCRUAL
+  REVERSAL
+  PAYOUT
+}
+
+// Append-only ledger — Commission.status is a derived read model, this table is
+// the source of truth for "why does this creator's balance say what it says".
+model CommissionLedger {
+  id           String          @id @default(cuid())
+  commissionId String
+  commission   Commission      @relation(fields: [commissionId], references: [id], onDelete: Cascade)
+  type         LedgerEntryType
+  amountMinor  Int // signed: positive for ACCRUAL, negative for REVERSAL/PAYOUT
+  reason       String?
+  createdAt    DateTime        @default(now())
+
+  @@index([commissionId])
+}
+
+enum RefundStatus {
+  REQUESTED
+  APPROVED
+  PROCESSED
+  REJECTED
+}
+
+model Refund {
+  id            String       @id @default(cuid())
+  orderId       String
+  order         Order        @relation(fields: [orderId], references: [id])
+  amountMinor   Int
+  reason        String
+  status        RefundStatus @default(REQUESTED)
+  requestedById String?
+  processedAt   DateTime?
+  createdAt     DateTime     @default(now())
+
+  @@index([orderId])
+}
+
+enum PayoutMethodType {
+  CARD
+  BANK_ACCOUNT
+}
+
+model PayoutMethod {
+  id            String           @id @default(cuid())
+  creatorId     String
+  creator       CreatorProfile   @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  type          PayoutMethodType
+  cardNumberEnc String? // encrypted at rest, masked on read
+  cardHolder    String?
+  bankName      String?
+  bankAccount   String?
+  isDefault     Boolean          @default(false)
+  // Soft-delete: a creator "removing" a payout method must never hard-delete this row, since
+  // historical Payout rows reference it by required FK. Deactivation only.
+  isActive      Boolean          @default(true)
+  createdAt     DateTime         @default(now())
+
+  payouts Payout[]
+
+  @@index([creatorId])
+}
+
+enum PayoutStatus {
+  REQUESTED
+  UNDER_REVIEW
+  APPROVED
+  PROCESSING
+  PAID
+  REJECTED
+}
+
+model Payout {
+  id              String         @id @default(cuid())
+  creatorId       String
+  creator         CreatorProfile @relation(fields: [creatorId], references: [id])
+  payoutMethodId  String
+  payoutMethod    PayoutMethod   @relation(fields: [payoutMethodId], references: [id])
+  amountMinor     Int
+  currency        String         @default("UZS")
+  status          PayoutStatus   @default(REQUESTED)
+  requestedAt     DateTime       @default(now())
+  reviewedById    String?
+  reviewedAt      DateTime?
+  paidAt          DateTime?
+  rejectionReason String?
+
+  commissions Commission[]
+
+  @@index([creatorId, status])
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Cross-cutting: notifications, audit, settings, files
+// ────────────────────────────────────────────────────────────────────────────
+
+enum NotificationChannel {
+  IN_APP
+  TELEGRAM
+}
+
+model Notification {
+  id        String              @id @default(cuid())
+  userId    String
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channel   NotificationChannel
+  type      String // "campaign.new", "content.revision_requested", "payout.paid", ...
+  payload   Json
+  readAt    DateTime?
+  createdAt DateTime            @default(now())
+
+  @@index([userId, readAt])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actor      User?    @relation("AuditActor", fields: [actorId], references: [id])
+  action     String // "order.status_changed", "attribution.manual_override", ...
+  entityType String
+  entityId   String
+  before     Json?
+  after      Json?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([actorId])
+}
+
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+model FileAsset {
+  id           String   @id @default(cuid())
+  url          String
+  mimeType     String
+  sizeBytes    Int
+  uploadedById String?
+  createdAt    DateTime @default(now())
+
+  campaignAssets CampaignAsset[]
+}

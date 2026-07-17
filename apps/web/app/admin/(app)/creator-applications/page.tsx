@@ -1,0 +1,101 @@
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import type { CreatorApplicationStatus } from "@rosti/types";
+import { Button, ConfirmModal, DataTableShell, StatusBadge } from "@rosti/ui";
+import { useAdminCreators, useApproveCreatorApplication, useRejectCreatorApplication, useRequestCreatorRevision } from "@/services/admin/creators";
+import { applicationStatusMeta } from "@/lib/status";
+import { ApiError } from "@/lib/api/admin";
+
+const REVIEW_STATUSES: CreatorApplicationStatus[] = ["SUBMITTED", "UNDER_REVIEW", "REVISION_REQUESTED", "APPROVED", "REJECTED"];
+
+export default function CreatorApplicationsPage() {
+  const query = useAdminCreators();
+  const approve = useApproveCreatorApplication();
+  const reject = useRejectCreatorApplication();
+  const revision = useRequestCreatorRevision();
+  const [statusFilter, setStatusFilter] = useState<CreatorApplicationStatus | "ALL">("ALL");
+  const [modal, setModal] = useState<{ userId: string; mode: "reject" | "revision" } | null>(null);
+
+  const applicants = (query.data ?? []).filter((u) => u.application.status !== "DRAFT");
+  const filtered = statusFilter === "ALL" ? applicants : applicants.filter((u) => u.application.status === statusFilter);
+
+  return (
+    <DataTableShell
+      title="Creator arizalari"
+      description="Onboarding orqali topshirilgan arizalarni ko'rib chiqish."
+      filters={
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as CreatorApplicationStatus | "ALL")}
+          className="h-10 rounded-input border border-border bg-bg px-3 font-body text-sm"
+        >
+          <option value="ALL">Barchasi</option>
+          {REVIEW_STATUSES.map((s) => (
+            <option key={s} value={s}>
+              {applicationStatusMeta[s].label}
+            </option>
+          ))}
+        </select>
+      }
+      isLoading={query.isLoading}
+      isError={query.isError}
+      onRetry={() => query.refetch()}
+      isEmpty={filtered.length === 0}
+      emptyTitle="Ariza topilmadi"
+    >
+      <ul className="divide-y divide-border">
+        {filtered.map((u) => (
+          <li key={u.id} className="flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <Link href={`/admin/creators/${u.id}`} className="font-body text-sm font-medium text-text-primary hover:text-accent">
+                {u.displayName}
+              </Link>
+              <p className="font-body text-xs text-text-muted">
+                {u.email} · {u.application.data.city ?? "—"}
+              </p>
+              {u.application.reviewNote ? <p className="mt-1 font-body text-xs text-text-secondary">{u.application.reviewNote}</p> : null}
+            </div>
+            <div className="flex items-center gap-2">
+              <StatusBadge tone={applicationStatusMeta[u.application.status].tone} label={applicationStatusMeta[u.application.status].label} />
+              {u.application.status === "SUBMITTED" || u.application.status === "UNDER_REVIEW" ? (
+                <>
+                  <Button size="sm" onClick={() => approve.mutate(u.id)} disabled={approve.isPending}>
+                    Tasdiqlash
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setModal({ userId: u.id, mode: "revision" })}>
+                    Tuzatish so&apos;rash
+                  </Button>
+                  <Button size="sm" variant="outline" className="border-error text-error" onClick={() => setModal({ userId: u.id, mode: "reject" })}>
+                    Rad etish
+                  </Button>
+                </>
+              ) : null}
+            </div>
+          </li>
+        ))}
+      </ul>
+
+      <ConfirmModal
+        open={!!modal}
+        onClose={() => setModal(null)}
+        title={modal?.mode === "reject" ? "Arizani rad etish" : "Tuzatish so'rash"}
+        description="Sabab creatorga ko'rsatiladi."
+        requireReason
+        reasonLabel="Sabab"
+        destructive={modal?.mode === "reject"}
+        isPending={reject.isPending || revision.isPending}
+        error={
+          reject.isError ? (reject.error as ApiError).message : revision.isError ? (revision.error as ApiError).message : null
+        }
+        onConfirm={async (reason) => {
+          if (!modal || !reason) return;
+          if (modal.mode === "reject") await reject.mutateAsync({ userId: modal.userId, reason });
+          else await revision.mutateAsync({ userId: modal.userId, reason });
+          setModal(null);
+        }}
+      />
+    </DataTableShell>
+  );
+}

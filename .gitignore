@@ -1,0 +1,55 @@
+# Dependencies
+node_modules/
+.pnp/
+.pnp.js
+
+# Environment / secrets — never commit real values, only .env.example
+.env
+.env.*
+!.env.example
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+*.tsbuildinfo
+
+# Test / coverage
+coverage/
+.nyc_output/
+
+# Logs
+*.log
+npm-debug.log*
+logs/
+
+# Uploads / local file storage (FilesModule dev fallback, never committed)
+uploads/
+storage/
+public/uploads/
+
+# Local databases / dumps
+*.sqlite
+*.sqlite3
+*.db
+*.dump
+apps/api/prisma/migrations/dev.db
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude Code local (per-machine permissions, not shared project config)
+.claude/settings.local.json
+
+# Misc
+*.pid
+*.seed
+*.pid.lock

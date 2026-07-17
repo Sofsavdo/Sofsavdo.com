@@ -1,0 +1,35 @@
+/*
+ * Shared design tokens — the executable form of DESIGN_SYSTEM.md.
+ * Tailwind v4 (CSS-first config): importing this file registers every `--color-*`, `--font-*`,
+ * `--radius-*`, and `--spacing-*` variable as real utilities (bg-accent, font-heading,
+ * rounded-card, p-pad-desktop, ...). Consumed from apps/web/app/globals.css via:
+ *   @import "@rosti/config/tokens.css";
+ */
+@theme {
+  --color-bg: #f7f7f5;
+  --color-surface: #ffffff;
+  --color-text-primary: #171717;
+  --color-text-secondary: #666666;
+  --color-text-muted: #929292;
+  --color-accent: #e53935;
+  --color-accent-hover: #c92f2b;
+  --color-dark: #111111;
+  --color-border: #e7e7e3;
+  --color-success: #219653;
+  --color-warning: #f2c94c;
+  --color-error: #d92d20;
+  --color-info: #2f80ed;
+
+  --font-heading: "Manrope", sans-serif;
+  --font-body: "Inter", sans-serif;
+  --font-numeric: "Manrope", sans-serif;
+
+  --radius-button: 10px;
+  --radius-input: 10px;
+  --radius-card: 16px;
+  --radius-media: 22px;
+
+  --spacing-pad-mobile: 16px;
+  --spacing-pad-tablet: 24px;
+  --spacing-pad-desktop: 32px;
+}
