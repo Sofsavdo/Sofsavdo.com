@@ -34,11 +34,21 @@ model User {
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 
-  roles          UserRole[]
-  creatorProfile CreatorProfile?
-  refreshTokens  RefreshToken[]
-  auditLogsActed AuditLog[]      @relation("AuditActor")
-  notifications  Notification[]
+  roles                        UserRole[]
+  creatorProfile               CreatorProfile?
+  refreshTokens                RefreshToken[]
+  auditLogsActed               AuditLog[]             @relation("AuditActor")
+  notifications                Notification[]
+  offersCreated                Offer[]                @relation("OfferCreatedBy")
+  offersUpdated                Offer[]                @relation("OfferUpdatedBy")
+  landingPagesCreated          LandingPage[]          @relation("LandingCreatedBy")
+  landingPagesUpdated          LandingPage[]          @relation("LandingUpdatedBy")
+  campaignsCreated             Campaign[]             @relation("CampaignCreatedBy")
+  campaignsUpdated             Campaign[]             @relation("CampaignUpdatedBy")
+  campaignApplicationsReviewed CampaignApplication[]  @relation("CampaignApplicationReviewedBy")
+  contentReviewed              Content[]              @relation("ContentReviewedBy")
+  contentVersionsSubmitted     ContentVersion[]       @relation("ContentVersionSubmittedBy")
+  contentReviewComments        ContentReviewComment[] @relation("ContentReviewCommentAuthor")
 
   @@index([status])
 }
@@ -113,6 +123,10 @@ model CreatorProfile {
   bio           String?
   contentNiches String[] // e.g. ["beauty", "edtech"]
   avatarFileId  String?
+  // Stable creator-to-creator referral code (6B Enhancement) — generated at registration,
+  // backfilled for pre-existing creators by the migration, never rotated (no rotation
+  // requirement exists; a stable code keeps already-shared links working forever).
+  referralCode  String   @unique
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -126,6 +140,10 @@ model CreatorProfile {
   commissions          Commission[]
   payoutMethods        PayoutMethod[]
   payouts              Payout[]
+  referralsGiven       CreatorReferral[]     @relation("ReferralReferrer")
+  referralReceived     CreatorReferral?      @relation("ReferralReferred")
+  // Real Content vertical (Phase 7A) — distinct from the legacy `content CreatorContent[]` above.
+  contents             Content[]             @relation("ContentByCreator")
 
   @@index([city])
 }
@@ -202,6 +220,15 @@ model Product {
   costPriceMinor   Int?
   currency         String        @default("UZS")
   internalNotes    String?
+  // Physical-inventory tracking (Phase 8). null = untracked (digital/course/service products, or a
+  // physical product whose stock isn't managed yet) — checkout skips the stock check entirely in
+  // that case. A non-null value is decremented atomically when an Order reaches PAID (see
+  // OrdersService.reserveStock) and restored on REFUNDED/CANCELLED-after-paid. The
+  // Product_stock_non_negative_check DB constraint (raw SQL, this migration) is the real
+  // concurrency guard — two simultaneous PAID transitions racing past the app-level check can't
+  // both succeed, since Postgres will reject whichever commit second. A dedicated
+  // Inventory/warehouse model can layer on top of this field later without breaking it.
+  stockQuantity    Int?
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
@@ -225,11 +252,17 @@ enum OfferCtaType {
   PAY_INSTALLMENT
 }
 
+// Deliberately no EXPIRED here — expiry is a COMPUTED availability state derived from
+// startsAt/expiresAt vs. now, never a stored value. Storing it would let a status field and the
+// wall clock disagree (an offer manually left at status=ACTIVE past its expiresAt would still
+// read "ACTIVE" from the database while genuinely unavailable to buyers) — see OffersService's
+// `computeAvailability()` for the derivation and PROJECT_STATUS.md's Phase 6B Offer section for
+// the reasoning. `archivedAt` (below) is the separate, explicit archive-state signal; `status`
+// is the separate, explicit lifecycle signal an admin actually set.
 enum OfferStatus {
   DRAFT
   ACTIVE
   PAUSED
-  EXPIRED
   ARCHIVED
 }
 
@@ -239,9 +272,12 @@ model Offer {
   product             Product      @relation(fields: [productId], references: [id])
   name                String
   slug                String       @unique
-  offerType           OfferType
+  offerType           OfferType    @default(ONE_TIME)
   headline            String
   subheadline         String?
+  // Admin-only context about the offer's commercial setup — distinct from headline/subheadline,
+  // which are buyer-facing landing-page copy.
+  internalDescription String?
   priceMinor          Int
   compareAtPriceMinor Int?
   currency            String       @default("UZS")
@@ -250,24 +286,38 @@ model Offer {
   paymentOptions      String[] // e.g. ["CLICK","PAYME","CARD","COD"]
   installmentOptions  Json?
   ctaType             OfferCtaType @default(BUY_NOW)
+  ctaLabel            String?
   startsAt            DateTime?
   expiresAt           DateTime?
   status              OfferStatus  @default(DRAFT)
+  // Set only by the archive transition, cleared never (archiving is one-way — see
+  // OffersService's transition matrix). Separate from `status` so "when was this archived" is
+  // queryable/sortable without parsing AuditLog, and so a future "unarchive" decision (if the
+  // business ever wants one) has a real timestamp to reason about instead of just an enum flip.
+  archivedAt          DateTime?
   seoTitle            String?
   seoDescription      String?
   isIndexable         Boolean      @default(false)
+  createdById         String?
+  createdBy           User?        @relation("OfferCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById         String?
+  updatedBy           User?        @relation("OfferUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   createdAt           DateTime     @default(now())
   updatedAt           DateTime     @updatedAt
 
-  variants       OfferVariant[]
-  landingPage    LandingPage?
-  campaigns      Campaign[]
-  referralLinks  ReferralLink[]
-  promoCodes     PromoCode[]
-  orders         Order[]
-  referralVisits ReferralVisit[]
+  variants        OfferVariant[]
+  landingPage     LandingPage?
+  campaigns       Campaign[]
+  referralLinks   ReferralLink[]
+  promoCodes      PromoCode[]
+  orders          Order[]
+  referralVisits  ReferralVisit[]
+  deliveryRegions OfferDeliveryRegion[]
 
   @@index([status])
+  @@index([productId])
+  @@index([archivedAt])
+  @@index([startsAt, expiresAt])
 }
 
 model OfferVariant {
@@ -285,15 +335,87 @@ model OfferVariant {
   @@index([offerId])
 }
 
+enum DeliveryFeeType {
+  FREE
+  FIXED
+}
+
+enum DeliveryAvailability {
+  AVAILABLE
+  UNAVAILABLE
+}
+
+// Regional delivery pricing (6B Enhancement). Owned by Offer, not Product — different Offers for
+// the same Product may run different delivery promotions (spec-confirmed ownership). Only Offers
+// whose Product.type is PHYSICAL_PRODUCT may have rows here (service-enforced; a DB-level
+// cross-table check isn't practical in Postgres without triggers). FREE rows must have
+// deliveryFeeMinor = 0 and FIXED rows a positive fee — enforced by the
+// OfferDeliveryRegion_fee_check DB constraint plus estimatedMinDays <= estimatedMaxDays by
+// OfferDeliveryRegion_days_check (raw SQL in the 6B Enhancement migration).
+model OfferDeliveryRegion {
+  id               String               @id @default(cuid())
+  offerId          String
+  offer            Offer                @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  countryCode      String               @default("UZ")
+  regionCode       String
+  regionName       String
+  availability     DeliveryAvailability @default(AVAILABLE)
+  feeType          DeliveryFeeType
+  deliveryFeeMinor Int                  @default(0)
+  currency         String               @default("UZS")
+  estimatedMinDays Int?
+  estimatedMaxDays Int?
+  active           Boolean              @default(true)
+  sortOrder        Int                  @default(0)
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  @@unique([offerId, regionCode])
+  @@index([offerId, sortOrder])
+}
+
+// A Landing has no slug of its own — it is addressed via its Offer's already-unique `slug`
+// (1:1 relation, public route is `/offers/:slug/public` per API.md), so a second unique slug
+// here would just be a second name for the same address with no way to keep them in sync.
+enum LandingStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
 model LandingPage {
-  id        String   @id @default(cuid())
-  offerId   String   @unique
-  offer     Offer    @relation(fields: [offerId], references: [id], onDelete: Cascade)
-  template  String   @default("default")
+  id       String @id @default(cuid())
+  offerId  String @unique
+  offer    Offer  @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  template String @default("default")
+
+  status      LandingStatus @default(DRAFT)
+  // Set on the DRAFT/PUBLISHED->PUBLISHED transition, never cleared — an "already published
+  // once" fact, distinct from `status` which can move back to DRAFT (unpublish).
+  publishedAt DateTime?
+  // Set only by the archive transition, cleared never — same one-way pattern as Offer.archivedAt.
+  archivedAt  DateTime?
+
+  // Buyer-facing SEO metadata for the public landing page — distinct from Offer.seoTitle/
+  // seoDescription (which predate this slice and are not used by the public route below);
+  // kept here since SEO is a property of the rendered page, not the commercial config.
+  seoTitle       String?
+  seoDescription String?
+  seoKeywords    String[]
+  ogImageUrl     String?
+
+  createdById String?
+  createdBy   User?   @relation("LandingCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById String?
+  updatedBy   User?   @relation("LandingUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   sections LandingSection[]
+
+  @@index([status])
+  @@index([archivedAt])
 }
 
 enum LandingSectionType {
@@ -311,6 +433,7 @@ enum LandingSectionType {
   BONUSES
   REVIEWS
   GUARANTEE
+  TERMS
   DELIVERY
   PAYMENT
   FAQ
@@ -334,11 +457,14 @@ model LandingSection {
 // Campaign
 // ────────────────────────────────────────────────────────────────────────────
 
+// Narrowed from PERCENTAGE|FIXED_PER_SALE|FIXED_CONTENT_FEE|HYBRID to the two explicit
+// commercial modes the 6B Enhancement spec mandates (see DECISIONS.md ADR-013). The retired
+// values were mock-era drafts — the only real Campaign row was PERCENTAGE. The dual-meaning
+// `commissionValue` column is replaced by the explicit commissionRateBps/commissionAmountMinor
+// pair below, with a DB CHECK constraint enforcing mutual exclusivity.
 enum CommissionType {
   PERCENTAGE
-  FIXED_PER_SALE
-  FIXED_CONTENT_FEE
-  HYBRID
+  FIXED_AMOUNT
 }
 
 enum DiscountType {
@@ -346,49 +472,88 @@ enum DiscountType {
   FIXED_AMOUNT
 }
 
+// OPEN and CANCELLED (from the Phase 1 draft schema) are retired in favor of the Phase 6B spec's
+// explicit 5-state model — see DECISIONS.md ADR-011. No real Campaign rows existed yet (no backend
+// slice had been built), so this is a clean rename, not a destructive change to real data.
 enum CampaignStatus {
   DRAFT
-  OPEN
   ACTIVE
   PAUSED
   COMPLETED
-  CANCELLED
+  ARCHIVED
 }
 
 model Campaign {
-  id                    String           @id @default(cuid())
-  offerId               String
-  offer                 Offer            @relation(fields: [offerId], references: [id])
-  name                  String
-  slug                  String           @unique
-  description           String?
-  goal                  String?
-  targetAudience        String?
-  platforms             SocialPlatform[]
-  contentFormats        String[]
-  requiredElements      String[]
-  forbiddenElements     String[]
-  referenceContent      String[]
+  id      String @id @default(cuid())
+  offerId String
+  offer   Offer  @relation(fields: [offerId], references: [id])
+
+  // `name` is the creator-facing title (rendered directly in the creator catalog today — see
+  // DECISIONS.md ADR-011) — NOT renamed, to avoid breaking the existing frontend/mock contract.
+  // `internalName`/`internalNotes` are additive, admin-only fields for the "internal name" /
+  // "internal description" the spec asked for, distinct from the buyer-safe `name`/`description`.
+  name          String
+  internalName  String?
+  slug          String  @unique
+  description   String?
+  internalNotes String?
+  category      String
+  ctaLabel      String
+
+  goal           String?
+  targetAudience String?
+
+  platforms         SocialPlatform[]
+  contentFormats    String[]
+  requiredElements  String[] // "dos" — also the free-form home for required hashtags/mentions/links
+  forbiddenElements String[] // "don'ts"
+  referenceContent  String[]
+
+  // Simple heuristic, not per-platform: checked against a creator's highest SocialAccount.followerCount
+  // across all their platforms. Deliberately coarse — see DECISIONS.md ADR-011 for why nothing
+  // more structured (allowed categories, per-platform eligibility rules) was added this slice.
+  minFollowers Int?
+  maxFollowers Int?
+
+  requiredContentCount Int?
+  contentDeadline      DateTime?
+
   startDate             DateTime?
   endDate               DateTime?
+  applicationStartDate  DateTime?
   applicationDeadline   DateTime?
   creatorLimit          Int?
-  requiresApproval      Boolean          @default(true)
+  requiresApproval      Boolean        @default(true)
   commissionType        CommissionType
-  commissionValue       Int // percentage in basis points OR minor-unit fixed amount, see COMMISSION.md
-  fixedPaymentMinor     Int?
+  // PERCENTAGE => commissionRateBps set, commissionAmountMinor NULL.
+  // FIXED_AMOUNT => commissionAmountMinor set (positive, minor units), commissionRateBps NULL.
+  // Enforced by the Campaign_commission_mode_check DB constraint (raw SQL in the 6B Enhancement
+  // migration — Prisma schema can't express CHECK constraints) and again in CampaignsService.
+  commissionRateBps     Int?
+  commissionAmountMinor Int?
+  commissionCurrency    String         @default("UZS")
   customerDiscountType  DiscountType?
   // Basis points if customerDiscountType == PERCENTAGE, minor-unit amount if FIXED_AMOUNT —
   // same dual-meaning convention as commissionValue above and PromoCode.discountValue below.
   customerDiscountValue Int?
-  barterEnabled         Boolean          @default(false)
+  barterEnabled         Boolean        @default(false)
   freeProduct           String?
-  attributionWindowDays Int              @default(30)
-  status                CampaignStatus   @default(DRAFT)
-  createdAt             DateTime         @default(now())
-  updatedAt             DateTime         @updatedAt
+  attributionWindowDays Int            @default(30)
+
+  status     CampaignStatus @default(DRAFT)
+  // Set only by the archive transition, cleared never — same one-way pattern as Offer/LandingPage.
+  archivedAt DateTime?
+
+  createdById String?
+  createdBy   User?   @relation("CampaignCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById String?
+  updatedBy   User?   @relation("CampaignUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   assets           CampaignAsset[]
+  media            CampaignMedia[]
   applications     CampaignApplication[]
   creatorCampaigns CreatorCampaign[]
   referralLinks    ReferralLink[]
@@ -396,10 +561,17 @@ model Campaign {
   referralVisits   ReferralVisit[]
   orders           Order[]
   commissionRules  CommissionRule[]
+  contents         Content[]
 
+  @@index([offerId])
   @@index([status])
+  @@index([archivedAt])
+  @@index([startDate, endDate])
+  @@index([applicationStartDate, applicationDeadline])
 }
 
+// Mock-era stub, superseded by CampaignMedia below for the real vertical (kept untouched so the
+// mock frontend contract keeps compiling — see DECISIONS.md ADR-013). No real rows exist.
 model CampaignAsset {
   id         String    @id @default(cuid())
   campaignId String
@@ -412,26 +584,273 @@ model CampaignAsset {
   @@index([campaignId])
 }
 
+enum CampaignMediaType {
+  IMAGE
+  VIDEO
+}
+
+enum CampaignMediaRole {
+  COVER
+  GALLERY
+  PROMOTIONAL
+}
+
+// Campaign visual media (6B Enhancement). Binary content lives behind the StoragePort abstraction
+// (local-disk adapter in dev/test — see apps/api/src/storage/); only keys/URLs/metadata are stored
+// here. At most one COVER per campaign, enforced by a partial unique index
+// (CampaignMedia_cover_unique, raw SQL — Prisma can't express partial indexes).
+model CampaignMedia {
+  id               String            @id @default(cuid())
+  campaignId       String
+  campaign         Campaign          @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  mediaType        CampaignMediaType
+  mediaRole        CampaignMediaRole
+  storageKey       String
+  publicUrl        String
+  thumbnailUrl     String?
+  originalFilename String
+  mimeType         String
+  fileSizeBytes    Int
+  width            Int?
+  height           Int?
+  durationSeconds  Int?
+  sortOrder        Int               @default(0)
+  altText          String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@index([campaignId, sortOrder])
+  @@index([campaignId, mediaRole])
+}
+
+// PENDING retired in favor of this explicit lifecycle — see DECISIONS.md ADR-012. Only APPROVED
+// rows existed for real (seeded directly as APPROVED), so this is a clean rename, not a
+// destructive change to real data.
 enum CampaignApplicationStatus {
-  PENDING
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  CHANGES_REQUESTED
   APPROVED
   REJECTED
+  WITHDRAWN
 }
 
 model CampaignApplication {
-  id           String                    @id @default(cuid())
-  campaignId   String
-  campaign     Campaign                  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  creatorId    String
-  creator      CreatorProfile            @relation(fields: [creatorId], references: [id], onDelete: Cascade)
-  status       CampaignApplicationStatus @default(PENDING)
-  message      String?
-  reviewedById String?
+  id         String                    @id @default(cuid())
+  campaignId String
+  campaign   Campaign                  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  creatorId  String
+  creator    CreatorProfile            @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  status     CampaignApplicationStatus @default(DRAFT)
+
+  // Creator-authored — the pitch/message plus supporting evidence for the campaign in question.
+  message            String? // pitch/message — kept as the pre-existing field name, not duplicated
+  platform           SocialPlatform?
+  contentFormat      String?
+  portfolioLinks     String[]
+  sampleContentLinks String[]
+  // Free-form answers to campaign-specific questions — Campaign has no structured "questions"
+  // field to validate against yet, so this stays a passthrough Json bag (see DECISIONS.md ADR-012).
+  answers            Json?
+
+  // Snapshot at submission time — explicitly distinct from live CreatorProfile/SocialAccount data,
+  // which can change after the fact (see schema comment convention used elsewhere for snapshots).
+  followerSnapshot Int?
+
+  // Admin-authored review outcome. Only ever holds the *latest* reason for each kind — no
+  // historical trail beyond that (see DECISIONS.md ADR-012 for why no review-event history table
+  // was added this slice).
+  adminNotes             String?
+  rejectionReason        String?
+  changesRequestedReason String?
+
+  submittedAt  DateTime?
   reviewedAt   DateTime?
-  createdAt    DateTime                  @default(now())
+  approvedAt   DateTime?
+  rejectedAt   DateTime?
+  withdrawnAt  DateTime?
+  reviewedById String?
+  reviewedBy   User?     @relation("CampaignApplicationReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  contents Content[]
 
   @@unique([campaignId, creatorId])
+  @@index([campaignId])
+  @@index([creatorId])
   @@index([status])
+  @@index([createdAt])
+  @@index([submittedAt])
+  @@index([reviewedAt])
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Content Management (Phase 7A)
+// ────────────────────────────────────────────────────────────────────────────
+//
+// Distinct from the legacy `CreatorContent`/`CreatorContentStatus` below (mock-era stub, tied to
+// `CreatorCampaign` rather than `Campaign`+`CampaignApplication`+`CreatorProfile` directly, no
+// version history, no review-comment table, no CHANGES_REQUESTED/EXPIRED states, unreferenced by
+// any real service) — kept untouched so nothing that still reads it breaks; the real Content
+// vertical below supersedes it going forward. See DECISIONS.md ADR-014.
+//
+// Lifecycle: DRAFT → SUBMITTED → UNDER_REVIEW → CHANGES_REQUESTED → APPROVED | REJECTED | EXPIRED.
+// REJECTED and EXPIRED are terminal (no resubmission — a rejected/expired Content cannot be
+// resubmitted; the creator must create a brand-new Content). APPROVED is immutable. EXPIRED is
+// lazily materialized (written the next time the row is read/mutated after the owning Campaign's
+// contentDeadline has passed) rather than cron-driven — this codebase has no scheduler/queue
+// infrastructure; see ContentService.expireIfPastDeadline().
+enum ContentStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  CHANGES_REQUESTED
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+// One Content per creator submission — a Campaign's requiredContentCount can be > 1, so a single
+// CampaignApplication legitimately owns many Content rows (no uniqueness constraint between them).
+model Content {
+  id                    String              @id @default(cuid())
+  campaignId            String
+  campaign              Campaign            @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  creatorId             String
+  creator               CreatorProfile      @relation("ContentByCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  campaignApplicationId String
+  campaignApplication   CampaignApplication @relation(fields: [campaignApplicationId], references: [id], onDelete: Cascade)
+
+  status ContentStatus @default(DRAFT)
+
+  caption  String?
+  notes    String?
+  hashtags String[]
+  // Free-form, creator-authored structured extras (e.g. platform-specific fields) — same
+  // passthrough-Json-bag convention as CampaignApplication.answers.
+  metadata Json?
+
+  // 0 while still an unsubmitted DRAFT; becomes 1 on first submit, +1 on every resubmit after
+  // CHANGES_REQUESTED. Mirrors ContentVersion.versionNumber — the count of permanent versions.
+  currentVersionNumber Int @default(0)
+
+  // Admin-authored review outcome — only the *latest* reason for each kind, matching the
+  // CampaignApplication/CreatorReferral convention (see DECISIONS.md ADR-012/013). The full,
+  // never-deleted history of every review action lives in ContentReviewComment below.
+  rejectionReason        String?
+  changesRequestedReason String?
+
+  submittedAt  DateTime?
+  reviewedAt   DateTime?
+  approvedAt   DateTime?
+  rejectedAt   DateTime?
+  expiredAt    DateTime?
+  reviewedById String?
+  reviewedBy   User?     @relation("ContentReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  attachments ContentAttachment[]
+  versions    ContentVersion[]
+  comments    ContentReviewComment[]
+
+  @@index([campaignId])
+  @@index([creatorId])
+  @@index([campaignApplicationId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([submittedAt])
+  @@index([reviewedAt])
+}
+
+enum ContentAttachmentType {
+  IMAGE
+  VIDEO
+}
+
+// ATTACHMENT = general supporting image/video; THUMBNAIL = the single representative preview
+// image (same "at most one" pattern as CampaignMedia's COVER — enforced by a partial unique
+// index, ContentAttachment_thumbnail_unique, raw SQL since Prisma can't express partial indexes).
+enum ContentAttachmentRole {
+  ATTACHMENT
+  THUMBNAIL
+}
+
+// Binary content lives behind the StoragePort abstraction (same local-disk adapter as
+// CampaignMedia) — only keys/URLs/metadata are stored here, never raw bytes in Postgres.
+model ContentAttachment {
+  id               String                @id @default(cuid())
+  contentId        String
+  content          Content               @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  attachmentType   ContentAttachmentType
+  role             ContentAttachmentRole
+  storageKey       String
+  publicUrl        String
+  thumbnailUrl     String?
+  originalFilename String
+  mimeType         String
+  fileSizeBytes    Int
+  width            Int?
+  height           Int?
+  durationSeconds  Int?
+  sortOrder        Int                   @default(0)
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  @@index([contentId, sortOrder])
+  @@index([contentId, role])
+}
+
+// Permanent, append-only snapshot of every submitted/resubmitted revision — never updated, never
+// deleted (enforced by never exposing an update/delete path in ContentService, not a DB trigger).
+// attachmentSnapshot freezes the attachment list (id/url/type/role) as it stood at that exact
+// submission, independent of whatever attachments exist on the live Content row later.
+model ContentVersion {
+  id                 String   @id @default(cuid())
+  contentId          String
+  content            Content  @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  versionNumber      Int
+  caption            String?
+  notes              String?
+  hashtags           String[]
+  metadata           Json?
+  attachmentSnapshot Json
+  submittedAt        DateTime @default(now())
+  submittedById      String
+  submittedBy        User     @relation("ContentVersionSubmittedBy", fields: [submittedById], references: [id])
+  createdAt          DateTime @default(now())
+
+  @@unique([contentId, versionNumber])
+  @@index([contentId])
+}
+
+enum ContentReviewAction {
+  APPROVED
+  REJECTED
+  CHANGES_REQUESTED
+}
+
+// Admin-authored, creator-read-only, never editable or deletable — the actual "Review Comments"
+// + audit-adjacent history the spec requires, distinct from Content's own latest-reason fields
+// (which only ever hold the most recent value for quick display).
+model ContentReviewComment {
+  id            String              @id @default(cuid())
+  contentId     String
+  content       Content             @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  // Denormalized, not a relation — the version being reviewed at comment time (same snapshot
+  // convention as CampaignApplication.followerSnapshot).
+  versionNumber Int
+  authorId      String
+  author        User                @relation("ContentReviewCommentAuthor", fields: [authorId], references: [id])
+  action        ContentReviewAction
+  comment       String
+  createdAt     DateTime            @default(now())
+
+  @@index([contentId, createdAt])
 }
 
 enum CreatorCampaignStatus {
@@ -668,15 +1087,21 @@ enum OrderType {
   LEAD
 }
 
+// Replaces the Phase 1 draft's NEW/CONFIRMED/COMPLETED/RETURNED with the Phase 8 spec's explicit
+// checkout-lifecycle state set (see DECISIONS.md ADR-015). No real Order rows existed yet (no
+// backend slice had been built — OrdersService didn't exist before this phase), so this is a
+// clean rename, not a destructive change to real data. CREATED/PAYMENT_PENDING are new states that
+// let an Order exist before payment resolves; PROCESSING/SHIPPED reuse the same names fulfillment
+// already understood; IN_TRANSIT is new (distinct from SHIPPED — "picked up" vs "en route").
 enum OrderStatus {
-  NEW
-  CONFIRMED
+  CREATED
+  PAYMENT_PENDING
+  PAID
   PROCESSING
   SHIPPED
+  IN_TRANSIT
   DELIVERED
-  COMPLETED
   CANCELLED
-  RETURNED
   REFUNDED
 }
 
@@ -695,14 +1120,18 @@ model Order {
   address        Address?    @relation(fields: [addressId], references: [id])
   promoCodeId    String?
   promoCode      PromoCode?  @relation(fields: [promoCodeId], references: [id])
-  status         OrderStatus @default(NEW)
+  status         OrderStatus @default(CREATED)
   offerSnapshot  Json // frozen offer/variant content at purchase time
   subtotalMinor  Int
   discountMinor  Int         @default(0)
   shippingMinor  Int         @default(0)
   totalMinor     Int
   currency       String      @default("UZS")
-  notes          String?
+  // Buyer-facing choice captured at checkout ("courier"/"pickup"/"cargo"/"cod") — free-text, same
+  // convention as Shipment.method. Copied into Shipment.method when fulfillment creates that row;
+  // kept here too since a Shipment may not exist yet at every point in the Order's early lifecycle.
+  deliveryMethod String?
+  notes          String? // buyer's checkout notes ("Customer Information: Notes" in the spec)
   fraudRiskFlags String[]
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
@@ -817,15 +1246,22 @@ model Shipment {
 
 // Snapshot of the rule in effect for a Campaign at the moment an order is placed.
 // Orders reference the snapshot, never the live Campaign row, for commission math.
+// Field names/shape (Phase 8) now mirror Campaign.commissionType/commissionRateBps/
+// commissionAmountMinor exactly — this model predates the 6B Enhancement rename that narrowed
+// Campaign's commission fields and had zero real rows, so realigning it here (rather than keeping
+// the old commissionValue/fixedPaymentMinor dual-meaning pair) is a rename, not a breaking change.
+// See DECISIONS.md ADR-015.
 model CommissionRule {
-  id                String         @id @default(cuid())
-  campaignId        String
-  campaign          Campaign       @relation(fields: [campaignId], references: [id])
-  commissionType    CommissionType
-  commissionValue   Int
-  fixedPaymentMinor Int?
-  effectiveFrom     DateTime       @default(now())
-  effectiveTo       DateTime?
+  id                    String         @id @default(cuid())
+  campaignId            String
+  campaign              Campaign       @relation(fields: [campaignId], references: [id])
+  commissionType        CommissionType
+  // Same mutual-exclusivity convention as Campaign: PERCENTAGE => commissionRateBps set,
+  // FIXED_AMOUNT => commissionAmountMinor set.
+  commissionRateBps     Int?
+  commissionAmountMinor Int?
+  effectiveFrom         DateTime       @default(now())
+  effectiveTo           DateTime?
 
   commissions Commission[]
 
@@ -1013,4 +1449,123 @@ model FileAsset {
   createdAt    DateTime @default(now())
 
   campaignAssets CampaignAsset[]
+}
+
+// ---- Creator-to-creator referral program (6B Enhancement) ----
+//
+// Distinct from ReferralLink/ReferralVisit above, which are the creator→CUSTOMER sales-attribution
+// concept. This block is creator→CREATOR recruiting: one immutable direct referrer per creator,
+// direct referrals only (no multilevel/MLM — Creator A never earns from creators invited by
+// Creator B). Rewards require real productive activity, never registration alone; nothing here is
+// marked PAID until the future Payout ledger exists. See DECISIONS.md ADR-013.
+
+model CreatorReferral {
+  id                String         @id @default(cuid())
+  referrerCreatorId String
+  referrer          CreatorProfile @relation("ReferralReferrer", fields: [referrerCreatorId], references: [id], onDelete: Cascade)
+  // Unique: a creator has at most ONE direct referrer, ever (duplicate attribution is a DB-level
+  // impossibility, not just a service check).
+  referredCreatorId String         @unique
+  referred          CreatorProfile @relation("ReferralReferred", fields: [referredCreatorId], references: [id], onDelete: Cascade)
+  referralCodeUsed  String
+  attributedAt      DateTime       @default(now())
+  registeredAt      DateTime
+
+  // Milestone timestamps — filled in as the referred creator's real activity happens. The
+  // Content/sale/earning ones stay NULL until those future domains exist and emit the
+  // corresponding integration events (see ReferralEventsService).
+  onboardingCompletedAt              DateTime?
+  creatorApprovedAt                  DateTime?
+  firstCampaignApplicationAt         DateTime?
+  firstApprovedCampaignApplicationAt DateTime?
+  firstApprovedContentAt             DateTime?
+  firstQualifiedSaleAt               DateTime?
+  firstQualifiedEarningAt            DateTime?
+
+  qualifiedAt            DateTime?
+  disqualifiedAt         DateTime?
+  disqualificationReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  rewards CreatorReferralReward[]
+
+  @@index([referrerCreatorId, createdAt])
+}
+
+enum ReferralRewardType {
+  MILESTONE_FIXED
+  EARNINGS_PERCENTAGE
+}
+
+enum ReferralMilestoneType {
+  FIRST_APPROVED_CAMPAIGN_APPLICATION
+  FIRST_APPROVED_CONTENT
+  FIRST_QUALIFIED_SALE
+  FIRST_APPROVED_COMMISSION
+  MIN_CUMULATIVE_EARNINGS
+}
+
+// Configurable reward programs — not one hard-coded rule. MILESTONE_FIXED pays fixedRewardMinor
+// once when the referred creator reaches milestoneType; EARNINGS_PERCENTAGE accrues
+// rewardRateBps of qualified approved earnings inside earningWindowDays (dormant until the
+// Order/Commission domains emit real earning events). Registration alone is deliberately NOT a
+// representable milestone.
+model CreatorReferralRule {
+  id                               String                 @id @default(cuid())
+  name                             String
+  rewardType                       ReferralRewardType
+  milestoneType                    ReferralMilestoneType?
+  fixedRewardMinor                 Int?
+  rewardRateBps                    Int?
+  currency                         String                 @default("UZS")
+  qualifyingEarningsThresholdMinor Int?
+  earningWindowDays                Int?
+  maximumRewardPerReferralMinor    Int?
+  startsAt                         DateTime?
+  endsAt                           DateTime?
+  active                           Boolean                @default(true)
+  createdAt                        DateTime               @default(now())
+  updatedAt                        DateTime               @updatedAt
+
+  rewards CreatorReferralReward[]
+
+  @@index([active, startsAt, endsAt])
+}
+
+// PAID exists in the enum for forward-compatibility but nothing sets it yet — there is no payout
+// ledger. Marking a reward PAID before Payout exists would be a false financial claim.
+enum ReferralRewardStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PAID
+}
+
+model CreatorReferralReward {
+  id         String               @id @default(cuid())
+  referralId String
+  referral   CreatorReferral      @relation(fields: [referralId], references: [id], onDelete: Cascade)
+  ruleId     String
+  rule       CreatorReferralRule  @relation(fields: [ruleId], references: [id])
+  status     ReferralRewardStatus @default(PENDING)
+
+  // Idempotency anchor: which real domain event produced this reward. Re-processing the same
+  // event (retries, replays) hits the unique constraint below instead of double-paying.
+  sourceType String
+  sourceId   String
+
+  qualifiedEarningsMinor Int?
+  calculatedRewardMinor  Int
+  currency               String    @default("UZS")
+  approvedAt             DateTime?
+  rejectedAt             DateTime?
+  rejectionReason        String?
+  paidAt                 DateTime?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  @@unique([referralId, ruleId, sourceType, sourceId])
+  @@index([status])
 }

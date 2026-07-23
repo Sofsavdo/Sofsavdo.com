@@ -24,12 +24,20 @@ See [PROJECT_STATUS.md](PROJECT_STATUS.md) "Phase 1.5 — Repository isolation" 
 step-by-step verification log.
 
 ## Auth
-- [ ] Argon2id password hashing (not bcrypt/md5)
-- [ ] JWT access token (short-lived, ~15min) + refresh token rotation, refresh token hashed at
-      rest (`RefreshToken.tokenHash`), old token invalidated on use (rotation, not reuse)
-- [ ] Rate limiting on `/auth/login`, `/auth/forgot-password` (per-IP and per-account)
-- [ ] Brute-force lockout with exponential backoff on repeated login failures
-- [ ] Secure, HttpOnly, SameSite cookies for refresh token; access token in memory only on web
+- [x] Argon2 password hashing (`argon2` package, default argon2id params) — `auth.service.ts`
+- [x] JWT access token (15min default, `JWT_ACCESS_TTL`) + refresh token rotation, refresh token
+      hashed at rest (`RefreshToken.tokenHash`, SHA-256 lookup hash), old token invalidated on use
+      and reuse of a revoked token revokes the whole token family (`token.service.ts`,
+      verified against real Postgres — see PROJECT_STATUS.md Phase 6A)
+- [x] Rate limiting per-IP on `/auth/login` and `/auth/register` (10/min), `/auth/forgot-password`
+      (5/min) via `@Throttle()` — added in the 6A→6B architecture audit; global default
+      (120/60s) was the only limit before this and was too permissive for auth endpoints
+- [ ] Per-account brute-force lockout with exponential backoff — **not implemented**, tracked as
+      technical debt in the architecture review; needs a failed-attempt counter (likely
+      Redis-backed) this phase doesn't have. Per-IP throttling above is a partial mitigation.
+- [x] Secure (prod-only), HttpOnly, SameSite=Lax cookie for refresh token, scoped to `/auth`;
+      access token returned once in the response body, held in memory by the frontend only
+      (see DECISIONS.md ADR-008)
 
 ## Input handling
 - [ ] Every controller method validates via a DTO (`class-validator` or Zod), no raw `req.body`

@@ -21,6 +21,8 @@ import {
   ShieldCheck,
   Settings,
   History,
+  Gift,
+  SlidersHorizontal,
 } from "lucide-react";
 import type { AdminRole } from "@rosti/types";
 
@@ -48,7 +50,10 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
   },
   {
     label: "Kampaniyalar",
-    items: [{ href: "/admin/campaigns", label: "Campaigns", icon: Megaphone }],
+    items: [
+      { href: "/admin/campaigns", label: "Campaigns", icon: Megaphone },
+      { href: "/admin/campaign-applications", label: "Kampaniya arizalari", icon: ClipboardList },
+    ],
   },
   {
     label: "Creatorlar",
@@ -64,6 +69,8 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
       { href: "/admin/referral-links", label: "Referral havolalar", icon: Link2 },
       { href: "/admin/promo-codes", label: "Promo kodlar", icon: Ticket },
       { href: "/admin/visitors", label: "Visitors", icon: Eye },
+      { href: "/admin/creator-referrals", label: "Creator referrallari", icon: Gift },
+      { href: "/admin/referral-rules", label: "Referral qoidalari", icon: SlidersHorizontal },
     ],
   },
   {

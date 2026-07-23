@@ -65,3 +65,54 @@ Re-validated after fixes: `npx prisma validate` passes, `npx prisma generate` su
   desirable and the correct fix is a service-layer invariant, not a structural one.
 - `Product`/`Offer`/`Campaign` already have status-enum-based soft delete (`ARCHIVED`/
   `CANCELLED`), so no separate `deletedAt` column was added to them.
+
+## Phase 6 pre-flight addendum (2026-07-17)
+
+Re-run before starting Phase 6, checking `schema.prisma` / `API.md` / `ATTRIBUTION.md` /
+`COMMISSION.md` against what Phases 3–5 actually built: `apps/web/src/lib/api/{index,admin}.ts`,
+`apps/web/src/services/**`, `apps/web/src/mocks/store.ts`, and the Playwright-verified flow.
+
+| Check | Result |
+|---|---|
+| Every mock API function has a named counterpart in API.md's route list | ✅ Pass |
+| Status enum values used by the mock match schema enums | 🔧 **1 naming collision found** — see below |
+| Error codes thrown by the mock cover the spec's required list | 🔧 **partial — gaps below** |
+| Money units (so'm ↔ minor) | ✅ Pass — every form converts at the boundary, schema is all-Int |
+| Public order lookup never exposes internal `id` | ✅ Pass — `apiGetOrderPublic` keys only on `publicToken` |
+| Pagination | 🔧 **gap** — mock does client-side filtering, never models `page`/`pageSize`; real backend must implement it per API.md, frontend list hooks need params added at 6E wiring time |
+| RBAC granularity | ℹ️ **by design, not a bug** — see below |
+
+1. **Naming collision, not a bug:** `packages/types/index.ts`'s `CreatorCampaignStatus` (`APPLIED |
+   UNDER_REVIEW | APPROVED | REJECTED | ...`, used by the creator-facing "my campaigns" list) is a
+   *different concept* from Prisma's `CreatorCampaignStatus` enum (`ACTIVE | PAUSED | ENDED`,
+   the post-approval membership status only). The frontend type is a merged view over
+   `CampaignApplication.status` + `CreatorCampaign.status`. **Decision:** the backend
+   `GET /creator/my-campaigns` DTO must synthesize this merged status server-side (application
+   pending/under-review/rejected states collapse from `CampaignApplication`, `ACTIVE`/`PAUSED`/
+   `ENDED` come from `CreatorCampaign` once it exists) rather than exposing either Prisma enum
+   directly. Do not rename either enum — keep the schema enum scoped to actual membership state.
+2. **Error code gaps vs. the Phase 6 spec's required list.** Mock throws: `NOT_FOUND`,
+   `INVALID_CREDENTIALS`, `BLOCKED`, `EMAIL_TAKEN`, `WEAK_PASSWORD`, `TERMS_REQUIRED`,
+   `ALREADY_APPLIED`, `CREATOR_LIMIT_REACHED`, `INSUFFICIENT_BALANCE`, `INVALID_OFFER`,
+   `UNAUTHORIZED`, `SLUG_TAKEN`, `REASON_REQUIRED`, `INVALID_TRANSITION`, `ALREADY_FINALIZED`,
+   `ALREADY_PAID`, `FORBIDDEN`. Missing from the spec's required set: `CREATOR_NOT_APPROVED`,
+   `CAMPAIGN_FULL` (mock only has `CREATOR_LIMIT_REACHED` — same concept, rename to
+   `CAMPAIGN_FULL` for the real API to match the spec), `PROMO_NOT_FOUND`, `PROMO_EXPIRED`,
+   `PROMO_USAGE_LIMIT` (mock's promo path throws generic `INVALID_OFFER`/`NOT_FOUND` without
+   distinguishing promo failure reasons — real backend must add distinct codes),
+   `OFFER_INACTIVE`, `BELOW_MINIMUM` (mock has no payout-minimum check at all — real gap),
+   `PAYOUT_ALREADY_RESERVED`, `CONFLICT`, `VALIDATION_ERROR` (mock relies on client-side Zod only,
+   never returns a structured validation error). Backend module list in §33 must implement all of
+   these; `INVALID_TRANSITION` renamed to `INVALID_ORDER_TRANSITION` to match the spec exactly.
+3. **RBAC granularity — intentional, not a gap.** Frontend only ever checks a coarse role rank
+   (`MANAGER < ADMIN < SUPER_ADMIN` via `hasRole()`/`RoleGuard`) to hide/show UI. It never models
+   the spec's fine-grained permission keys (`product.write`, `payout.approve`, etc.). This is
+   correct per the spec's own instruction ("frontend may just hide buttons; backend must check
+   permission per endpoint") — the backend's `PermissionsGuard` is the real enforcement layer and
+   must define the full permission-key list independently, with a default role→permissions seed
+   matching the three roles' current capabilities in the frontend.
+4. **Pagination is not yet a frontend concern.** Admin list pages currently fetch the full mock
+   collection and filter/paginate client-side. The real backend must still implement
+   `?page=&pageSize=` (max 100) per API.md on every list endpoint now, even though frontend query
+   hooks won't pass those params until the Phase 6E vertical-slice wiring — documented here so the
+   6A/6B/6C DTOs aren't built page-less and then need a breaking change later.

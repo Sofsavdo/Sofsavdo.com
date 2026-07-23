@@ -1,13 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { formatMoneyMinor } from "@rosti/types";
 import { Alert, Button, Card, CardHeader, CardTitle, SelectField, Skeleton, TextAreaField, TextField } from "@rosti/ui";
-import { useOfferPublic, useCreateOrder, useValidatePromoCode } from "@/services/offer";
+import { useOfferPublic, useCreateOrder, useValidatePromoCode, useTrackVisit } from "@/services/offer";
 import { checkoutSchema, type CheckoutInput } from "@/lib/schemas";
 import { PAYMENT_METHOD_LABELS } from "@/lib/payment-labels";
 import { ApiError } from "@/lib/api";
@@ -21,9 +21,13 @@ export function CheckoutPageClient({ offerSlug }: { offerSlug: string }) {
   const offerQuery = useOfferPublic(offerSlug, refCode);
   const createOrder = useCreateOrder();
   const validatePromo = useValidatePromoCode();
+  const trackVisit = useTrackVisit();
 
   const [promoInput, setPromoInput] = useState("");
   const [appliedPromo, setAppliedPromo] = useState<{ code: string; discountMinor: number } | null>(null);
+  const [regionCode, setRegionCode] = useState("");
+  const [visitorId, setVisitorId] = useState<string | undefined>(undefined);
+  const [creatorDisplayName, setCreatorDisplayName] = useState<string | undefined>(undefined);
   const [idempotencyKey] = useState(() => `${offerSlug}-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 
   const {
@@ -32,20 +36,34 @@ export function CheckoutPageClient({ offerSlug }: { offerSlug: string }) {
     formState: { errors },
   } = useForm<CheckoutInput>({ resolver: zodResolver(checkoutSchema) });
 
+  // Records the page view against the ?ref= link (if any) once, on mount — see
+  // POST /offers/:slug/visit / ReferralVisit in DECISIONS.md ADR-015. Never blocks rendering: an
+  // unknown/expired code just means no attribution/discount suggestion, not an error.
+  useEffect(() => {
+    trackVisit.mutate(
+      { offerSlug, refCode },
+      {
+        onSuccess: (result) => {
+          setVisitorId(result.visitorId);
+          setCreatorDisplayName(result.creatorDisplayName);
+          if (result.promoCode) setPromoInput((current) => current || result.promoCode!);
+        },
+      },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [offerSlug, refCode]);
+
   const offer = offerQuery.data?.offer;
   const productType = offerQuery.data?.productType;
-  const referral = offerQuery.data?.referral;
+  const deliveryRegions = offerQuery.data?.deliveryRegions ?? [];
   const variant = useMemo(
     () => offer?.variants.find((v) => v.id === variantId) ?? offer?.variants.find((v) => v.isDefault) ?? offer?.variants[0],
     [offer, variantId],
   );
 
-  // Auto-suggest the referral's promo code once, but the buyer can still clear/change it —
-  // promo code and referral link can point at different creators (see ATTRIBUTION.md).
-  useMemo(() => {
-    if (referral?.promoCode && !promoInput) setPromoInput(referral.promoCode);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [referral?.promoCode]);
+  const isPhysical = productType === "PHYSICAL_PRODUCT";
+  const selectedRegion = deliveryRegions.find((r) => r.regionCode === regionCode);
+  const deliveryFeeMinor = isPhysical ? (selectedRegion?.deliveryFeeMinor ?? 0) : 0;
 
   if (offerQuery.isLoading) {
     return (
@@ -67,12 +85,12 @@ export function CheckoutPageClient({ offerSlug }: { offerSlug: string }) {
     );
   }
 
-  const totalMinor = Math.max(variant.priceMinor - (appliedPromo?.discountMinor ?? 0), 0);
+  const totalMinor = Math.max(variant.priceMinor - (appliedPromo?.discountMinor ?? 0) + deliveryFeeMinor, 0);
 
   async function onApplyPromo() {
     if (!promoInput.trim()) return;
     try {
-      const result = await validatePromo.mutateAsync({ offerSlug, code: promoInput.trim() });
+      const result = await validatePromo.mutateAsync({ offerSlug, code: promoInput.trim(), baseAmountMinor: variant!.priceMinor });
       setAppliedPromo({ code: result.code, discountMinor: result.discountMinor });
     } catch {
       setAppliedPromo(null);
@@ -85,6 +103,8 @@ export function CheckoutPageClient({ offerSlug }: { offerSlug: string }) {
       variantId: variant!.id,
       promoCode: appliedPromo?.code,
       refCode,
+      visitorId,
+      regionCode: isPhysical ? regionCode : undefined,
       paymentMethod: values.paymentMethod,
       customer: {
         fullName: values.fullName,
@@ -97,10 +117,15 @@ export function CheckoutPageClient({ offerSlug }: { offerSlug: string }) {
       },
       idempotencyKey,
     });
+    // Click (and any future redirect-based provider) hands back an external payment URL — the
+    // buyer completes payment there before Click's callback lands and moves the Order to PAID.
+    // Pay Later/mock mode never sets this, so the internal order-success page is the fallback.
+    if (order.paymentRedirectUrl) {
+      window.location.assign(order.paymentRedirectUrl);
+      return;
+    }
     router.push(`/order-success/${order.publicToken}`);
   }
-
-  const isPhysical = productType === "PHYSICAL_PRODUCT";
 
   return (
     <div className="mx-auto max-w-2xl px-pad-mobile py-10 md:px-pad-desktop">
@@ -112,6 +137,7 @@ export function CheckoutPageClient({ offerSlug }: { offerSlug: string }) {
         <CardHeader className="flex-col items-start gap-1">
           <CardTitle>{offer.name}</CardTitle>
           <p className="font-body text-sm text-text-secondary">{variant.name}</p>
+          {creatorDisplayName ? <p className="font-body text-xs text-accent">{creatorDisplayName} orqali</p> : null}
         </CardHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
@@ -125,6 +151,16 @@ export function CheckoutPageClient({ offerSlug }: { offerSlug: string }) {
                 <TextField label="Shahar" {...register("city")} />
               </div>
               <TextAreaField label="Manzil" {...register("address")} />
+              {deliveryRegions.length > 0 ? (
+                <SelectField label="Yetkazib berish regioni" value={regionCode} onChange={(e) => setRegionCode(e.target.value)}>
+                  <option value="">Tanlang</option>
+                  {deliveryRegions.map((r) => (
+                    <option key={r.regionCode} value={r.regionCode}>
+                      {r.regionName} — {r.deliveryFeeMinor === 0 ? "Bepul" : formatMoneyMinor(r.deliveryFeeMinor, offer.currency)}
+                    </option>
+                  ))}
+                </SelectField>
+              ) : null}
             </>
           ) : (
             <TextField label="Email (ixtiyoriy)" type="email" error={errors.email?.message} {...register("email")} />
@@ -173,6 +209,12 @@ export function CheckoutPageClient({ offerSlug }: { offerSlug: string }) {
               <span>Narx</span>
               <span className="font-numeric tabular-nums">{formatMoneyMinor(variant.priceMinor, offer.currency)}</span>
             </div>
+            {isPhysical ? (
+              <div className="flex justify-between text-text-secondary">
+                <span>Yetkazib berish</span>
+                <span className="font-numeric tabular-nums">{deliveryFeeMinor === 0 ? "Bepul" : formatMoneyMinor(deliveryFeeMinor, offer.currency)}</span>
+              </div>
+            ) : null}
             {appliedPromo ? (
               <div className="flex justify-between text-success">
                 <span>Chegirma</span>

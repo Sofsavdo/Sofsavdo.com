@@ -13,12 +13,23 @@ export default function AdminOffersPage() {
   const productsQuery = useAdminProducts();
   const [search, setSearch] = useState("");
 
+  const productById = useMemo(() => new Map((productsQuery.data ?? []).map((p) => [p.id, p])), [productsQuery.data]);
   const productNameById = useMemo(() => new Map((productsQuery.data ?? []).map((p) => [p.id, p.name])), [productsQuery.data]);
 
-  const filtered = useMemo(
-    () => (offersQuery.data ?? []).filter((o) => o.name.toLowerCase().includes(search.toLowerCase())),
-    [offersQuery.data, search],
-  );
+  // Matches the real backend's OffersService.list() search (name/slug/product name/product SKU) —
+  // client-side here since the offer list has no server-side pagination yet, same as Products.
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    return (offersQuery.data ?? []).filter((o) => {
+      const product = productById.get(o.productId);
+      return (
+        o.name.toLowerCase().includes(q) ||
+        o.slug.toLowerCase().includes(q) ||
+        (product?.name.toLowerCase().includes(q) ?? false) ||
+        (product?.sku?.toLowerCase().includes(q) ?? false)
+      );
+    });
+  }, [offersQuery.data, productById, search]);
 
   return (
     <DataTableShell

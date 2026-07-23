@@ -32,6 +32,50 @@ export function useUpdateCampaign() {
   });
 }
 
+export function useActivateCampaign() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.activateCampaign(id),
+    onSuccess: (_d, id) => {
+      qc.invalidateQueries({ queryKey: ["admin-campaigns"] });
+      qc.invalidateQueries({ queryKey: ["admin-campaigns", id] });
+    },
+  });
+}
+
+export function usePauseCampaign() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.pauseCampaign(id),
+    onSuccess: (_d, id) => {
+      qc.invalidateQueries({ queryKey: ["admin-campaigns"] });
+      qc.invalidateQueries({ queryKey: ["admin-campaigns", id] });
+    },
+  });
+}
+
+export function useCompleteCampaign() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.completeCampaign(id),
+    onSuccess: (_d, id) => {
+      qc.invalidateQueries({ queryKey: ["admin-campaigns"] });
+      qc.invalidateQueries({ queryKey: ["admin-campaigns", id] });
+    },
+  });
+}
+
+export function useArchiveCampaign() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.archiveCampaign(id),
+    onSuccess: (_d, id) => {
+      qc.invalidateQueries({ queryKey: ["admin-campaigns"] });
+      qc.invalidateQueries({ queryKey: ["admin-campaigns", id] });
+    },
+  });
+}
+
 export function useCampaignApplications() {
   return useQuery({ queryKey: ["admin-campaign-applications"], queryFn: api.getCampaignApplications });
 }

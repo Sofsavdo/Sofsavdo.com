@@ -23,6 +23,8 @@ export const offerSchema = z.object({
   ctaType: z.enum(["BUY_NOW", "ORDER_FORM", "APPLY_NOW", "BOOK_CALL", "PAY_INSTALLMENT"]),
   ctaLabel: z.string().min(2, "CTA matnini kiriting"),
   deliveryInfo: z.string().optional(),
+  startsAt: z.string().optional(),
+  endsAt: z.string().optional(),
 });
 export type OfferInput = z.infer<typeof offerSchema>;
 
@@ -37,9 +39,8 @@ export const campaignSchema = z.object({
   ctaLabel: z.string().min(2, "CTA kiriting"),
   applicationDeadline: z.string().min(1, "Muddatni tanlang"),
   creatorLimit: z.string().min(1, "Limitni kiriting"),
-  commissionType: z.enum(["PERCENTAGE", "FIXED_PER_SALE", "FIXED_CONTENT_FEE", "HYBRID"]),
+  commissionType: z.enum(["PERCENTAGE", "FIXED_AMOUNT"]),
   commissionValue: z.string().min(1, "Qiymatni kiriting"),
-  fixedPaymentMinor: z.string().optional(),
   barterEnabled: z.boolean(),
   freeProduct: z.string().optional(),
   attributionWindowDays: z.string().min(1, "Kunni kiriting"),

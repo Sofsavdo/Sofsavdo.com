@@ -74,7 +74,13 @@ export default function MyCampaignsPage() {
       ) : (
         <div className="divide-y divide-border rounded-card border border-border bg-surface">
           {filtered.map((cc) => {
-            const action = STATUS_ACTION[cc.status];
+            // Application-lifecycle statuses (incl. CHANGES_REQUESTED's edit+resubmit loop) are
+            // managed on the campaign detail page's application panel.
+            const action =
+              STATUS_ACTION[cc.status] ??
+              (["APPLIED", "UNDER_REVIEW", "CHANGES_REQUESTED"].includes(cc.status)
+                ? { label: cc.status === "CHANGES_REQUESTED" ? "Arizani tahrirlash" : "Arizani ko'rish", href: `/creator/campaigns/${cc.campaignId}` }
+                : undefined);
             return (
               <div key={cc.id} className="flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>

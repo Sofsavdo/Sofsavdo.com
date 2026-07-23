@@ -55,6 +55,31 @@ Also covered: responsive rendering at mobile/tablet/desktop breakpoints for the 
 and creator dashboard, and a console-error assertion (zero uncaught errors) on every route in the
 E2E suite.
 
+## Phase 6A test commands (implemented)
+
+Run from `apps/api/`:
+
+```
+npm run test              # unit tests only, no DB — money/DomainException/PermissionsGuard/
+                           # TokenService(mocked Prisma)/permission-matrix
+npm run test:unit         # alias of the above
+npm run test:integration  # roles.e2e-spec.ts + rbac.e2e-spec.ts — service-layer tests against a
+                           # real Postgres, no HTTP layer
+npm run test:e2e          # every *.e2e-spec.ts including auth.e2e-spec.ts's full HTTP flow
+                           # (register/login/refresh/logout-all/cookie attributes)
+npm run db:migrate:test   # prisma migrate deploy against .env.test's DATABASE_URL
+npm run db:seed:test      # prisma/seed.ts against .env.test's DATABASE_URL
+```
+
+`test:integration`/`test:e2e`/`db:migrate:test`/`db:seed:test` load `apps/api/.env.test` (copy
+from `.env.test.example`, never committed) via `dotenv-cli` — this is a deliberate second
+environment file, separate from `apps/api/.env` (local dev), so a test run can never point at
+whatever database a developer happens to have configured for day-to-day work. `--runInBand` is
+used for the DB-backed suites so files execute serially against the one test database instead of
+racing each other; within a file, each `describe` block generates a unique per-run suffix
+(`` `e2e-${Date.now()}` ``) for every row it creates and deletes only rows matching that suffix in
+`afterAll`, so two suites (or two manual re-runs) never collide even without `--runInBand`.
+
 ## What "done" looks like per phase
 
 Unit tests ship with the module that introduces the logic (e.g. `CommissionsModule` is not

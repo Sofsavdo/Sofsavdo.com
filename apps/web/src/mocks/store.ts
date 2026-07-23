@@ -26,11 +26,15 @@ import type {
   CreatorContent,
   CreatorContentStatus,
   CreatorUser,
+  DeliveryRegionPublic,
   DiscountType,
+  LandingPage,
   LandingSectionAdmin,
   LandingSectionType,
+  LandingStatus,
   Offer,
   OfferCtaType,
+  OfferQuote,
   OfferStatus,
   OrderPublic,
   OrderStatus,
@@ -111,6 +115,7 @@ interface PersistedState {
   products: Product[];
   offers: Offer[];
   landingSections: Record<string, LandingSectionAdmin[]>;
+  landingPages: Record<string, LandingPage>;
   campaignsExtra: Campaign[];
   adminOrders: AdminOrder[];
   adminCommissions: AdminCommission[];
@@ -138,6 +143,22 @@ function freshState(): PersistedState {
     products: PRODUCTS,
     offers: OFFERS,
     landingSections: LANDING_SECTIONS,
+    // Every offer that already has seeded landing content is treated as PUBLISHED in mock mode —
+    // this mirrors the mock's pre-existing (ungated) public offer page behavior; the real backend
+    // enforces the actual publish gate (see LandingsService.getPublicByOfferSlug).
+    landingPages: Object.fromEntries(
+      Object.keys(LANDING_SECTIONS).map((offerId) => [
+        offerId,
+        {
+          id: `landing_${offerId}`,
+          offerId,
+          template: "default",
+          status: "PUBLISHED" as LandingStatus,
+          seoKeywords: [],
+          createdAt: new Date().toISOString(),
+        } satisfies LandingPage,
+      ]),
+    ),
     campaignsExtra: [],
     adminOrders: [],
     adminCommissions: [],
@@ -614,19 +635,22 @@ function getOfferBySlug(slug: string): Offer | null {
 export async function apiGetOfferPublic(
   slug: string,
   refCode?: string,
-): Promise<{ offer: Offer; productType: ProductType; sections: LandingSectionAdmin[]; referral?: ReferralContext } | null> {
+): Promise<{ offer: Offer; productType: ProductType; deliveryRegions: DeliveryRegionPublic[]; sections: LandingSectionAdmin[]; referral?: ReferralContext } | null> {
   await delay();
   const offer = getOfferBySlug(slug);
   if (!offer) return null;
   const product = load().products.find((p) => p.id === offer.productId);
   const productType = product?.type ?? "PHYSICAL_PRODUCT";
   const sections = (load().landingSections[offer.id] ?? []).filter((sec) => sec.isActive).sort((a, b) => a.sortOrder - b.sortOrder);
-  if (!refCode) return { offer, productType, sections };
+  // Mock mode has no delivery-region data model (real-mode-only — see DECISIONS.md ADR-013).
+  const deliveryRegions: DeliveryRegionPublic[] = [];
+  if (!refCode) return { offer, productType, deliveryRegions, sections };
   const match = findByReferralCode(refCode);
-  if (!match) return { offer, productType, sections };
+  if (!match) return { offer, productType, deliveryRegions, sections };
   return {
     offer,
     productType,
+    deliveryRegions,
     sections,
     referral: {
       creatorDisplayName: match.creatorDisplayName,
@@ -638,6 +662,53 @@ export async function apiGetOfferPublic(
             : `${(match.promoCode.discountValue / 100).toLocaleString("uz-UZ")} so'm chegirma`
           : undefined,
     },
+  };
+}
+
+// Mock mode never requires a region (no delivery-region data model — see apiGetOfferPublic above);
+// the quote is always just the offer price.
+export async function apiGetOfferQuote(slug: string): Promise<OfferQuote> {
+  await delay();
+  const offer = getOfferBySlug(slug);
+  if (!offer) throw new MockApiError("NOT_FOUND", "Offer topilmadi.");
+  return {
+    priceMinor: offer.priceMinor,
+    deliveryFeeMinor: 0,
+    totalMinor: offer.priceMinor,
+    currency: offer.currency,
+    regionRequired: false,
+  };
+}
+
+// Admin-preview counterpart to apiGetOfferPublic, keyed by offerId (the admin builder only knows
+// the offer's id, not necessarily its slug) — mock mode's public read was never gated on publish
+// status, so this is just that same payload reused, matching real mode's "preview bypasses the
+// gate" semantics for free.
+export async function apiGetOfferPublicByOfferId(offerId: string): Promise<{
+  offer: Offer;
+  productType: ProductType;
+  landing: { template: string; seoTitle?: string; seoDescription?: string; seoKeywords: string[]; ogImageUrl?: string };
+  sections: LandingSectionAdmin[];
+} | null> {
+  await delay();
+  const s = load();
+  const offer = s.offers.find((o) => o.id === offerId);
+  if (!offer) return null;
+  const product = s.products.find((p) => p.id === offer.productId);
+  const productType = product?.type ?? "PHYSICAL_PRODUCT";
+  const sections = (s.landingSections[offer.id] ?? []).sort((a, b) => a.sortOrder - b.sortOrder);
+  const landingPage = s.landingPages[offerId];
+  return {
+    offer,
+    productType,
+    landing: {
+      template: landingPage?.template ?? "default",
+      seoTitle: landingPage?.seoTitle,
+      seoDescription: landingPage?.seoDescription,
+      seoKeywords: landingPage?.seoKeywords ?? [],
+      ogImageUrl: landingPage?.ogImageUrl,
+    },
+    sections,
   };
 }
 
@@ -672,13 +743,9 @@ function orderTypeForProduct(type: ProductType): AdminOrderType {
 function commissionForCampaign(campaign: Campaign, baseAmountMinor: number): number {
   switch (campaign.commissionType) {
     case "PERCENTAGE":
-      return Math.round((baseAmountMinor * campaign.commissionValue) / 10000);
-    case "FIXED_PER_SALE":
-      return campaign.commissionValue;
-    case "FIXED_CONTENT_FEE":
-      return 0;
-    case "HYBRID":
-      return Math.round((baseAmountMinor * campaign.commissionValue) / 10000) + (campaign.fixedPaymentMinor ?? 0);
+      return Math.round((baseAmountMinor * (campaign.commissionRateBps ?? 0)) / 10000);
+    case "FIXED_AMOUNT":
+      return campaign.commissionAmountMinor ?? 0;
   }
 }
 
@@ -782,7 +849,10 @@ export async function apiCreateOrder(input: CreateOrderInput): Promise<OrderPubl
       creatorName: attribution.creatorDisplayName,
       campaignName: campaignForCommission.name,
       commissionType: campaignForCommission.commissionType,
-      commissionValue: campaignForCommission.commissionValue,
+      commissionValue:
+        campaignForCommission.commissionType === "PERCENTAGE"
+          ? (campaignForCommission.commissionRateBps ?? 0)
+          : (campaignForCommission.commissionAmountMinor ?? 0),
       baseAmountMinor: totalMinor,
       amountMinor: commissionAmount,
       status: "PENDING",
@@ -992,6 +1062,108 @@ export async function apiAdminUpdateOffer(id: string, patch: Partial<Offer>): Pr
   return updated;
 }
 
+// The real backend exposes dedicated activate/pause/archive endpoints backed by an explicit
+// transition matrix (see offers.service.ts's ALLOWED_TRANSITIONS) rather than a free-form status
+// PATCH. Mock mode has no such matrix to enforce, so these just delegate to apiAdminUpdateOffer —
+// good enough for UI wiring/demo purposes, not a substitute for the real validation.
+export async function apiAdminActivateOffer(id: string): Promise<Offer> {
+  return apiAdminUpdateOffer(id, { status: "ACTIVE" });
+}
+
+export async function apiAdminPauseOffer(id: string): Promise<Offer> {
+  return apiAdminUpdateOffer(id, { status: "PAUSED" });
+}
+
+export async function apiAdminArchiveOffer(id: string): Promise<Offer> {
+  return apiAdminUpdateOffer(id, { status: "ARCHIVED" });
+}
+
+// ---- Landing pages ----
+
+const LANDING_ALLOWED_TRANSITIONS: Record<LandingStatus, LandingStatus[]> = {
+  DRAFT: ["PUBLISHED", "ARCHIVED"],
+  PUBLISHED: ["DRAFT", "ARCHIVED"],
+  ARCHIVED: [],
+};
+
+export async function apiAdminGetLanding(offerId: string): Promise<LandingPage | null> {
+  await delay();
+  return load().landingPages[offerId] ?? null;
+}
+
+export interface CreateLandingInput {
+  template?: string;
+  seoTitle?: string;
+  seoDescription?: string;
+  seoKeywords?: string[];
+  ogImageUrl?: string;
+}
+
+export async function apiAdminCreateLanding(offerId: string, input: CreateLandingInput): Promise<LandingPage> {
+  await delay();
+  const s = load();
+  if (s.landingPages[offerId]) throw new MockApiError("LANDING_ALREADY_EXISTS", "Bu offer uchun landing sahifa allaqachon mavjud.");
+  const landing: LandingPage = {
+    id: `landing_${Date.now()}`,
+    offerId,
+    template: input.template ?? "default",
+    status: "DRAFT",
+    seoTitle: input.seoTitle,
+    seoDescription: input.seoDescription,
+    seoKeywords: input.seoKeywords ?? [],
+    ogImageUrl: input.ogImageUrl,
+    createdAt: new Date().toISOString(),
+  };
+  s.landingPages[offerId] = landing;
+  save();
+  return landing;
+}
+
+export async function apiAdminUpdateLanding(offerId: string, patch: Partial<LandingPage>): Promise<LandingPage> {
+  await delay();
+  const s = load();
+  const existing = s.landingPages[offerId];
+  if (!existing) throw new MockApiError("NOT_FOUND", "Bu offer uchun landing sahifa topilmadi.");
+  if (existing.status === "ARCHIVED") throw new MockApiError("LANDING_ARCHIVED", "Arxivlangan landing sahifani tahrirlab bo'lmaydi.");
+  const updated = { ...existing, ...patch };
+  s.landingPages[offerId] = updated;
+  save();
+  return updated;
+}
+
+function transitionLanding(offerId: string, to: LandingStatus): LandingPage {
+  const s = load();
+  const existing = s.landingPages[offerId];
+  if (!existing) throw new MockApiError("NOT_FOUND", "Bu offer uchun landing sahifa topilmadi.");
+  if (!LANDING_ALLOWED_TRANSITIONS[existing.status].includes(to)) {
+    throw new MockApiError("INVALID_LANDING_TRANSITION", `Landing holatini "${existing.status}" dan "${to}" ga o'zgartirib bo'lmaydi.`);
+  }
+  const updated: LandingPage = {
+    ...existing,
+    status: to,
+    publishedAt: to === "PUBLISHED" ? new Date().toISOString() : existing.publishedAt,
+    archivedAt: to === "ARCHIVED" ? new Date().toISOString() : existing.archivedAt,
+  };
+  s.landingPages[offerId] = updated;
+  save();
+  return updated;
+}
+
+export async function apiAdminPublishLanding(offerId: string): Promise<LandingPage> {
+  await delay();
+  return transitionLanding(offerId, "PUBLISHED");
+}
+
+export async function apiAdminUnpublishLanding(offerId: string): Promise<LandingPage> {
+  await delay();
+  return transitionLanding(offerId, "DRAFT");
+}
+
+export async function apiAdminArchiveLanding(offerId: string): Promise<LandingPage> {
+  await delay();
+  return transitionLanding(offerId, "ARCHIVED");
+}
+
 // ---- Landing sections ----
 
 export async function apiAdminGetLandingSections(offerId: string): Promise<LandingSectionAdmin[]> {
@@ -1069,9 +1241,11 @@ export async function apiAdminReorderLandingSections(offerId: string, orderedIds
 export interface CreateCampaignInput {
   offerId: string;
   name: string;
+  internalName?: string;
   slug: string;
   category: string;
   description: string;
+  internalNotes?: string;
   goal: string;
   targetAudience: string;
   platforms: SocialPlatform[];
@@ -1079,21 +1253,26 @@ export interface CreateCampaignInput {
   requiredElements: string[];
   forbiddenElements: string[];
   referenceContent: string[];
+  minFollowers?: number;
+  maxFollowers?: number;
+  requiredContentCount?: number;
+  contentDeadline?: string;
   ctaLabel: string;
   startDate?: string;
   endDate?: string;
+  applicationStartDate?: string;
   applicationDeadline: string;
   creatorLimit: number;
   commissionType: CommissionType;
-  commissionValue: number;
-  fixedPaymentMinor?: number;
+  commissionRateBps?: number;
+  commissionAmountMinor?: number;
   customerDiscountType?: DiscountType;
   customerDiscountValue?: number;
   barterEnabled: boolean;
   freeProduct?: string;
   attributionWindowDays: number;
   requiresApproval: boolean;
-  assets: CampaignAsset[];
+  assets?: CampaignAsset[];
 }
 
 export async function apiAdminGetCampaigns(): Promise<Campaign[]> {
@@ -1114,6 +1293,7 @@ export async function apiAdminCreateCampaign(input: CreateCampaignInput): Promis
   const product = s.products.find((p) => p.id === offer.productId);
   const campaign: Campaign = {
     id: `camp_${Date.now()}`,
+    offerId: input.offerId,
     slug: input.slug,
     name: input.name,
     coverImage: offer.slug,
@@ -1139,8 +1319,8 @@ export async function apiAdminCreateCampaign(input: CreateCampaignInput): Promis
     endDate: input.endDate,
     ctaLabel: input.ctaLabel,
     commissionType: input.commissionType,
-    commissionValue: input.commissionValue,
-    fixedPaymentMinor: input.fixedPaymentMinor,
+    commissionRateBps: input.commissionRateBps,
+    commissionAmountMinor: input.commissionAmountMinor,
     customerDiscountType: input.customerDiscountType,
     customerDiscountValue: input.customerDiscountValue,
     barterEnabled: input.barterEnabled,
@@ -1148,7 +1328,7 @@ export async function apiAdminCreateCampaign(input: CreateCampaignInput): Promis
     applicationDeadline: input.applicationDeadline,
     creatorLimit: input.creatorLimit,
     approvedCreatorCount: 0,
-    status: "OPEN",
+    status: "DRAFT",
     requiresApproval: input.requiresApproval,
     attributionWindowDays: input.attributionWindowDays,
     assets: input.assets,
@@ -1170,6 +1350,26 @@ export async function apiAdminUpdateCampaign(id: string, patch: Partial<Campaign
   audit(currentAdmin().displayName, "campaign.updated", "Campaign", id, undefined, before, updated);
   save();
   return updated;
+}
+
+// Dedicated transition verbs mirroring the real backend's ALLOWED_TRANSITIONS matrix — mock mode
+// doesn't enforce the matrix strictly (no equivalent activation-eligibility checks), just delegates
+// to the generic update, matching the same "good enough for UI wiring" pattern used for
+// Offer/Landing's mock transition shims.
+export async function apiAdminActivateCampaign(id: string): Promise<Campaign> {
+  return apiAdminUpdateCampaign(id, { status: "ACTIVE" });
+}
+
+export async function apiAdminPauseCampaign(id: string): Promise<Campaign> {
+  return apiAdminUpdateCampaign(id, { status: "PAUSED" });
+}
+
+export async function apiAdminCompleteCampaign(id: string): Promise<Campaign> {
+  return apiAdminUpdateCampaign(id, { status: "COMPLETED" });
+}
+
+export async function apiAdminArchiveCampaign(id: string): Promise<Campaign> {
+  return apiAdminUpdateCampaign(id, { status: "ARCHIVED" });
 }
 
 // ---- Campaign applications ----
@@ -1804,7 +2004,7 @@ export async function apiAdminGetDashboard() {
   const s = load();
   const today = new Date().toDateString();
   const todayOrders = s.adminOrders.filter((o) => new Date(o.createdAt).toDateString() === today);
-  const activeCampaigns = [...CAMPAIGNS, ...s.campaignsExtra].filter((c) => c.status === "ACTIVE" || c.status === "OPEN");
+  const activeCampaigns = [...CAMPAIGNS, ...s.campaignsExtra].filter((c) => c.status === "ACTIVE");
   const genSeries = (days: number) =>
     Array.from({ length: days }, (_, i) => {
       const clicks = Math.round(30 + Math.random() * 80);

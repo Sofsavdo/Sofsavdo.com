@@ -1,17 +1,25 @@
 import type { Campaign } from "@rosti/types";
 import { formatMoneyMinor, formatPercent } from "@rosti/types";
 
-export function formatCommission(campaign: Pick<Campaign, "commissionType" | "commissionValue" | "fixedPaymentMinor">): string {
+// Unambiguous per-mode display — "15% per qualified sale" or "150,000 UZS per qualified sale",
+// never both at once (see DECISIONS.md ADR-013's PERCENTAGE|FIXED_AMOUNT mutual exclusivity).
+export function formatCommission(
+  campaign: Pick<Campaign, "commissionType" | "commissionRateBps" | "commissionAmountMinor" | "commissionCurrency">,
+): string {
   switch (campaign.commissionType) {
     case "PERCENTAGE":
-      return `${formatPercent(campaign.commissionValue)} komissiya`;
-    case "FIXED_PER_SALE":
-      return `${formatMoneyMinor(campaign.commissionValue)} / sotuv`;
-    case "FIXED_CONTENT_FEE":
-      return `${formatMoneyMinor(campaign.fixedPaymentMinor ?? 0)} / kontent`;
-    case "HYBRID":
-      return `${formatPercent(campaign.commissionValue)} + ${formatMoneyMinor(campaign.fixedPaymentMinor ?? 0)}`;
+      return `${formatPercent(campaign.commissionRateBps ?? 0)} / sotuv`;
+    case "FIXED_AMOUNT":
+      return `${formatMoneyMinor(campaign.commissionAmountMinor ?? 0, campaign.commissionCurrency)} / sotuv`;
   }
+}
+
+// AdminCommission (a settled commission ledger record — Order/Commission domain, mock-only today)
+// snapshots a single `commissionValue` at the time it was calculated, unlike Campaign's dual
+// commissionRateBps/commissionAmountMinor fields — so it needs its own tiny formatter rather than
+// reusing formatCommission above.
+export function formatCommissionValue(commissionType: "PERCENTAGE" | "FIXED_AMOUNT", commissionValue: number): string {
+  return commissionType === "PERCENTAGE" ? formatPercent(commissionValue) : formatMoneyMinor(commissionValue);
 }
 
 export function formatDeadline(iso: string): string {

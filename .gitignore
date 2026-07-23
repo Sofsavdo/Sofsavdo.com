@@ -3,10 +3,11 @@ node_modules/
 .pnp/
 .pnp.js
 
-# Environment / secrets — never commit real values, only .env.example
+# Environment / secrets — never commit real values, only .env.example / .env.test.example
 .env
 .env.*
 !.env.example
+!.env.test.example
 
 # Build outputs
 dist/

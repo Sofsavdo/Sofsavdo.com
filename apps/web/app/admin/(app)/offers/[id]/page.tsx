@@ -1,22 +1,35 @@
 "use client";
 
-import { use } from "react";
+import { use, useState } from "react";
 import Link from "next/link";
-import { ExternalLink, LayoutTemplate } from "lucide-react";
+import { Archive, ExternalLink, LayoutTemplate, Pause, Play } from "lucide-react";
 import { formatMoneyMinor } from "@rosti/types";
-import { Alert, Badge, Button, Card, CardHeader, CardTitle, SelectField, Skeleton, StatusBadge } from "@rosti/ui";
+import { Alert, Badge, Button, Card, CardHeader, CardTitle, ConfirmModal, Skeleton, StatusBadge } from "@rosti/ui";
 import { useAdminCampaigns } from "@/services/admin/campaigns";
-import { useAdminOffer, useAdminProduct, useUpdateOffer } from "@/services/admin/catalog";
+import { useActivateOffer, useAdminOffer, useAdminProduct, useArchiveOffer, usePauseOffer } from "@/services/admin/catalog";
 import { OfferForm } from "@/components/admin/OfferForm";
-import { offerStatusMeta, campaignStatusMeta } from "@/lib/status";
-import type { OfferStatus } from "@rosti/types";
+import { DeliveryRegionsManager } from "@/components/admin/DeliveryRegionsManager";
+import { offerStatusMeta, offerAvailabilityMeta, campaignStatusMeta } from "@/lib/status";
 
-const OFFER_STATUSES: OfferStatus[] = ["DRAFT", "ACTIVE", "PAUSED", "EXPIRED", "ARCHIVED"];
+const USE_REAL_API = process.env.NEXT_PUBLIC_API_MODE === "real";
+
+// Mirrors OffersService's ALLOWED_TRANSITIONS on the backend exactly — the UI only ever offers
+// actions the server will actually accept, but the server re-checks every one of these
+// regardless (see offers.service.ts / RBAC.md); this is a UX convenience, not the enforcement.
+const ALLOWED_NEXT_ACTIONS: Record<string, Array<"activate" | "pause" | "archive">> = {
+  DRAFT: ["activate", "archive"],
+  ACTIVE: ["pause", "archive"],
+  PAUSED: ["activate", "archive"],
+  ARCHIVED: [],
+};
 
 export default function OfferDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const offerQuery = useAdminOffer(id);
-  const updateOffer = useUpdateOffer();
+  const activateOffer = useActivateOffer();
+  const pauseOffer = usePauseOffer();
+  const archiveOffer = useArchiveOffer();
+  const [confirmArchive, setConfirmArchive] = useState(false);
   const campaignsQuery = useAdminCampaigns();
   const offer = offerQuery.data;
   const productQuery = useAdminProduct(offer?.productId ?? "");
@@ -52,20 +65,36 @@ export default function OfferDetailPage({ params }: { params: Promise<{ id: stri
         <div className="flex items-center gap-3">
           <h1 className="font-heading text-2xl font-bold text-text-primary">{offer.name}</h1>
           <StatusBadge tone={offerStatusMeta[offer.status].tone} label={offerStatusMeta[offer.status].label} />
+          {offer.availability ? (
+            <StatusBadge tone={offerAvailabilityMeta[offer.availability].tone} label={offerAvailabilityMeta[offer.availability].label} />
+          ) : null}
         </div>
         <div className="flex items-center gap-2">
-          <SelectField
-            label=""
-            className="h-9 w-40"
-            value={offer.status}
-            onChange={(e) => updateOffer.mutate({ id: offer.id, patch: { status: e.target.value as OfferStatus } })}
-          >
-            {OFFER_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {offerStatusMeta[s].label}
-              </option>
-            ))}
-          </SelectField>
+          {ALLOWED_NEXT_ACTIONS[offer.status]?.includes("activate") ? (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={activateOffer.isPending}
+              onClick={() => activateOffer.mutate(offer.id)}
+            >
+              <Play className="mr-1.5 size-4" /> Faollashtirish
+            </Button>
+          ) : null}
+          {ALLOWED_NEXT_ACTIONS[offer.status]?.includes("pause") ? (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={pauseOffer.isPending}
+              onClick={() => pauseOffer.mutate(offer.id)}
+            >
+              <Pause className="mr-1.5 size-4" /> To&apos;xtatish
+            </Button>
+          ) : null}
+          {ALLOWED_NEXT_ACTIONS[offer.status]?.includes("archive") ? (
+            <Button variant="outline" size="sm" onClick={() => setConfirmArchive(true)}>
+              <Archive className="mr-1.5 size-4" /> Arxivlash
+            </Button>
+          ) : null}
           <Button asChild variant="outline" size="sm">
             <Link href={`/o/${offer.slug}`} target="_blank">
               <ExternalLink className="mr-1.5 size-4" /> Ko&apos;rish
@@ -78,6 +107,20 @@ export default function OfferDetailPage({ params }: { params: Promise<{ id: stri
           </Button>
         </div>
       </div>
+
+      <ConfirmModal
+        open={confirmArchive}
+        onClose={() => setConfirmArchive(false)}
+        onConfirm={async () => {
+          await archiveOffer.mutateAsync(offer.id);
+          setConfirmArchive(false);
+        }}
+        title="Offerni arxivlash"
+        description="Arxivlangan offer qayta faollashtirilmaydi. Davom etishga ishonchingiz komilmi?"
+        confirmLabel="Arxivlash"
+        destructive
+        isPending={archiveOffer.isPending}
+      />
 
       <Card>
         <CardHeader>
@@ -116,6 +159,8 @@ export default function OfferDetailPage({ params }: { params: Promise<{ id: stri
           </ul>
         )}
       </Card>
+
+      {USE_REAL_API && productQuery.data?.type === "PHYSICAL_PRODUCT" ? <DeliveryRegionsManager offerId={offer.id} /> : null}
 
       <div className="mx-auto max-w-2xl">
         <OfferForm existing={offer} />

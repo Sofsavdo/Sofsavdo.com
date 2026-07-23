@@ -14,12 +14,17 @@ const CATEGORY_GRADIENTS: Record<string, string> = {
 export function CampaignCard({ campaign }: { campaign: Campaign }) {
   const remainingSlots = Math.max(campaign.creatorLimit - campaign.approvedCreatorCount, 0);
   const isFull = remainingSlots === 0;
+  // Real mode: the campaign's COVER media item (see CampaignMediaService). Mock mode falls back
+  // to the category-gradient placeholder — there is no media data model there.
+  const cover = campaign.media?.find((m) => m.mediaRole === "COVER");
 
   return (
     <Card className="flex flex-col gap-3 p-0 overflow-hidden">
-      <div
-        className={`h-28 w-full bg-gradient-to-br ${CATEGORY_GRADIENTS[campaign.category] ?? "from-border to-bg"}`}
-      />
+      {cover ? (
+        <img src={cover.url} alt={cover.altText ?? campaign.name} className="h-28 w-full object-cover" />
+      ) : (
+        <div className={`h-28 w-full bg-gradient-to-br ${CATEGORY_GRADIENTS[campaign.category] ?? "from-border to-bg"}`} />
+      )}
       <div className="flex flex-1 flex-col gap-3 p-5">
         <div className="flex items-start justify-between gap-2">
           <div>

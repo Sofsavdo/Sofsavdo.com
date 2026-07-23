@@ -5,8 +5,14 @@
       "name": "rosti-web",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--workspace=@rosti/web"],
-      "port": 3000,
+      "port": 3100,
       "autoPort": true
+    },
+    {
+      "name": "rosti-api",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["dotenv", "-e", "apps/api/.env.test", "--", "npm", "run", "dev", "--workspace=@rosti/api"],
+      "port": 4000
     }
   ]
 }

@@ -7,6 +7,19 @@ import { Card, CardHeader, CardTitle, Skeleton } from "@rosti/ui";
 import { CheckCircle2 } from "lucide-react";
 import { useOrderPublic } from "@/services/offer";
 
+// Real-mode-only (see CheckoutOrderResult in @rosti/types) — mock mode's OrderPublic has no
+// status field, so this renders nothing there, exactly as before this phase.
+const PAYMENT_RESULT_LABELS: Record<string, string> = {
+  PAYMENT_PENDING: "To'lov kutilmoqda",
+  PAID: "To'landi",
+  PROCESSING: "Tayyorlanmoqda",
+  SHIPPED: "Jo'natildi",
+  IN_TRANSIT: "Yo'lda",
+  DELIVERED: "Yetkazildi",
+  CANCELLED: "Bekor qilindi",
+  REFUNDED: "Qaytarildi",
+};
+
 export default function OrderSuccessPage({ params }: { params: Promise<{ orderId: string }> }) {
   const { orderId } = use(params);
   const query = useOrderPublic(orderId);
@@ -21,6 +34,7 @@ export default function OrderSuccessPage({ params }: { params: Promise<{ orderId
   }
 
   const order = query.data;
+  const paymentResultLabel = order ? PAYMENT_RESULT_LABELS[(order as { status?: string }).status ?? ""] : undefined;
   if (!order) {
     return (
       <div className="mx-auto max-w-lg px-pad-mobile py-20 text-center md:px-pad-desktop">
@@ -66,6 +80,12 @@ export default function OrderSuccessPage({ params }: { params: Promise<{ orderId
             <dt>Jami to&apos;lov</dt>
             <dd className="font-numeric text-lg tabular-nums">{formatMoneyMinor(order.totalMinor, order.currency)}</dd>
           </div>
+          {paymentResultLabel ? (
+            <div className="flex justify-between text-text-secondary">
+              <dt>To&apos;lov holati</dt>
+              <dd className="text-text-primary">{paymentResultLabel}</dd>
+            </div>
+          ) : null}
         </dl>
       </Card>
 

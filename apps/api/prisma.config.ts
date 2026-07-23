@@ -7,6 +7,13 @@ export default defineConfig({
   migrations: {
     path: path.join("prisma", "migrations"),
   },
+  // Required specifically for `prisma migrate`/`introspect` (shadow database creation etc.) —
+  // the driver adapter below is what the running app and `prisma studio` actually query through;
+  // this raw URL is a CLI-only requirement, both read from the same DATABASE_URL so there is
+  // never a second connection string to keep in sync.
+  datasource: {
+    url: process.env.DATABASE_URL,
+  },
   // NestJS's own PrismaClient instantiation (src/prisma/prisma.service.ts) uses this
   // same adapter with the same env var — kept in one place so local `prisma migrate`/
   // `prisma studio` and the running app never disagree about how they connect.

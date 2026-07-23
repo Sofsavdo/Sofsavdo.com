@@ -7,7 +7,7 @@ import { useAdminSession } from "@/services/adminSession";
 import { hasRole } from "@/lib/adminRouting";
 import { useAdminCommissions, useManualAdjustCommission } from "@/services/admin/finance";
 import { commissionStatusMeta } from "@/lib/status";
-import { formatCommission } from "@/lib/commission-display";
+import { formatCommissionValue } from "@/lib/commission-display";
 import { ApiError } from "@/lib/api/admin";
 
 export default function AdminCommissionsPage() {
@@ -51,7 +51,7 @@ export default function AdminCommissionsPage() {
             <tr key={c.id} className="border-t border-border hover:bg-bg">
               <td className="px-4 py-2.5 text-text-primary">{c.creatorName}</td>
               <td className="px-4 py-2.5 text-text-secondary">{c.campaignName}</td>
-              <td className="whitespace-nowrap px-4 py-2.5 text-xs text-text-muted">{formatCommission({ commissionType: c.commissionType, commissionValue: c.commissionValue })}</td>
+              <td className="whitespace-nowrap px-4 py-2.5 text-xs text-text-muted">{formatCommissionValue(c.commissionType, c.commissionValue)}</td>
               <td className="whitespace-nowrap px-4 py-2.5 text-right font-numeric tabular-nums text-text-secondary">{formatMoneyMinor(c.baseAmountMinor)}</td>
               <td className="whitespace-nowrap px-4 py-2.5 text-right font-numeric tabular-nums text-text-primary">{formatMoneyMinor(c.amountMinor)}</td>
               <td className="whitespace-nowrap px-4 py-2.5">

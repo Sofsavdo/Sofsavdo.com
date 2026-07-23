@@ -9,6 +9,7 @@ import {
   Percent,
   Wallet,
   Banknote,
+  Gift,
 } from "lucide-react";
 
 export interface CreatorNavItem {
@@ -30,4 +31,5 @@ export const CREATOR_NAV_ITEMS: CreatorNavItem[] = [
   { href: "/creator/commissions", label: "Komissiyalar", icon: Percent },
   { href: "/creator/balance", label: "Balans", icon: Wallet, bottomNav: true },
   { href: "/creator/payouts", label: "Payout", icon: Banknote },
+  { href: "/creator/referrals", label: "Do'stlarni taklif qilish", icon: Gift },
 ];

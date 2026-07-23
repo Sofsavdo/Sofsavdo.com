@@ -1,16 +1,87 @@
 "use client";
 
 import { useState } from "react";
-import type { CreatorContentStatus } from "@rosti/types";
+import Link from "next/link";
+import type { CreatorContentStatus, ContentStatus } from "@rosti/types";
 import { Alert, Badge, Button, ConfirmModal, DataTableShell, StatusBadge } from "@rosti/ui";
 import { Paperclip } from "lucide-react";
 import { useAdminContent, useApproveContent, useRejectContent, useRequestContentRevision } from "@/services/admin/content";
-import { contentStatusMeta } from "@/lib/status";
+import { contentStatusMeta, realContentStatusMeta } from "@/lib/status";
 import { ApiError } from "@/lib/api/admin";
+import { useContentReviewList } from "@/services/admin/content";
 
 const FILTERABLE: CreatorContentStatus[] = ["SUBMITTED", "UNDER_REVIEW", "REVISION_REQUESTED", "APPROVED", "PUBLISHED", "REJECTED"];
+const REAL_FILTERABLE: ContentStatus[] = ["DRAFT", "SUBMITTED", "UNDER_REVIEW", "CHANGES_REQUESTED", "APPROVED", "REJECTED", "EXPIRED"];
+const USE_REAL_API = process.env.NEXT_PUBLIC_API_MODE === "real";
 
-export default function AdminContentPage() {
+function RealAdminContentPage() {
+  const [statusFilter, setStatusFilter] = useState<ContentStatus | "ALL">("ALL");
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+
+  const query = useContentReviewList({
+    status: statusFilter === "ALL" ? undefined : statusFilter,
+    search: search || undefined,
+    page,
+    pageSize: 20,
+  });
+
+  return (
+    <DataTableShell
+      title="Kontent moderatsiya"
+      description="Creatorlar yuborgan content'ni kampaniya brifi bilan solishtirib ko'rib chiqish."
+      searchValue={search}
+      onSearchChange={(v) => {
+        setSearch(v);
+        setPage(1);
+      }}
+      searchPlaceholder="Creator yoki kampaniya nomi..."
+      filters={
+        <select
+          value={statusFilter}
+          onChange={(e) => {
+            setStatusFilter(e.target.value as ContentStatus | "ALL");
+            setPage(1);
+          }}
+          className="h-10 rounded-input border border-border bg-bg px-3 font-body text-sm"
+        >
+          <option value="ALL">Barchasi</option>
+          {REAL_FILTERABLE.map((s) => (
+            <option key={s} value={s}>
+              {realContentStatusMeta[s].label}
+            </option>
+          ))}
+        </select>
+      }
+      isLoading={query.isLoading}
+      isError={query.isError}
+      onRetry={() => query.refetch()}
+      isEmpty={(query.data?.items.length ?? 0) === 0}
+      emptyTitle="Content topilmadi"
+      page={query.data?.page}
+      pageCount={query.data?.totalPages}
+      onPageChange={setPage}
+    >
+      <div className="divide-y divide-border">
+        {(query.data?.items ?? []).map((c) => (
+          <Link key={c.id} href={`/admin/content/${c.id}`} className="block p-4 hover:bg-bg">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="font-body text-sm font-medium text-text-primary">
+                  {c.creator.displayName} · {c.campaign.name}
+                </p>
+                <p className="font-body text-xs text-text-muted">{c.caption || "Caption kiritilmagan"}</p>
+              </div>
+              <StatusBadge tone={realContentStatusMeta[c.status].tone} label={realContentStatusMeta[c.status].label} />
+            </div>
+          </Link>
+        ))}
+      </div>
+    </DataTableShell>
+  );
+}
+
+function MockAdminContentPage() {
   const query = useAdminContent();
   const approve = useApproveContent();
   const revision = useRequestContentRevision();
@@ -162,4 +233,8 @@ export default function AdminContentPage() {
       />
     </DataTableShell>
   );
+}
+
+export default function AdminContentPage() {
+  return USE_REAL_API ? <RealAdminContentPage /> : <MockAdminContentPage />;
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
@@ -12,7 +12,7 @@ import { useCreateCampaign, useUpdateCampaign } from "@/services/admin/campaigns
 import { ApiError } from "@/lib/api/admin";
 
 const PLATFORMS: SocialPlatform[] = ["INSTAGRAM", "TIKTOK", "YOUTUBE", "TELEGRAM"];
-const COMMISSION_TYPES: CommissionType[] = ["PERCENTAGE", "FIXED_PER_SALE", "FIXED_CONTENT_FEE", "HYBRID"];
+const COMMISSION_TYPES: CommissionType[] = ["PERCENTAGE", "FIXED_AMOUNT"];
 
 export function CampaignForm({ existing, defaultOfferId }: { existing?: Campaign; defaultOfferId?: string }) {
   const router = useRouter();
@@ -32,6 +32,7 @@ export function CampaignForm({ existing, defaultOfferId }: { existing?: Campaign
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors },
   } = useForm<CampaignInput>({
     resolver: zodResolver(campaignSchema),
@@ -48,8 +49,10 @@ export function CampaignForm({ existing, defaultOfferId }: { existing?: Campaign
           applicationDeadline: existing.applicationDeadline?.slice(0, 10),
           creatorLimit: String(existing.creatorLimit),
           commissionType: existing.commissionType,
-          commissionValue: existing.commissionType === "PERCENTAGE" || existing.commissionType === "HYBRID" ? String(existing.commissionValue / 100) : String(existing.commissionValue / 100),
-          fixedPaymentMinor: existing.fixedPaymentMinor ? String(existing.fixedPaymentMinor / 100) : undefined,
+          commissionValue:
+            existing.commissionType === "PERCENTAGE"
+              ? String((existing.commissionRateBps ?? 0) / 100)
+              : String((existing.commissionAmountMinor ?? 0) / 100),
           barterEnabled: existing.barterEnabled,
           freeProduct: existing.freeProduct,
           attributionWindowDays: String(existing.attributionWindowDays),
@@ -69,8 +72,18 @@ export function CampaignForm({ existing, defaultOfferId }: { existing?: Campaign
   const commissionType = watch("commissionType");
   const mutation = existing ? updateCampaign : createCampaign;
 
+  // The offers list loads async; a native <select> registered with react-hook-form falls back to
+  // its first option ("Tanlang") when the default value's <option> doesn't exist yet at mount, and
+  // RHF reads the DOM value at submit — so without this, editing an existing campaign silently
+  // submitted offerId="" (real bug found during Campaign browser verification).
+  const offerId = existing?.offer.id ?? defaultOfferId;
+  const offersLoaded = !!offersQuery.data;
+  useEffect(() => {
+    if (offersLoaded && offerId) setValue("offerId", offerId);
+  }, [offersLoaded, offerId, setValue]);
+
   async function onSubmit(values: CampaignInput) {
-    const isPercent = values.commissionType === "PERCENTAGE" || values.commissionType === "HYBRID";
+    const isPercent = values.commissionType === "PERCENTAGE";
     const payload = {
       offerId: values.offerId,
       name: values.name,
@@ -88,8 +101,8 @@ export function CampaignForm({ existing, defaultOfferId }: { existing?: Campaign
       applicationDeadline: new Date(values.applicationDeadline).toISOString(),
       creatorLimit: Number(values.creatorLimit),
       commissionType: values.commissionType,
-      commissionValue: isPercent ? Math.round(Number(values.commissionValue) * 100) : Math.round(Number(values.commissionValue) * 100),
-      fixedPaymentMinor: values.fixedPaymentMinor ? Math.round(Number(values.fixedPaymentMinor) * 100) : undefined,
+      commissionRateBps: isPercent ? Math.round(Number(values.commissionValue) * 100) : undefined,
+      commissionAmountMinor: isPercent ? undefined : Math.round(Number(values.commissionValue) * 100),
       customerDiscountType: customerDiscountType || undefined,
       customerDiscountValue: customerDiscountValue
         ? customerDiscountType === "PERCENTAGE"
@@ -170,12 +183,11 @@ export function CampaignForm({ existing, defaultOfferId }: { existing?: Campaign
             ))}
           </SelectField>
           <TextField
-            label={commissionType === "PERCENTAGE" || commissionType === "HYBRID" ? "Komissiya (%)" : "Komissiya (so'm)"}
+            label={commissionType === "PERCENTAGE" ? "Komissiya (%)" : "Komissiya (so'm)"}
             error={errors.commissionValue?.message}
             {...register("commissionValue")}
           />
         </div>
-        {commissionType === "HYBRID" ? <TextField label="Qo'shimcha fixed to'lov (so'm)" {...register("fixedPaymentMinor")} /> : null}
 
         <div className="grid grid-cols-2 gap-3">
           <SelectField label="Xaridor chegirmasi turi" value={customerDiscountType} onChange={(e) => setCustomerDiscountType(e.target.value as DiscountType | "")}>

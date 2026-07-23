@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
@@ -34,6 +34,7 @@ export function OfferForm({ existing, defaultProductId }: { existing?: Offer; de
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<OfferInput>({
     resolver: zodResolver(offerSchema),
@@ -50,11 +51,22 @@ export function OfferForm({ existing, defaultProductId }: { existing?: Offer; de
           ctaType: existing.ctaType,
           ctaLabel: existing.ctaLabel,
           deliveryInfo: existing.deliveryInfo,
+          startsAt: existing.startsAt ? existing.startsAt.slice(0, 16) : undefined,
+          endsAt: existing.endsAt ? existing.endsAt.slice(0, 16) : undefined,
         }
       : { productId: defaultProductId, currency: "UZS", ctaType: "BUY_NOW" },
   });
 
   const mutation = existing ? updateOffer : createOffer;
+
+  // Products load async; a native <select> falls back to "Tanlang" (value "") when the default
+  // value's <option> doesn't exist yet at mount, so re-apply once options are available — same
+  // fix as CampaignForm's offer select (real bug found during Campaign browser verification).
+  const productId = existing?.productId ?? defaultProductId;
+  const productsLoaded = !!productsQuery.data;
+  useEffect(() => {
+    if (productsLoaded && productId) setValue("productId", productId);
+  }, [productsLoaded, productId, setValue]);
 
   function updateVariant(index: number, patch: Partial<(typeof variants)[number]>) {
     setVariants((v) => v.map((item, i) => (i === index ? { ...item, ...patch } : item)));
@@ -76,6 +88,8 @@ export function OfferForm({ existing, defaultProductId }: { existing?: Offer; de
       paymentOptions,
       ctaType: values.ctaType,
       ctaLabel: values.ctaLabel,
+      startsAt: values.startsAt ? new Date(values.startsAt).toISOString() : undefined,
+      endsAt: values.endsAt ? new Date(values.endsAt).toISOString() : undefined,
     };
     if (existing) {
       await updateOffer.mutateAsync({ id: existing.id, patch: payload });
@@ -172,6 +186,21 @@ export function OfferForm({ existing, defaultProductId }: { existing?: Offer; de
         </div>
 
         <TextField label="Yetkazib berish ma'lumoti (ixtiyoriy)" {...register("deliveryInfo")} />
+
+        <div className="grid grid-cols-2 gap-3">
+          <TextField
+            label="Boshlanish sanasi (ixtiyoriy)"
+            type="datetime-local"
+            error={errors.startsAt?.message}
+            {...register("startsAt")}
+          />
+          <TextField
+            label="Tugash sanasi (ixtiyoriy)"
+            type="datetime-local"
+            error={errors.endsAt?.message}
+            {...register("endsAt")}
+          />
+        </div>
 
         <div className="grid grid-cols-2 gap-3">
           <SelectField label="CTA turi" error={errors.ctaType?.message} {...register("ctaType")}>

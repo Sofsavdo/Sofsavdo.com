@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button, Card, CardHeader, CardTitle, TextField, Alert } from "@rosti/ui";
@@ -10,8 +10,12 @@ import { useSession } from "@/services/session";
 import { registerSchema, type RegisterInput } from "@/lib/schemas";
 import { postAuthRoute } from "@/lib/routing";
 
-export default function RegisterPage() {
+function RegisterForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // Creator referral attribution (see DECISIONS.md ADR-013): the ?ref= param on this exact
+  // route is the only entry point that can attribute a referral, and only at registration.
+  const referralCode = searchParams.get("ref") ?? undefined;
   const { user, isLoading, register: registerAccount, registerPending, registerError } = useSession();
 
   const {
@@ -26,7 +30,7 @@ export default function RegisterPage() {
 
   async function onSubmit(values: RegisterInput) {
     try {
-      const created = await registerAccount(values.email, values.fullName, values.password);
+      const created = await registerAccount(values.email, values.fullName, values.password, referralCode);
       router.replace(postAuthRoute(created.application.status));
     } catch {
       // surfaced via registerError below
@@ -74,5 +78,13 @@ export default function RegisterPage() {
         </Link>
       </p>
     </Card>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={null}>
+      <RegisterForm />
+    </Suspense>
   );
 }

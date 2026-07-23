@@ -1,15 +1,21 @@
 import type {
+  Campaign,
   CampaignApplicationStatus,
   CampaignStatus,
   CommissionStatus,
+  ContentReviewAction,
+  ContentStatus,
   CreatorAccountStatus,
   CreatorApplicationStatus,
   CreatorCampaignStatus,
   CreatorContentStatus,
+  LandingStatus,
+  Offer,
   OfferStatus,
   OrderStatus,
   PayoutStatus,
   ProductStatus,
+  RealOrderStatus,
   RefundStatus,
 } from "@rosti/types";
 
@@ -27,6 +33,7 @@ export const applicationStatusMeta: Record<CreatorApplicationStatus, { label: st
 export const creatorCampaignStatusMeta: Record<CreatorCampaignStatus, { label: string; tone: Tone }> = {
   APPLIED: { label: "Ariza yuborildi", tone: "neutral" },
   UNDER_REVIEW: { label: "Ko'rib chiqilmoqda", tone: "info" },
+  CHANGES_REQUESTED: { label: "O'zgartirish so'raldi", tone: "warning" },
   APPROVED: { label: "Tasdiqlangan", tone: "success" },
   PRODUCT_PREPARING: { label: "Mahsulot tayyorlanmoqda", tone: "info" },
   SHIPPED: { label: "Jo'natildi", tone: "info" },
@@ -88,23 +95,52 @@ export const offerStatusMeta: Record<OfferStatus, { label: string; tone: Tone }>
   DRAFT: { label: "Qoralama", tone: "neutral" },
   ACTIVE: { label: "Faol", tone: "success" },
   PAUSED: { label: "To'xtatilgan", tone: "warning" },
+  ARCHIVED: { label: "Arxivlangan", tone: "neutral" },
+};
+
+// Separate from offerStatusMeta on purpose — status is what an admin set, availability is
+// computed server-side from status + startsAt/expiresAt (see OfferAvailability in @rosti/types).
+// An offer can show status=Faol and availability=Muddati tugagan at the same time; the UI must
+// show both, not collapse them into one badge.
+export const offerAvailabilityMeta: Record<NonNullable<Offer["availability"]>, { label: string; tone: Tone }> = {
+  LIVE: { label: "Hozir faol", tone: "success" },
+  SCHEDULED: { label: "Rejalashtirilgan", tone: "info" },
   EXPIRED: { label: "Muddati tugagan", tone: "error" },
+  INACTIVE: { label: "Nofaol", tone: "neutral" },
+};
+
+export const landingStatusMeta: Record<LandingStatus, { label: string; tone: Tone }> = {
+  DRAFT: { label: "Qoralama", tone: "neutral" },
+  PUBLISHED: { label: "E'lon qilingan", tone: "success" },
   ARCHIVED: { label: "Arxivlangan", tone: "neutral" },
 };
 
 export const campaignStatusMeta: Record<CampaignStatus, { label: string; tone: Tone }> = {
   DRAFT: { label: "Qoralama", tone: "neutral" },
-  OPEN: { label: "Ochiq", tone: "info" },
   ACTIVE: { label: "Faol", tone: "success" },
   PAUSED: { label: "To'xtatilgan", tone: "warning" },
   COMPLETED: { label: "Yakunlangan", tone: "neutral" },
-  CANCELLED: { label: "Bekor qilingan", tone: "error" },
+  ARCHIVED: { label: "Arxivlangan", tone: "neutral" },
+};
+
+// Computed, real-mode-only — separate from campaignStatusMeta on purpose, same pattern as
+// Offer's offerAvailabilityMeta.
+export const campaignAvailabilityMeta: Record<NonNullable<Campaign["availability"]>, { label: string; tone: Tone }> = {
+  LIVE: { label: "Hozir faol", tone: "success" },
+  SCHEDULED: { label: "Rejalashtirilgan", tone: "info" },
+  EXPIRED: { label: "Muddati tugagan", tone: "error" },
+  INACTIVE: { label: "Nofaol", tone: "neutral" },
 };
 
 export const campaignApplicationStatusMeta: Record<CampaignApplicationStatus, { label: string; tone: Tone }> = {
-  PENDING: { label: "Kutilmoqda", tone: "info" },
+  PENDING: { label: "Kutilmoqda", tone: "info" }, // mock-mode legacy only
+  DRAFT: { label: "Qoralama", tone: "neutral" },
+  SUBMITTED: { label: "Yuborildi", tone: "info" },
+  UNDER_REVIEW: { label: "Ko'rib chiqilmoqda", tone: "info" },
+  CHANGES_REQUESTED: { label: "O'zgartirish so'raldi", tone: "warning" },
   APPROVED: { label: "Tasdiqlangan", tone: "success" },
   REJECTED: { label: "Rad etilgan", tone: "error" },
+  WITHDRAWN: { label: "Bekor qilingan", tone: "neutral" },
 };
 
 export const refundStatusMeta: Record<RefundStatus, { label: string; tone: Tone }> = {
@@ -118,4 +154,51 @@ export const creatorAccountStatusMeta: Record<CreatorAccountStatus, { label: str
   ACTIVE: { label: "Faol", tone: "success" },
   SUSPENDED: { label: "Vaqtincha to'xtatilgan", tone: "warning" },
   BLOCKED: { label: "Bloklangan", tone: "error" },
+};
+
+// Real Content domain (Phase 7A) — distinct from contentStatusMeta above, which stays wired to
+// the legacy mock CreatorContentStatus shape.
+export const realContentStatusMeta: Record<ContentStatus, { label: string; tone: Tone }> = {
+  DRAFT: { label: "Qoralama", tone: "neutral" },
+  SUBMITTED: { label: "Yuborildi", tone: "info" },
+  UNDER_REVIEW: { label: "Ko'rib chiqilmoqda", tone: "info" },
+  CHANGES_REQUESTED: { label: "O'zgartirish so'raldi", tone: "warning" },
+  APPROVED: { label: "Tasdiqlangan", tone: "success" },
+  REJECTED: { label: "Rad etilgan", tone: "error" },
+  EXPIRED: { label: "Muddati tugagan", tone: "neutral" },
+};
+
+export const contentReviewActionMeta: Record<ContentReviewAction, { label: string; tone: Tone }> = {
+  APPROVED: { label: "Tasdiqlandi", tone: "success" },
+  REJECTED: { label: "Rad etildi", tone: "error" },
+  CHANGES_REQUESTED: { label: "O'zgartirish so'raldi", tone: "warning" },
+};
+
+// Real Order domain (Phase 8) — distinct from orderStatusMeta above, which stays wired to the
+// legacy mock OrderStatus shape (NEW/CONFIRMED/COMPLETED/RETURNED). See DECISIONS.md ADR-015.
+export const realOrderStatusMeta: Record<RealOrderStatus, { label: string; tone: Tone }> = {
+  CREATED: { label: "Yaratildi", tone: "neutral" },
+  PAYMENT_PENDING: { label: "To'lov kutilmoqda", tone: "warning" },
+  PAID: { label: "To'landi", tone: "success" },
+  PROCESSING: { label: "Tayyorlanmoqda", tone: "info" },
+  SHIPPED: { label: "Jo'natildi", tone: "info" },
+  IN_TRANSIT: { label: "Yo'lda", tone: "info" },
+  DELIVERED: { label: "Yetkazildi", tone: "success" },
+  CANCELLED: { label: "Bekor qilindi", tone: "error" },
+  REFUNDED: { label: "Qaytarildi", tone: "neutral" },
+};
+
+// Referral activity classification (6B Enhancement) — see apps/api's activity-classification.ts
+// for the server-side thresholds this labels.
+export const referralActivityMeta: Record<
+  "NEW" | "ONBOARDING_STALLED" | "AWAITING_APPROVAL" | "APPROVED_INACTIVE" | "ACTIVE_NO_EARNINGS" | "EARNING" | "DORMANT",
+  { label: string; tone: Tone }
+> = {
+  NEW: { label: "Yangi", tone: "neutral" },
+  ONBOARDING_STALLED: { label: "Ro'yxatdan o'tish to'xtab qoldi", tone: "warning" },
+  AWAITING_APPROVAL: { label: "Tasdiq kutilmoqda", tone: "info" },
+  APPROVED_INACTIVE: { label: "Tasdiqlangan, faol emas", tone: "warning" },
+  ACTIVE_NO_EARNINGS: { label: "Faol", tone: "info" },
+  EARNING: { label: "Daromad keltirmoqda", tone: "success" },
+  DORMANT: { label: "Nofaol", tone: "error" },
 };

@@ -1,0 +1,700 @@
+// Real-backend implementation of the creator-facing API seam — counterpart to admin-real.ts,
+// wired through lib/api/index.ts behind NEXT_PUBLIC_API_MODE. Reuses the exact same http-client
+// (in-memory access token, one 401-then-refresh retry) as the admin seam — creator and admin
+// sessions never share state (each browser tab holds exactly one access token at a time; logging
+// in as one role naturally replaces whichever session was active before, same as switching admin
+// accounts already worked).
+import type {
+  Campaign,
+  CampaignApplicationCreatorView,
+  CampaignMediaItem,
+  CampaignMediaRole,
+  CampaignMediaType,
+  ContentAttachmentItem,
+  ContentAttachmentRole,
+  ContentAttachmentType,
+  ContentCommentItem,
+  ContentCreatorView,
+  ContentDashboardCounts,
+  ContentReviewAction,
+  ContentStatus,
+  CreatorCampaign,
+  CreatorCampaignStatus,
+  CreatorUser,
+  SocialPlatform,
+} from "@rosti/types";
+import { apiRequest, setAccessToken, ApiError } from "./http-client";
+
+interface BackendSessionUser {
+  id: string;
+  email: string | null;
+  phone: string | null;
+  roleKeys: string[];
+  creatorId: string | null;
+}
+
+interface BackendCreatorProfile {
+  id: string;
+  email: string;
+  displayName: string;
+  application: {
+    id: string;
+    status: string;
+    currentStep: number;
+    data: unknown;
+    reviewNote: string | null;
+    submittedAt: string | null;
+    reviewedAt: string | null;
+  };
+}
+
+function initials(displayName: string): string {
+  return displayName
+    .split(" ")
+    .map((p) => p[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+}
+
+async function buildCreatorUser(sessionUser: BackendSessionUser): Promise<CreatorUser> {
+  if (!sessionUser.creatorId) {
+    throw new ApiError("FORBIDDEN", "Bu hisob creator emas.", 403);
+  }
+  const profile = await apiRequest<BackendCreatorProfile>("/creator/profile");
+  return {
+    id: sessionUser.id,
+    email: profile.email,
+    displayName: profile.displayName,
+    avatarInitials: initials(profile.displayName),
+    application: {
+      id: profile.application.id,
+      status: profile.application.status as CreatorUser["application"]["status"],
+      currentStep: profile.application.currentStep,
+      data: (profile.application.data ?? {}) as CreatorUser["application"]["data"],
+      reviewNote: profile.application.reviewNote ?? undefined,
+      submittedAt: profile.application.submittedAt ?? undefined,
+      reviewedAt: profile.application.reviewedAt ?? undefined,
+    },
+  };
+}
+
+export async function login(email: string, password: string): Promise<CreatorUser> {
+  const result = await apiRequest<{ accessToken: string; user: BackendSessionUser }>("/auth/login", {
+    method: "POST",
+    body: { email, password },
+  });
+  setAccessToken(result.accessToken);
+  return buildCreatorUser(result.user);
+}
+
+export async function register(
+  email: string,
+  fullName: string,
+  password: string,
+  referralCode?: string,
+): Promise<CreatorUser> {
+  const result = await apiRequest<{ accessToken: string; user: BackendSessionUser }>("/auth/register", {
+    method: "POST",
+    body: { email, password, displayName: fullName, referralCode },
+  });
+  setAccessToken(result.accessToken);
+  return buildCreatorUser(result.user);
+}
+
+// Same fresh-page-load bootstrap pattern as admin-real.ts's adminGetSession: no in-memory token
+// yet, apiRequest's 401-then-refresh recovers it from the HttpOnly cookie automatically.
+export async function getSession(): Promise<CreatorUser | null> {
+  try {
+    const sessionUser = await apiRequest<BackendSessionUser>("/auth/me");
+    return await buildCreatorUser(sessionUser);
+  } catch (err) {
+    if (err instanceof ApiError && (err.statusCode === 401 || err.statusCode === 403)) return null;
+    throw err;
+  }
+}
+
+export async function logout(): Promise<void> {
+  setAccessToken(null);
+  await apiRequest("/auth/logout", { method: "POST" }).catch(() => undefined);
+}
+
+export async function forgotPassword(email: string): Promise<{ sent: boolean }> {
+  await apiRequest("/auth/forgot-password", { method: "POST", body: { email } });
+  return { sent: true };
+}
+
+interface BackendCreatorCampaignOffer {
+  id: string;
+  name: string;
+  slug: string;
+  priceMinor: number;
+  compareAtPriceMinor: number | null;
+  currency: string;
+}
+
+interface BackendCreatorCampaignProduct {
+  id: string;
+  name: string;
+  type: string;
+}
+
+// Shape returned by CampaignsService.toCreatorResponse() — deliberately narrower than the admin
+// shape (no internalName/internalNotes/createdById/updatedById/archivedAt/raw stored `status`;
+// see campaigns.service.ts's CampaignCreatorResponse).
+interface BackendCreatorCampaign {
+  id: string;
+  offerId: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  category: string;
+  ctaLabel: string;
+  goal: string | null;
+  targetAudience: string | null;
+  platforms: string[];
+  contentFormats: string[];
+  requiredElements: string[];
+  forbiddenElements: string[];
+  referenceContent: string[];
+  minFollowers: number | null;
+  maxFollowers: number | null;
+  requiredContentCount: number | null;
+  contentDeadline: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  applicationStartDate: string | null;
+  applicationDeadline: string | null;
+  creatorLimit: number | null;
+  requiresApproval: boolean;
+  commissionType: Campaign["commissionType"];
+  commissionRateBps: number | null;
+  commissionAmountMinor: number | null;
+  commissionCurrency: string;
+  customerDiscountType: Campaign["customerDiscountType"];
+  customerDiscountValue: number | null;
+  barterEnabled: boolean;
+  freeProduct: string | null;
+  attributionWindowDays: number;
+  availability: Campaign["availability"];
+  applicationAvailability: Campaign["applicationAvailability"];
+  approvedCreatorCount: number;
+  commissionSource: "CAMPAIGN";
+  offer: BackendCreatorCampaignOffer;
+  product: BackendCreatorCampaignProduct;
+  media: BackendCreatorCampaignMedia[];
+}
+
+interface BackendCreatorCampaignMedia {
+  id: string;
+  mediaType: string;
+  mediaRole: string;
+  url: string;
+  thumbnailUrl: string | null;
+  width: number | null;
+  height: number | null;
+  durationSeconds: number | null;
+  altText: string | null;
+  sortOrder: number;
+}
+
+function mapBackendCreatorCampaignMedia(m: BackendCreatorCampaignMedia): CampaignMediaItem {
+  return {
+    id: m.id,
+    mediaType: m.mediaType as CampaignMediaType,
+    mediaRole: m.mediaRole as CampaignMediaRole,
+    url: m.url,
+    thumbnailUrl: m.thumbnailUrl ?? undefined,
+    width: m.width ?? undefined,
+    height: m.height ?? undefined,
+    durationSeconds: m.durationSeconds ?? undefined,
+    altText: m.altText ?? undefined,
+    sortOrder: m.sortOrder,
+  };
+}
+
+function mapBackendCreatorCampaign(c: BackendCreatorCampaign): Campaign {
+  return {
+    id: c.id,
+    offerId: c.offerId,
+    name: c.name,
+    slug: c.slug,
+    description: c.description ?? "",
+    category: c.category,
+    ctaLabel: c.ctaLabel,
+    goal: c.goal ?? "",
+    targetAudience: c.targetAudience ?? "",
+    platforms: c.platforms as Campaign["platforms"],
+    contentFormats: c.contentFormats,
+    requiredElements: c.requiredElements,
+    forbiddenElements: c.forbiddenElements,
+    referenceContent: c.referenceContent,
+    minFollowers: c.minFollowers ?? undefined,
+    maxFollowers: c.maxFollowers ?? undefined,
+    requiredContentCount: c.requiredContentCount ?? undefined,
+    contentDeadline: c.contentDeadline ?? undefined,
+    startDate: c.startDate ?? undefined,
+    endDate: c.endDate ?? undefined,
+    applicationStartDate: c.applicationStartDate ?? undefined,
+    applicationDeadline: c.applicationDeadline ?? "",
+    creatorLimit: c.creatorLimit ?? 0,
+    requiresApproval: c.requiresApproval,
+    commissionType: c.commissionType,
+    commissionRateBps: c.commissionRateBps ?? undefined,
+    commissionAmountMinor: c.commissionAmountMinor ?? undefined,
+    commissionCurrency: c.commissionCurrency,
+    media: c.media.map(mapBackendCreatorCampaignMedia),
+    customerDiscountType: c.customerDiscountType ?? undefined,
+    customerDiscountValue: c.customerDiscountValue ?? undefined,
+    barterEnabled: c.barterEnabled,
+    freeProduct: c.freeProduct ?? undefined,
+    attributionWindowDays: c.attributionWindowDays,
+    // The creator API only ever returns campaigns with availability === "LIVE" (server-enforced —
+    // see campaigns.service.ts's findOneForCreatorOrThrow/listForCreator), which by definition
+    // means status === "ACTIVE"; the backend's creator response omits the raw `status` field
+    // deliberately (see "administrative metadata" in PROJECT_STATUS.md), so this is a safe,
+    // always-true inference, not a guess.
+    status: "ACTIVE",
+    availability: c.availability,
+    applicationAvailability: c.applicationAvailability,
+    approvedCreatorCount: c.approvedCreatorCount,
+    commissionSource: c.commissionSource,
+    offer: {
+      id: c.offer.id,
+      name: c.offer.name,
+      slug: c.offer.slug,
+      productType: c.product.type as Campaign["offer"]["productType"],
+      priceMinor: c.offer.priceMinor,
+      compareAtPriceMinor: c.offer.compareAtPriceMinor ?? undefined,
+      currency: c.offer.currency,
+    },
+  };
+}
+
+export async function getCampaigns(): Promise<Campaign[]> {
+  const items = await apiRequest<BackendCreatorCampaign[]>("/creator/campaigns");
+  return items.map(mapBackendCreatorCampaign);
+}
+
+export async function getCampaign(id: string): Promise<Campaign | null> {
+  try {
+    return mapBackendCreatorCampaign(await apiRequest<BackendCreatorCampaign>(`/creator/campaigns/${id}`));
+  } catch (err) {
+    if (err instanceof ApiError && err.statusCode === 404) return null;
+    throw err;
+  }
+}
+
+// ---- Campaign applications (Creator Application domain) ----
+
+export interface CampaignApplicationInput {
+  message?: string;
+  platform?: SocialPlatform;
+  contentFormat?: string;
+  portfolioLinks?: string[];
+  sampleContentLinks?: string[];
+  answers?: Record<string, unknown>;
+}
+
+interface BackendCampaignApplication {
+  id: string;
+  campaignId: string;
+  status: CampaignApplicationCreatorView["status"];
+  message: string | null;
+  platform: SocialPlatform | null;
+  contentFormat: string | null;
+  portfolioLinks: string[];
+  sampleContentLinks: string[];
+  answers: Record<string, unknown> | null;
+  followerSnapshot: number | null;
+  rejectionReason: string | null;
+  changesRequestedReason: string | null;
+  submittedAt: string | null;
+  reviewedAt: string | null;
+  approvedAt: string | null;
+  rejectedAt: string | null;
+  withdrawnAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  campaign: { id: string; name: string; slug: string; category: string };
+}
+
+function mapApplication(a: BackendCampaignApplication): CampaignApplicationCreatorView {
+  return {
+    id: a.id,
+    campaignId: a.campaignId,
+    status: a.status,
+    message: a.message ?? undefined,
+    platform: a.platform ?? undefined,
+    contentFormat: a.contentFormat ?? undefined,
+    portfolioLinks: a.portfolioLinks,
+    sampleContentLinks: a.sampleContentLinks,
+    answers: a.answers ?? undefined,
+    followerSnapshot: a.followerSnapshot ?? undefined,
+    rejectionReason: a.rejectionReason ?? undefined,
+    changesRequestedReason: a.changesRequestedReason ?? undefined,
+    submittedAt: a.submittedAt ?? undefined,
+    reviewedAt: a.reviewedAt ?? undefined,
+    approvedAt: a.approvedAt ?? undefined,
+    rejectedAt: a.rejectedAt ?? undefined,
+    withdrawnAt: a.withdrawnAt ?? undefined,
+    createdAt: a.createdAt,
+    updatedAt: a.updatedAt,
+    campaign: a.campaign,
+  };
+}
+
+export async function getMyCampaignApplications(): Promise<CampaignApplicationCreatorView[]> {
+  const items = await apiRequest<BackendCampaignApplication[]>("/creator/applications");
+  return items.map(mapApplication);
+}
+
+export async function createCampaignApplication(campaignId: string, input: CampaignApplicationInput): Promise<CampaignApplicationCreatorView> {
+  return mapApplication(
+    await apiRequest<BackendCampaignApplication>(`/creator/campaigns/${campaignId}/applications`, { method: "POST", body: input }),
+  );
+}
+
+export async function updateCampaignApplication(id: string, input: CampaignApplicationInput): Promise<CampaignApplicationCreatorView> {
+  return mapApplication(await apiRequest<BackendCampaignApplication>(`/creator/applications/${id}`, { method: "PATCH", body: input }));
+}
+
+export async function submitCampaignApplication(id: string): Promise<CampaignApplicationCreatorView> {
+  return mapApplication(await apiRequest<BackendCampaignApplication>(`/creator/applications/${id}/submit`, { method: "POST" }));
+}
+
+export async function resubmitCampaignApplication(id: string): Promise<CampaignApplicationCreatorView> {
+  return mapApplication(await apiRequest<BackendCampaignApplication>(`/creator/applications/${id}/resubmit`, { method: "POST" }));
+}
+
+export async function withdrawCampaignApplication(id: string): Promise<CampaignApplicationCreatorView> {
+  return mapApplication(await apiRequest<BackendCampaignApplication>(`/creator/applications/${id}/withdraw`, { method: "POST" }));
+}
+
+// One-click apply used by the campaign detail page's form: create the DRAFT and submit it in
+// sequence. On a requiresApproval=false campaign the backend instant-approves the submit, exactly
+// like the mock's one-shot apiApplyToCampaign always behaved.
+export async function applyToCampaign(campaignId: string, input: CampaignApplicationInput): Promise<CampaignApplicationCreatorView> {
+  const created = await createCampaignApplication(campaignId, input);
+  return submitCampaignApplication(created.id);
+}
+
+// GET /creator/my-campaigns — the server-synthesized merged view over application status +
+// (post-approval) CreatorCampaign membership status mandated by docs/SCHEMA_API_AUDIT.md.
+interface BackendMyCampaign {
+  id: string;
+  campaignId: string;
+  status: CreatorCampaignStatus;
+  joinedAt: string;
+  rejectionReason: string | null;
+  campaign: {
+    id: string;
+    name: string;
+    slug: string;
+    category: string;
+    ctaLabel: string;
+    commissionType: Campaign["commissionType"];
+    commissionRateBps: number | null;
+    commissionAmountMinor: number | null;
+    commissionCurrency: string;
+    offer: { id: string; name: string; slug: string; priceMinor: number; compareAtPriceMinor: number | null; currency: string };
+  };
+}
+
+export async function getMyCampaigns(): Promise<CreatorCampaign[]> {
+  const items = await apiRequest<BackendMyCampaign[]>("/creator/my-campaigns");
+  return items.map((m) => ({
+    id: m.id,
+    campaignId: m.campaignId,
+    status: m.status,
+    joinedAt: m.joinedAt,
+    rejectionReason: m.rejectionReason ?? undefined,
+    // The my-campaigns endpoint deliberately returns a campaign *summary* (name/category/CTA/
+    // commission/offer) — every list surface that renders CreatorCampaign uses only these fields;
+    // anything needing the full campaign fetches GET /creator/campaigns/:id separately. The cast
+    // documents that gap instead of inventing fake values for the unused config fields.
+    campaign: {
+      id: m.campaign.id,
+      name: m.campaign.name,
+      slug: m.campaign.slug,
+      category: m.campaign.category,
+      ctaLabel: m.campaign.ctaLabel,
+      commissionType: m.campaign.commissionType,
+      commissionRateBps: m.campaign.commissionRateBps ?? undefined,
+      commissionAmountMinor: m.campaign.commissionAmountMinor ?? undefined,
+      commissionCurrency: m.campaign.commissionCurrency,
+      offer: {
+        id: m.campaign.offer.id,
+        name: m.campaign.offer.name,
+        slug: m.campaign.offer.slug,
+        priceMinor: m.campaign.offer.priceMinor,
+        compareAtPriceMinor: m.campaign.offer.compareAtPriceMinor ?? undefined,
+        currency: m.campaign.offer.currency,
+      },
+    } as Campaign,
+    // referralLink/promoCode intentionally absent — referral-asset generation is a later domain
+    // (promo-materials filters on their presence, so those cards simply don't render yet).
+  }));
+}
+
+// ---- Creator-to-creator referral program (6B Enhancement) ----
+
+export type ReferralActivityClass =
+  | "NEW"
+  | "ONBOARDING_STALLED"
+  | "AWAITING_APPROVAL"
+  | "APPROVED_INACTIVE"
+  | "ACTIVE_NO_EARNINGS"
+  | "EARNING"
+  | "DORMANT";
+
+export interface ReferralSummary {
+  referralCode: string;
+  invitationLink: string;
+  totalInvited: number;
+  activeCount: number;
+  needsEncouragementCount: number;
+  earningCount: number;
+  pendingRewardMinor: number;
+  approvedRewardMinor: number;
+  paidRewardMinor: number;
+  currency: string;
+}
+
+export interface ReferredFriend {
+  id: string;
+  referredCreatorId: string;
+  displayName: string;
+  registeredAt: string;
+  onboardingStatus: string;
+  activity: ReferralActivityClass;
+  lastMeaningfulActivityAt: string;
+  campaignApplicationCount: number;
+  approvedCampaignApplicationCount: number;
+  contentSubmittedCount: number;
+  approvedContentCount: number;
+  qualifiedSaleCount: number;
+  cumulativeQualifiedEarningsMinor: number;
+  qualifiedAt: string | null;
+  disqualifiedAt: string | null;
+  pendingRewardMinor: number;
+  approvedRewardMinor: number;
+  paidRewardMinor: number;
+}
+
+export interface ReferralReward {
+  id: string;
+  referralId: string;
+  referredDisplayName: string;
+  ruleName: string;
+  status: "PENDING" | "APPROVED" | "REJECTED" | "PAID";
+  qualifiedEarningsMinor: number | null;
+  calculatedRewardMinor: number;
+  currency: string;
+  approvedAt: string | null;
+  rejectedAt: string | null;
+  rejectionReason: string | null;
+  paidAt: string | null;
+  createdAt: string;
+}
+
+export async function getReferralCode(): Promise<{ referralCode: string; invitationLink: string }> {
+  return apiRequest("/creator/referral-code");
+}
+
+export async function getReferralSummary(): Promise<ReferralSummary> {
+  return apiRequest("/creator/referrals/summary");
+}
+
+export async function getMyReferrals(): Promise<ReferredFriend[]> {
+  return apiRequest("/creator/referrals");
+}
+
+export async function getMyReferralRewards(): Promise<ReferralReward[]> {
+  return apiRequest("/creator/referral-rewards");
+}
+
+// ---- Content (Phase 7A) — real backend only; distinct from the legacy mock-only CreatorContent
+// flow (apps/web/src/mocks/store.ts / services/content.ts), which stays untouched. ----
+
+interface BackendContentAttachment {
+  id: string;
+  attachmentType: string;
+  role: string;
+  url: string;
+  thumbnailUrl: string | null;
+  width: number | null;
+  height: number | null;
+  durationSeconds: number | null;
+  sortOrder: number;
+}
+
+interface BackendContentVersion {
+  id: string;
+  versionNumber: number;
+  caption: string | null;
+  notes: string | null;
+  hashtags: string[];
+  metadata: unknown;
+  submittedAt: string;
+}
+
+interface BackendContentComment {
+  id: string;
+  versionNumber: number;
+  action: string;
+  comment: string;
+  createdAt: string;
+  authorId?: string;
+}
+
+interface BackendContent {
+  id: string;
+  campaignId: string;
+  campaignApplicationId: string;
+  status: string;
+  caption: string | null;
+  notes: string | null;
+  hashtags: string[];
+  metadata: unknown;
+  currentVersionNumber: number;
+  rejectionReason: string | null;
+  changesRequestedReason: string | null;
+  submittedAt: string | null;
+  reviewedAt: string | null;
+  approvedAt: string | null;
+  rejectedAt: string | null;
+  expiredAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  campaign: { id: string; name: string; slug: string; category: string; contentDeadline: string | null; requiredContentCount: number | null };
+  attachments: BackendContentAttachment[];
+  versions: BackendContentVersion[];
+  comments: BackendContentComment[];
+}
+
+function mapContentAttachment(a: BackendContentAttachment): ContentAttachmentItem {
+  return {
+    id: a.id,
+    attachmentType: a.attachmentType as ContentAttachmentType,
+    role: a.role as ContentAttachmentRole,
+    url: a.url,
+    thumbnailUrl: a.thumbnailUrl ?? undefined,
+    width: a.width ?? undefined,
+    height: a.height ?? undefined,
+    durationSeconds: a.durationSeconds ?? undefined,
+    sortOrder: a.sortOrder,
+  };
+}
+
+function mapContentVersion(v: BackendContentVersion): { id: string; versionNumber: number; caption?: string; notes?: string; hashtags: string[]; metadata?: Record<string, unknown>; submittedAt: string } {
+  return {
+    id: v.id,
+    versionNumber: v.versionNumber,
+    caption: v.caption ?? undefined,
+    notes: v.notes ?? undefined,
+    hashtags: v.hashtags,
+    metadata: (v.metadata as Record<string, unknown> | null) ?? undefined,
+    submittedAt: v.submittedAt,
+  };
+}
+
+function mapContentComment(c: BackendContentComment): ContentCommentItem {
+  return { id: c.id, versionNumber: c.versionNumber, action: c.action as ContentReviewAction, comment: c.comment, createdAt: c.createdAt, authorId: c.authorId };
+}
+
+function mapContent(c: BackendContent): ContentCreatorView {
+  return {
+    id: c.id,
+    campaignId: c.campaignId,
+    campaignApplicationId: c.campaignApplicationId,
+    status: c.status as ContentStatus,
+    caption: c.caption ?? undefined,
+    notes: c.notes ?? undefined,
+    hashtags: c.hashtags,
+    metadata: (c.metadata as Record<string, unknown> | null) ?? undefined,
+    currentVersionNumber: c.currentVersionNumber,
+    rejectionReason: c.rejectionReason ?? undefined,
+    changesRequestedReason: c.changesRequestedReason ?? undefined,
+    submittedAt: c.submittedAt ?? undefined,
+    reviewedAt: c.reviewedAt ?? undefined,
+    approvedAt: c.approvedAt ?? undefined,
+    rejectedAt: c.rejectedAt ?? undefined,
+    expiredAt: c.expiredAt ?? undefined,
+    createdAt: c.createdAt,
+    updatedAt: c.updatedAt,
+    campaign: {
+      id: c.campaign.id,
+      name: c.campaign.name,
+      slug: c.campaign.slug,
+      category: c.campaign.category,
+      contentDeadline: c.campaign.contentDeadline ?? undefined,
+      requiredContentCount: c.campaign.requiredContentCount ?? undefined,
+    },
+    attachments: c.attachments.map(mapContentAttachment),
+    versions: c.versions.map(mapContentVersion),
+    comments: c.comments.map(mapContentComment),
+  };
+}
+
+export interface CreateContentInput {
+  caption?: string;
+  notes?: string;
+  hashtags?: string[];
+  metadata?: Record<string, unknown>;
+}
+
+export async function createContent(campaignId: string, input: CreateContentInput): Promise<ContentCreatorView> {
+  return mapContent(await apiRequest<BackendContent>(`/creator/campaigns/${campaignId}/contents`, { method: "POST", body: input }));
+}
+
+export async function getMyContents(): Promise<ContentCreatorView[]> {
+  const items = await apiRequest<BackendContent[]>("/creator/contents");
+  return items.map(mapContent);
+}
+
+export async function getMyContentDashboardCounts(): Promise<ContentDashboardCounts> {
+  return apiRequest("/creator/contents/dashboard-counts");
+}
+
+export async function getContent(id: string): Promise<ContentCreatorView> {
+  return mapContent(await apiRequest<BackendContent>(`/creator/contents/${id}`));
+}
+
+export async function updateContent(id: string, input: CreateContentInput): Promise<ContentCreatorView> {
+  return mapContent(await apiRequest<BackendContent>(`/creator/contents/${id}`, { method: "PATCH", body: input }));
+}
+
+export async function submitContent(id: string): Promise<ContentCreatorView> {
+  return mapContent(await apiRequest<BackendContent>(`/creator/contents/${id}/submit`, { method: "POST" }));
+}
+
+export async function resubmitContent(id: string): Promise<ContentCreatorView> {
+  return mapContent(await apiRequest<BackendContent>(`/creator/contents/${id}/resubmit`, { method: "POST" }));
+}
+
+export interface UploadContentAttachmentInput {
+  file: File;
+  role: ContentAttachmentRole;
+  width?: number;
+  height?: number;
+  durationSeconds?: number;
+}
+
+function attachmentFormData(input: UploadContentAttachmentInput): FormData {
+  const fd = new FormData();
+  fd.append("file", input.file);
+  fd.append("role", input.role);
+  if (input.width != null) fd.append("width", String(input.width));
+  if (input.height != null) fd.append("height", String(input.height));
+  if (input.durationSeconds != null) fd.append("durationSeconds", String(input.durationSeconds));
+  return fd;
+}
+
+export async function uploadContentAttachment(contentId: string, input: UploadContentAttachmentInput): Promise<ContentCreatorView> {
+  return mapContent(await apiRequest<BackendContent>(`/creator/contents/${contentId}/attachments`, { method: "POST", body: attachmentFormData(input) }));
+}
+
+export async function deleteContentAttachment(attachmentId: string): Promise<ContentCreatorView> {
+  return mapContent(await apiRequest<BackendContent>(`/creator/content-attachments/${attachmentId}`, { method: "DELETE" }));
+}

@@ -24,7 +24,10 @@ export default function CampaignsCatalogPage() {
 
   const filtered = useMemo(() => {
     return (campaignsQuery.data ?? []).filter((c) => {
-      if (c.status !== "ACTIVE" && c.status !== "OPEN") return false;
+      // Real mode's GET /creator/campaigns already only ever returns LIVE campaigns (server-side
+      // gated — see RBAC.md); this check is redundant-but-harmless there and is the actual gate
+      // in mock mode, which has no server-side availability computation.
+      if (c.status !== "ACTIVE") return false;
       if (search && !c.name.toLowerCase().includes(search.toLowerCase())) return false;
       if (category !== CATEGORY_ALL && c.category !== category) return false;
       if (platform !== "ALL" && !c.platforms.includes(platform)) return false;
@@ -72,9 +75,7 @@ export default function CampaignsCatalogPage() {
         >
           <option value="ALL">Barchasi</option>
           <option value="PERCENTAGE">Foizli</option>
-          <option value="FIXED_PER_SALE">Belgilangan / sotuv</option>
-          <option value="FIXED_CONTENT_FEE">Belgilangan / kontent</option>
-          <option value="HYBRID">Aralash</option>
+          <option value="FIXED_AMOUNT">Belgilangan summa</option>
         </SelectField>
         <div className="flex flex-col justify-end gap-2 pb-0.5">
           <label className="flex items-center gap-2 font-body text-sm text-text-secondary">

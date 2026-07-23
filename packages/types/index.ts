@@ -14,15 +14,82 @@ export type CreatorApplicationStatus =
 
 export type ProductType = "PHYSICAL_PRODUCT" | "DIGITAL_PRODUCT" | "COURSE" | "SERVICE" | "CONSULTATION";
 
-export type CommissionType = "PERCENTAGE" | "FIXED_PER_SALE" | "FIXED_CONTENT_FEE" | "HYBRID";
+// Narrowed from PERCENTAGE|FIXED_PER_SALE|FIXED_CONTENT_FEE|HYBRID to the two explicit commercial
+// modes the 6B Enhancement backend uses (see apps/api schema.prisma and DECISIONS.md ADR-013).
+export type CommissionType = "PERCENTAGE" | "FIXED_AMOUNT";
+
+export type CampaignMediaType = "IMAGE" | "VIDEO";
+export type CampaignMediaRole = "COVER" | "GALLERY" | "PROMOTIONAL";
+
+export interface CampaignMediaItem {
+  id: string;
+  mediaType: CampaignMediaType;
+  mediaRole: CampaignMediaRole;
+  url: string;
+  thumbnailUrl?: string;
+  width?: number;
+  height?: number;
+  durationSeconds?: number;
+  altText?: string;
+  sortOrder: number;
+}
 export type DiscountType = "PERCENTAGE" | "FIXED_AMOUNT";
 
-export type CampaignStatus = "DRAFT" | "OPEN" | "ACTIVE" | "PAUSED" | "COMPLETED" | "CANCELLED";
-export type CampaignApplicationStatus = "PENDING" | "APPROVED" | "REJECTED";
+// OPEN and CANCELLED were retired in favor of this explicit 5-state model — see
+// DECISIONS.md ADR-011.
+export type CampaignStatus = "DRAFT" | "ACTIVE" | "PAUSED" | "COMPLETED" | "ARCHIVED";
+export type CampaignAvailability = "SCHEDULED" | "LIVE" | "EXPIRED" | "INACTIVE";
+export type CampaignApplicationAvailability = "OPEN" | "NOT_STARTED" | "CLOSED" | "FULL" | "INACTIVE";
+// The real backend's 7-state lifecycle (see apps/api schema.prisma CampaignApplicationStatus and
+// DECISIONS.md ADR-012). "PENDING" is mock-mode legacy only — the in-memory store predates the
+// lifecycle model and collapses SUBMITTED/UNDER_REVIEW into one waiting state.
+export type CampaignApplicationStatus =
+  | "PENDING"
+  | "DRAFT"
+  | "SUBMITTED"
+  | "UNDER_REVIEW"
+  | "CHANGES_REQUESTED"
+  | "APPROVED"
+  | "REJECTED"
+  | "WITHDRAWN";
+
+// Creator-safe view of a campaign application (never adminNotes/reviewedById — the backend's
+// ApplicationCreatorResponse shape, see creator-applications.service.ts).
+export interface CampaignApplicationCreatorView {
+  id: string;
+  campaignId: string;
+  status: CampaignApplicationStatus;
+  message?: string;
+  platform?: SocialPlatform;
+  contentFormat?: string;
+  portfolioLinks: string[];
+  sampleContentLinks: string[];
+  answers?: Record<string, unknown>;
+  followerSnapshot?: number;
+  rejectionReason?: string;
+  changesRequestedReason?: string;
+  submittedAt?: string;
+  reviewedAt?: string;
+  approvedAt?: string;
+  rejectedAt?: string;
+  withdrawnAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  campaign: { id: string; name: string; slug: string; category: string };
+}
+
+// Admin view — everything the creator sees plus review-side fields and the creator summary.
+export interface CampaignApplicationAdminView extends Omit<CampaignApplicationCreatorView, "campaign"> {
+  adminNotes?: string;
+  reviewedById?: string;
+  creator: { id: string; displayName: string; city?: string };
+  campaign: { id: string; name: string; slug: string; category: string };
+}
 
 export type CreatorCampaignStatus =
   | "APPLIED"
   | "UNDER_REVIEW"
+  | "CHANGES_REQUESTED"
   | "APPROVED"
   | "PRODUCT_PREPARING"
   | "SHIPPED"
@@ -41,6 +108,86 @@ export type CreatorContentStatus =
   | "APPROVED"
   | "PUBLISHED"
   | "REJECTED";
+
+// ---- Content domain (Phase 7A) — real backend only; distinct from the legacy CreatorContent
+// mock-only shape above, which the mock store still uses unchanged. See DECISIONS.md ADR-014.
+export type ContentStatus = "DRAFT" | "SUBMITTED" | "UNDER_REVIEW" | "CHANGES_REQUESTED" | "APPROVED" | "REJECTED" | "EXPIRED";
+export type ContentAttachmentType = "IMAGE" | "VIDEO";
+export type ContentAttachmentRole = "ATTACHMENT" | "THUMBNAIL";
+export type ContentReviewAction = "APPROVED" | "REJECTED" | "CHANGES_REQUESTED";
+
+export interface ContentAttachmentItem {
+  id: string;
+  attachmentType: ContentAttachmentType;
+  role: ContentAttachmentRole;
+  url: string;
+  thumbnailUrl?: string;
+  width?: number;
+  height?: number;
+  durationSeconds?: number;
+  sortOrder: number;
+}
+
+export interface ContentVersionItem {
+  id: string;
+  versionNumber: number;
+  caption?: string;
+  notes?: string;
+  hashtags: string[];
+  metadata?: Record<string, unknown>;
+  submittedAt: string;
+}
+
+// authorId is present only on the admin view — creator-safe comments never expose reviewer identity.
+export interface ContentCommentItem {
+  id: string;
+  versionNumber: number;
+  action: ContentReviewAction;
+  comment: string;
+  createdAt: string;
+  authorId?: string;
+}
+
+export interface ContentCampaignSummary {
+  id: string;
+  name: string;
+  slug: string;
+  category: string;
+  contentDeadline?: string;
+  requiredContentCount?: number;
+}
+
+export interface ContentCreatorView {
+  id: string;
+  campaignId: string;
+  campaignApplicationId: string;
+  status: ContentStatus;
+  caption?: string;
+  notes?: string;
+  hashtags: string[];
+  metadata?: Record<string, unknown>;
+  currentVersionNumber: number;
+  rejectionReason?: string;
+  changesRequestedReason?: string;
+  submittedAt?: string;
+  reviewedAt?: string;
+  approvedAt?: string;
+  rejectedAt?: string;
+  expiredAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  campaign: ContentCampaignSummary;
+  attachments: ContentAttachmentItem[];
+  versions: ContentVersionItem[];
+  comments: ContentCommentItem[];
+}
+
+export interface ContentAdminView extends ContentCreatorView {
+  reviewedById?: string;
+  creator: { id: string; displayName: string; city?: string };
+}
+
+export type ContentDashboardCounts = Record<ContentStatus, number>;
 
 export type CommissionStatus = "PENDING" | "APPROVED" | "REJECTED" | "REFUNDED" | "PAYABLE" | "PAID";
 export type PayoutStatus = "REQUESTED" | "UNDER_REVIEW" | "APPROVED" | "PROCESSING" | "PAID" | "REJECTED";
@@ -100,6 +247,8 @@ export interface CreatorUser {
   email: string;
   displayName: string;
   avatarInitials: string;
+  // Every creator gets a DRAFT CreatorApplication at registration (both mock and real) — see
+  // DECISIONS.md ADR-012 — so this is never actually absent for a real account.
   application: CreatorApplication;
   accountStatus?: CreatorAccountStatus;
 }
@@ -116,9 +265,18 @@ export interface OfferSummary {
 
 export interface Campaign {
   id: string;
+  offerId: string;
   slug: string;
   name: string;
-  coverImage: string;
+  // Admin-only fields, distinct from the creator-facing `name`/`description` — see
+  // DECISIONS.md ADR-011. Only ever populated in admin responses.
+  internalName?: string;
+  internalNotes?: string;
+  // Mock-mode legacy — a single cover URL string. Real mode uses `media` below instead.
+  coverImage?: string;
+  // Only populated in real mode (see CampaignMediaService) — cover/gallery/video/promotional,
+  // creator-safe (no storageKey/provider metadata). Empty/absent in mock mode.
+  media?: CampaignMediaItem[];
   offer: OfferSummary;
   description: string;
   goal: string;
@@ -128,12 +286,19 @@ export interface Campaign {
   requiredElements: string[];
   forbiddenElements: string[];
   referenceContent?: string[];
+  minFollowers?: number;
+  maxFollowers?: number;
+  requiredContentCount?: number;
+  contentDeadline?: string;
   startDate?: string;
   endDate?: string;
+  applicationStartDate?: string;
   ctaLabel: string;
   commissionType: CommissionType;
-  commissionValue: number; // bps if PERCENTAGE/HYBRID, minor units if FIXED_*
-  fixedPaymentMinor?: number;
+  // Exactly one of these two is set, matching commissionType — see DECISIONS.md ADR-013.
+  commissionRateBps?: number;
+  commissionAmountMinor?: number;
+  commissionCurrency?: string;
   customerDiscountType?: DiscountType;
   customerDiscountValue?: number;
   barterEnabled: boolean;
@@ -144,8 +309,19 @@ export interface Campaign {
   status: CampaignStatus;
   requiresApproval: boolean;
   attributionWindowDays: number;
-  assets: { id: string; kind: "image" | "video" | "brief" | "caption_template"; label: string }[];
+  assets?: { id: string; kind: "image" | "video" | "brief" | "logo" | "caption_template"; label: string }[];
   category: string;
+  // Only populated when backed by the real API (see Offer/Landing's same convention).
+  availability?: CampaignAvailability;
+  applicationAvailability?: CampaignApplicationAvailability;
+  // Always "CAMPAIGN" — Offer carries no creator-commission field to inherit from in this
+  // architecture (see DECISIONS.md ADR-011); exposed for forward-compatibility with the spec's
+  // "clearly expose whether inherited or overridden" requirement.
+  commissionSource?: "CAMPAIGN";
+  archivedAt?: string;
+  // Admin-only, real-mode-only: whether the linked Offer's Landing is published (see
+  // Landing domain) — informs whether the campaign is even activatable yet.
+  landingAvailability?: "PUBLISHED" | "NOT_PUBLISHED" | "MISSING";
 }
 
 export interface CreatorCampaign {
@@ -282,6 +458,7 @@ export type LandingSectionType =
   | "BONUSES"
   | "REVIEWS"
   | "GUARANTEE"
+  | "TERMS"
   | "DELIVERY"
   | "PAYMENT"
   | "FAQ"
@@ -313,6 +490,7 @@ export interface CheckoutCustomerInput {
   phone: string;
   region?: string;
   city?: string;
+  district?: string;
   address?: string;
   email?: string;
   comment?: string;
@@ -323,6 +501,13 @@ export interface CreateOrderInput {
   variantId: string;
   promoCode?: string;
   refCode?: string;
+  // Phase 8 additions — mock mode ignores all three (no delivery-region/attribution-visit/
+  // fulfillment-method concept in the mock store); the real backend requires regionCode for
+  // PHYSICAL_PRODUCT offers (see DeliveryService.resolveDeliveryFee) and uses visitorId to link a
+  // paid order back to the ReferralVisit POST /offers/:slug/visit recorded on page load.
+  regionCode?: string;
+  visitorId?: string;
+  deliveryMethod?: string;
   paymentMethod: string;
   customer: CheckoutCustomerInput;
   idempotencyKey: string;
@@ -347,7 +532,11 @@ export interface OrderPublic {
 // ────────────────────────────────────────────────────────────────────────────
 
 export type ProductStatus = "DRAFT" | "ACTIVE" | "ARCHIVED";
-export type OfferStatus = "DRAFT" | "ACTIVE" | "PAUSED" | "EXPIRED" | "ARCHIVED";
+export type OfferStatus = "DRAFT" | "ACTIVE" | "PAUSED" | "ARCHIVED";
+// Computed, never stored — see apps/api's OffersService.computeAvailability(). An ACTIVE offer
+// past its expiresAt is still stored as ACTIVE (status transitions are admin-driven); this is
+// what tells the UI/buyer flow whether it's actually purchasable right now.
+export type OfferAvailability = "SCHEDULED" | "LIVE" | "EXPIRED" | "INACTIVE";
 export type OfferCtaType = "BUY_NOW" | "ORDER_FORM" | "APPLY_NOW" | "BOOK_CALL" | "PAY_INSTALLMENT";
 export type AdminRole = "MANAGER" | "ADMIN" | "SUPER_ADMIN";
 
@@ -403,8 +592,38 @@ export interface Offer {
   startsAt?: string;
   endsAt?: string;
   status: OfferStatus;
+  // Only populated when backed by the real API (mock mode has no scheduled job / clock-driven
+  // state to compute this from) — components must treat it as optional.
+  availability?: OfferAvailability;
   isIndexable: boolean;
   createdAt: string;
+}
+
+// Regional delivery pricing (6B Enhancement) — owned by Offer, only meaningful for
+// PHYSICAL_PRODUCT offers. Real-mode only; mock mode has no delivery-region data model, so this
+// is always `[]` there (see DECISIONS.md ADR-013).
+export interface DeliveryRegionPublic {
+  regionCode: string;
+  regionName: string;
+  feeType: "FREE" | "FIXED";
+  deliveryFeeMinor: number;
+  currency: string;
+  estimatedMinDays?: number;
+  estimatedMaxDays?: number;
+}
+
+// Authoritative response of `POST /offers/:slug/quote` — the backend computes the total, the
+// frontend never does its own arithmetic (see DECISIONS.md ADR-013).
+export interface OfferQuote {
+  priceMinor: number;
+  deliveryFeeMinor: number;
+  totalMinor: number;
+  currency: string;
+  regionRequired: boolean;
+  regionCode?: string;
+  regionName?: string;
+  estimatedMinDays?: number;
+  estimatedMaxDays?: number;
 }
 
 export interface LandingSectionAdmin {
@@ -416,9 +635,27 @@ export interface LandingSectionAdmin {
   content: Record<string, unknown>;
 }
 
+export type LandingStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
+
+// 1:1 with its Offer — no separate slug (see apps/api/prisma/schema.prisma's LandingStatus
+// comment); the public route is keyed by the Offer's own slug (`GET /offers/:slug/public`).
+export interface LandingPage {
+  id: string;
+  offerId: string;
+  template: string;
+  status: LandingStatus;
+  publishedAt?: string;
+  archivedAt?: string;
+  seoTitle?: string;
+  seoDescription?: string;
+  seoKeywords: string[];
+  ogImageUrl?: string;
+  createdAt: string;
+}
+
 export interface CampaignAsset {
   id: string;
-  kind: "image" | "video" | "brief" | "caption_template";
+  kind: "image" | "video" | "brief" | "logo" | "caption_template";
   label: string;
 }
 
@@ -582,4 +819,81 @@ export function formatMoneyMinor(amountMinor: number, currency = "UZS"): string 
 
 export function formatPercent(bps: number): string {
   return `${(bps / 100).toLocaleString("uz-UZ", { maximumFractionDigits: 1 })}%`;
+}
+
+// ---- Checkout/Payment/Order domain (Phase 8) — real backend only; distinct from the legacy
+// mock-only OrderStatus/CreateOrderInput/OrderPublic/AdminOrder shapes above, which the mock store
+// still uses unchanged. See DECISIONS.md ADR-015 for why the real OrderStatus set differs from the
+// mock-era one (NEW/CONFIRMED/COMPLETED/RETURNED vs. this phase's checkout-lifecycle-accurate set).
+export type RealOrderStatus = "CREATED" | "PAYMENT_PENDING" | "PAID" | "PROCESSING" | "SHIPPED" | "IN_TRANSIT" | "DELIVERED" | "CANCELLED" | "REFUNDED";
+export type RealPaymentProvider = "CLICK" | "PAYME" | "UZUM_NASIYA" | "CARD" | "CASH_ON_DELIVERY" | "MANUAL";
+export type RealPaymentStatus = "PENDING" | "PROCESSING" | "PAID" | "FAILED" | "CANCELLED" | "REFUNDED";
+
+export interface TrackVisitResult {
+  visitorId: string;
+  creatorDisplayName?: string;
+  promoCode?: string;
+}
+
+export interface CheckoutCustomerInfo {
+  fullName: string;
+  phone: string;
+  email?: string;
+  region?: string;
+  city?: string;
+  district?: string;
+  address?: string;
+  notes?: string;
+}
+
+export interface CreateCheckoutInput {
+  variantId?: string;
+  regionCode?: string;
+  promoCode?: string;
+  refCode?: string;
+  visitorId?: string;
+  deliveryMethod?: string;
+  paymentMethod: string;
+  customer: CheckoutCustomerInfo;
+  idempotencyKey: string;
+}
+
+export interface CheckoutOrderResult {
+  publicToken: string;
+  status: RealOrderStatus;
+  offerName: string;
+  variantName?: string;
+  customer: { fullName: string; phone: string };
+  subtotalMinor: number;
+  discountMinor: number;
+  shippingMinor: number;
+  totalMinor: number;
+  currency: string;
+  paymentRedirectUrl: string | null;
+}
+
+export interface RealAdminOrder {
+  id: string;
+  publicToken: string;
+  status: RealOrderStatus;
+  type: string;
+  offer: { id: string; name: string; slug: string };
+  campaign?: { id: string; name: string; slug: string };
+  customer: { id: string; fullName: string; phone: string; email?: string };
+  address?: { region: string; city: string; district?: string; line1: string; comment?: string };
+  items: { id: string; nameSnapshot: string; quantity: number; unitPriceMinor: number; totalMinor: number }[];
+  subtotalMinor: number;
+  discountMinor: number;
+  shippingMinor: number;
+  totalMinor: number;
+  currency: string;
+  deliveryMethod?: string;
+  notes?: string;
+  attribution?: { creatorId: string; campaignId: string; source: "PROMO_CODE" | "REFERRAL_VISIT" };
+  commission?: { id: string; creatorId: string; creatorName: string; amountMinor: number; status: string };
+  payment?: { id: string; provider: RealPaymentProvider; status: RealPaymentStatus; amountMinor: number; providerReference?: string };
+  statusHistory: { fromStatus?: RealOrderStatus; toStatus: RealOrderStatus; note?: string; createdAt: string }[];
+  refunds: { id: string; amountMinor: number; reason: string; status: string; createdAt: string }[];
+  createdAt: string;
+  updatedAt: string;
 }

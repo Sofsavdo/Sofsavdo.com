@@ -11,7 +11,7 @@ interface SessionContextValue {
   login: (email: string, password: string) => Promise<CreatorUser>;
   loginPending: boolean;
   loginError: string | null;
-  register: (email: string, fullName: string, password: string) => Promise<CreatorUser>;
+  register: (email: string, fullName: string, password: string, referralCode?: string) => Promise<CreatorUser>;
   registerPending: boolean;
   registerError: string | null;
   logout: () => void;
@@ -38,8 +38,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   });
 
   const registerMutation = useMutation({
-    mutationFn: ({ email, fullName, password }: { email: string; fullName: string; password: string }) =>
-      api.register(email, fullName, password),
+    mutationFn: ({
+      email,
+      fullName,
+      password,
+      referralCode,
+    }: {
+      email: string;
+      fullName: string;
+      password: string;
+      referralCode?: string;
+    }) => api.register(email, fullName, password, referralCode),
     onSuccess: (user) => queryClient.setQueryData(["session"], user),
   });
 
@@ -54,7 +63,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     login: (email, password) => loginMutation.mutateAsync({ email, password }),
     loginPending: loginMutation.isPending,
     loginError: loginMutation.error ? (loginMutation.error as api.ApiError).message : null,
-    register: (email, fullName, password) => registerMutation.mutateAsync({ email, fullName, password }),
+    register: (email, fullName, password, referralCode) =>
+      registerMutation.mutateAsync({ email, fullName, password, referralCode }),
     registerPending: registerMutation.isPending,
     registerError: registerMutation.error ? (registerMutation.error as api.ApiError).message : null,
     logout,

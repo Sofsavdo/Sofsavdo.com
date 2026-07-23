@@ -3,26 +3,44 @@
 import { use, useState } from "react";
 import Link from "next/link";
 import { formatMoneyMinor } from "@rosti/types";
-import type { CampaignStatus } from "@rosti/types";
-import { Alert, Badge, Button, Card, CardHeader, CardTitle, ConfirmModal, SelectField, Skeleton, StatusBadge } from "@rosti/ui";
+import { Alert, Badge, Button, Card, CardHeader, CardTitle, ConfirmModal, Skeleton, StatusBadge } from "@rosti/ui";
+import { Archive, CheckCircle2, Pause, Play } from "lucide-react";
 import {
+  useActivateCampaign,
   useAdminCampaign,
   useApproveCampaignApplication,
+  useArchiveCampaign,
   useCampaignApplications,
+  useCompleteCampaign,
+  usePauseCampaign,
   useRejectCampaignApplication,
-  useUpdateCampaign,
 } from "@/services/admin/campaigns";
 import { CampaignForm } from "@/components/admin/CampaignForm";
-import { campaignStatusMeta, campaignApplicationStatusMeta } from "@/lib/status";
+import { CampaignMediaManager } from "@/components/admin/CampaignMediaManager";
+import { campaignStatusMeta, campaignAvailabilityMeta, campaignApplicationStatusMeta } from "@/lib/status";
 import { formatCommission } from "@/lib/commission-display";
 import { ApiError } from "@/lib/api/admin";
 
-const CAMPAIGN_STATUSES: CampaignStatus[] = ["DRAFT", "OPEN", "ACTIVE", "PAUSED", "COMPLETED", "CANCELLED"];
+const USE_REAL_API = process.env.NEXT_PUBLIC_API_MODE === "real";
+
+// Mirrors CampaignsService's ALLOWED_TRANSITIONS on the backend exactly — UX convenience only,
+// the server re-checks every transition regardless.
+const ALLOWED_NEXT_ACTIONS: Record<string, Array<"activate" | "pause" | "complete" | "archive">> = {
+  DRAFT: ["activate", "archive"],
+  ACTIVE: ["pause", "complete"],
+  PAUSED: ["activate", "complete", "archive"],
+  COMPLETED: ["archive"],
+  ARCHIVED: [],
+};
 
 export default function CampaignDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const query = useAdminCampaign(id);
-  const updateCampaign = useUpdateCampaign();
+  const activateCampaign = useActivateCampaign();
+  const pauseCampaign = usePauseCampaign();
+  const completeCampaign = useCompleteCampaign();
+  const archiveCampaignMut = useArchiveCampaign();
+  const [confirmArchive, setConfirmArchive] = useState(false);
   const applicationsQuery = useCampaignApplications();
   const approveApp = useApproveCampaignApplication();
   const rejectApp = useRejectCampaignApplication();
@@ -39,6 +57,8 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
 
   const campaign = query.data;
   if (!campaign) return <Alert tone="error">Kampaniya topilmadi.</Alert>;
+
+  const nextActions = ALLOWED_NEXT_ACTIONS[campaign.status] ?? [];
 
   return (
     <div className="space-y-6">
@@ -58,20 +78,54 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
         <div className="flex items-center gap-3">
           <h1 className="font-heading text-2xl font-bold text-text-primary">{campaign.name}</h1>
           <StatusBadge tone={campaignStatusMeta[campaign.status].tone} label={campaignStatusMeta[campaign.status].label} />
+          {campaign.availability ? (
+            <StatusBadge tone={campaignAvailabilityMeta[campaign.availability].tone} label={campaignAvailabilityMeta[campaign.availability].label} />
+          ) : null}
         </div>
-        <SelectField
-          label=""
-          className="h-9 w-40"
-          value={campaign.status}
-          onChange={(e) => updateCampaign.mutate({ id: campaign.id, patch: { status: e.target.value as CampaignStatus } })}
-        >
-          {CAMPAIGN_STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {campaignStatusMeta[s].label}
-            </option>
-          ))}
-        </SelectField>
+        <div className="flex items-center gap-2">
+          {nextActions.includes("activate") ? (
+            <Button variant="outline" size="sm" disabled={activateCampaign.isPending} onClick={() => activateCampaign.mutate(campaign.id)}>
+              <Play className="mr-1.5 size-4" /> Faollashtirish
+            </Button>
+          ) : null}
+          {nextActions.includes("pause") ? (
+            <Button variant="outline" size="sm" disabled={pauseCampaign.isPending} onClick={() => pauseCampaign.mutate(campaign.id)}>
+              <Pause className="mr-1.5 size-4" /> To&apos;xtatish
+            </Button>
+          ) : null}
+          {nextActions.includes("complete") ? (
+            <Button variant="outline" size="sm" disabled={completeCampaign.isPending} onClick={() => completeCampaign.mutate(campaign.id)}>
+              <CheckCircle2 className="mr-1.5 size-4" /> Yakunlash
+            </Button>
+          ) : null}
+          {nextActions.includes("archive") ? (
+            <Button variant="outline" size="sm" onClick={() => setConfirmArchive(true)}>
+              <Archive className="mr-1.5 size-4" /> Arxivlash
+            </Button>
+          ) : null}
+        </div>
       </div>
+
+      {campaign.landingAvailability && campaign.landingAvailability !== "PUBLISHED" ? (
+        <Alert tone="warning">
+          Bog&apos;langan Landing sahifa {campaign.landingAvailability === "MISSING" ? "mavjud emas" : "e'lon qilinmagan"} — kampaniyani
+          faollashtirishdan oldin uni e&apos;lon qiling.
+        </Alert>
+      ) : null}
+
+      <ConfirmModal
+        open={confirmArchive}
+        onClose={() => setConfirmArchive(false)}
+        onConfirm={async () => {
+          await archiveCampaignMut.mutateAsync(campaign.id);
+          setConfirmArchive(false);
+        }}
+        title="Kampaniyani arxivlash"
+        description="Arxivlangan kampaniya qayta faollashtirilmaydi. Davom etishga ishonchingiz komilmi?"
+        confirmLabel="Arxivlash"
+        destructive
+        isPending={archiveCampaignMut.isPending}
+      />
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <Card>
@@ -128,7 +182,14 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
         <CardHeader>
           <CardTitle>Ushbu kampaniya bo&apos;yicha creator arizalari</CardTitle>
         </CardHeader>
-        {(applicationsQuery.data ?? []).filter((a) => a.campaignId === campaign.id).length === 0 ? (
+        {USE_REAL_API ? (
+          <Alert tone="info">
+            Arizalar alohida ko&apos;rib chiqish sahifasida boshqariladi.{" "}
+            <Link href={`/admin/campaign-applications?campaignId=${campaign.id}`} className="underline">
+              Ushbu kampaniya arizalarini ochish
+            </Link>
+          </Alert>
+        ) : (applicationsQuery.data ?? []).filter((a) => a.campaignId === campaign.id).length === 0 ? (
           <p className="font-body text-sm text-text-muted">Hozircha ariza yo&apos;q.</p>
         ) : (
           <ul className="divide-y divide-border">
@@ -167,6 +228,8 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
           </Alert>
         ) : null}
       </Card>
+
+      {USE_REAL_API ? <CampaignMediaManager campaignId={campaign.id} /> : null}
 
       <div className="mx-auto max-w-2xl">
         <CampaignForm existing={campaign} />
