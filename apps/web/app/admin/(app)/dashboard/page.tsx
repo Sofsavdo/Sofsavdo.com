@@ -99,9 +99,9 @@ export default function AdminDashboardPage() {
             <ul className="space-y-2">
               {d.tasks.map((task) => (
                 <li key={task.text}>
-                  <Link href={task.href} className="flex items-center justify-between rounded-input border border-warning/40 bg-warning/10 px-3 py-2 font-body text-sm text-text-primary hover:border-warning">
-                    {task.text}
-                    <span className="text-accent">→</span>
+                  <Link href={task.href} className="flex items-center justify-between gap-2 rounded-input border border-warning/40 bg-warning/10 px-3 py-2 font-body text-sm text-text-primary hover:border-warning">
+                    <span className="min-w-0 break-words">{task.text}</span>
+                    <span className="shrink-0 text-accent">→</span>
                   </Link>
                 </li>
               ))}
@@ -120,9 +120,9 @@ export default function AdminDashboardPage() {
           ) : (
             <ul className="space-y-2">
               {d.topOffers.map((o) => (
-                <li key={o.name} className="flex items-center justify-between font-body text-sm">
-                  <span className="text-text-primary">{o.name}</span>
-                  <span className="font-numeric tabular-nums text-text-secondary">{formatMoneyMinor(o.revenueMinor)}</span>
+                <li key={o.name} className="flex items-center justify-between gap-3 font-body text-sm">
+                  <span className="min-w-0 truncate text-text-primary">{o.name}</span>
+                  <span className="shrink-0 font-numeric tabular-nums text-text-secondary">{formatMoneyMinor(o.revenueMinor)}</span>
                 </li>
               ))}
             </ul>
@@ -137,9 +137,9 @@ export default function AdminDashboardPage() {
           ) : (
             <ul className="space-y-2">
               {d.topCreators.map((c) => (
-                <li key={c.name} className="flex items-center justify-between font-body text-sm">
-                  <span className="text-text-primary">{c.name}</span>
-                  <span className="font-numeric tabular-nums text-text-secondary">{formatMoneyMinor(c.revenueMinor)}</span>
+                <li key={c.name} className="flex items-center justify-between gap-3 font-body text-sm">
+                  <span className="min-w-0 truncate text-text-primary">{c.name}</span>
+                  <span className="shrink-0 font-numeric tabular-nums text-text-secondary">{formatMoneyMinor(c.revenueMinor)}</span>
                 </li>
               ))}
             </ul>

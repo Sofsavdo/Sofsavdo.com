@@ -86,6 +86,14 @@ describe("ClickPaymentAdapter", () => {
       ).toThrow(expect.objectContaining({ code: "INVALID_PAYMENT_SIGNATURE" }));
     });
 
+    it("rejects a callback whose service_id doesn't match our configured service_id, even with an otherwise-valid signature for that value", () => {
+      const fields = { click_trans_id: "555", service_id: "9999", merchant_trans_id: "pay1", amount: "150000.00", action: "0", sign_time: "2026-07-22 10:00:00" };
+      // A real, correctly-computed signature for service_id "9999" — proves the rejection is the
+      // new service_id check, not an incidental signature mismatch.
+      const sign_string = sign([fields.click_trans_id, fields.service_id, SECRET, fields.merchant_trans_id, fields.amount, fields.action, fields.sign_time]);
+      expect(() => adapter.verifyCallback({ ...fields, error: "0", error_note: "Success", sign_string })).toThrow(expect.objectContaining({ code: "INVALID_PAYMENT_SIGNATURE" }));
+    });
+
     it("rejects a callback missing required fields before even checking the signature", () => {
       expect(() => adapter.verifyCallback({ amount: "100.00" })).toThrow(expect.objectContaining({ code: "INVALID_PAYMENT_SIGNATURE" }));
     });

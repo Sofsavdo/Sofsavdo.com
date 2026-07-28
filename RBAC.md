@@ -14,7 +14,7 @@ permission keys, not one compound string — `PermissionsGuard` checks membershi
 future "content-only" role could read products without being able to edit them). Every entry below
 is a distinct row in the `Permission` table.
 
-## Full permission list (51)
+## Full permission list (65)
 
 | Domain | Permission key |
 |---|---|
@@ -72,6 +72,17 @@ is a distinct row in the `Permission` table.
 | User | `user.read` |
 | User | `user.manage` |
 | Audit | `audit.read` |
+| Notification | `notification.read` |
+| Notification | `notification.manage` |
+| Onboarding (creator account admission) | `onboarding.read` |
+| Onboarding (creator account admission) | `onboarding.review` |
+| Onboarding (creator account admission) | `onboarding.approve` |
+| Onboarding (creator account admission) | `onboarding.reject` |
+| Onboarding (creator account admission) | `onboarding.revise` |
+| Role (staff role/permission management) | `role.read` |
+| Role (staff role/permission management) | `role.manage` |
+| Refund (admin review decision) | `refund.read` |
+| Refund (admin review decision) | `refund.manage` |
 
 **6B Enhancement note:** `referral.read`/`referral.manage` were reserved-but-unused rows before this
 checkpoint (no admin route consumed them yet); they're now the real gate for the creator-to-creator
@@ -98,6 +109,68 @@ Public checkout/payment endpoints (`/offers/:slug/checkout`, `/offers/:slug/visi
 by design — a customer never has a staff session — and are not gated by any RBAC key at all; every
 validation there is a domain-level check (offer/campaign active, stock, signature verification),
 not a permission check. See DECISIONS.md ADR-015.
+
+**Phase 9 note:** `commission.read`/`commission.adjust` and `payout.read`/`payout.approve`/
+`payout.pay` all already existed (reserved, unused — no real settlement/payout service existed
+before this phase). The Wallet/Commission Settlement/Payout domain is the first to wire admin
+routes behind them; **zero new permission keys were added.** `commission.adjust` gates all three
+settlement transitions (approve/reject/mark-payable); `payout.approve` gates the review decisions
+(approve/reject) while `payout.pay` gates the money-movement steps (processing/paid/failed) — MANAGER
+keeps read-only access to both resources, matching the matrix below unchanged. Creator-facing
+payout method and withdrawal routes (`/creator/wallet/*`, `/creator/payout-methods/*`,
+`/creator/payouts/*`) are ownership-scoped via `RequireCreatorGuard` in the service layer, not
+gated by these RBAC keys at all — same pattern as Phase 7A's Content domain. See DECISIONS.md
+ADR-016.
+
+**Phase 10 note:** `notification.read`/`notification.manage` are **genuinely new** — unlike every
+prior phase since 6B, nothing reserved these keys ahead of time (the Phase 6 spec's original
+permission list never anticipated a Communication & Notification domain). `notification.read`
+gates the admin notification queue and failed-deliveries views; `notification.manage` gates retry
+actions — MANAGER gets read-only, ADMIN+ gets manage, the same split as every other two-verb
+domain in this file. Creator-facing notification routes (`/creator/notifications/*`,
+`/creator/notification-preferences`) are ownership-scoped via `RequireCreatorGuard`-equivalent
+`userId`-from-JWT checks (not `creatorId`, since admins also have notifications) — see DECISIONS.md
+ADR-017.
+
+**Phase 11 note:** `onboarding.read/review/approve/reject/revise` are **genuinely new** — the
+pre-existing `creator.read/review/suspend/block` keys are shaped for a future admin *account*
+moderation domain (suspend/block are `UserStatus` verbs), not application decisions, so they are
+left untouched for that domain instead of being repurposed here. `application.*` was not reused
+either — it already gates CampaignApplication review (a creator applying to join a *Campaign*,
+distinct from whether someone may be a creator on the platform at all — see ADR-012). The split
+mirrors `content.*` exactly: MANAGER gets `onboarding.read`/`onboarding.review` (view the queue,
+move a submission into UNDER_REVIEW); only ADMIN+ can decide (`approve`/`reject`/`revise`, where
+"revise" is this file's established spelling of "request changes"). Creator-facing onboarding
+routes (`/creator/onboarding/*`) are deliberately **not** gated by `RequireCreatorGuard` — that
+guard requires an *already-approved* application, which would make it impossible for an unapproved
+creator to ever submit one; ownership is enforced by reading the creator id off the JWT, same
+pattern as `/creator/profile`. See DECISIONS.md ADR-018.
+
+**Phase 12 note:** `role.read`/`role.manage` and `refund.read`/`refund.manage` are the only two
+genuinely new domains this phase added. Everything else it touches already had a fitting key
+reserved and unused: staff account management uses `user.read`/`user.manage` (real CRUD for the
+first time); creator account administration (list/detail/stats/history/summaries/suspend/block)
+uses `creator.read`/`creator.review`/`creator.suspend`/`creator.block` — `creator.review` now gates
+the account *detail* view (stats, campaign history, earnings/payout/referral summaries), distinct
+from `onboarding.review` (the onboarding application queue, Phase 11); platform payments visibility
+uses `payment.read` (read-only, per this phase's own spec — no `payment.manage` was added); Settings
+uses `settings.read`/`settings.write`; the audit-log viewer uses `audit.read`. `refund.read`/
+`refund.manage` are distinct from the pre-existing `order.refund` (unchanged — still gates refund
+*creation* from the order detail page, ADR-015); the new keys gate the *review decision*
+(approve/reject) layered on top of an already-created `Refund` row, which previously had no code
+path to ever leave its initial `REQUESTED` status. See DECISIONS.md ADR-019 for why approve/reject
+does not re-trigger or reverse the order-level financial action `OrdersService.createRefund`
+already performs synchronously at request time.
+
+**Phase 13 note:** `analytics.read`/`analytics.export` already existed, reserved and unused since
+Phase 6A — this phase is the first to actually wire admin routes behind them, and **zero new
+permission keys were added**, the same outcome Phase 8/9 had. All 10 new `/admin/analytics/*` GET
+routes (Executive/Creator/Campaign/Product/Payment/Refund/Customer) require `analytics.read` alone
+— every staff role sees every analytics view identically; this domain does not introduce per-role
+data masking, matching this file's own stated MVP philosophy ("a role either has a permission or it
+doesn't, no per-resource scoping"). The one `/admin/analytics/export` route additionally requires
+`analytics.export`, changing nothing in practice since no role in `DEFAULT_ROLE_PERMISSIONS` has
+`analytics.export` without also having `analytics.read`. See DECISIONS.md ADR-020.
 
 ## Role → permission matrix
 
@@ -161,6 +234,17 @@ per-resource scoping in the MVP.
 | `user.read` | | | ✓ |
 | `user.manage` | | | ✓ |
 | `audit.read` | ✓ | ✓ | ✓ |
+| `notification.read` | ✓ | ✓ | ✓ |
+| `notification.manage` | | ✓ | ✓ |
+| `onboarding.read` | ✓ | ✓ | ✓ |
+| `onboarding.review` | ✓ | ✓ | ✓ |
+| `onboarding.approve` | | ✓ | ✓ |
+| `onboarding.reject` | | ✓ | ✓ |
+| `onboarding.revise` | | ✓ | ✓ |
+| `role.read` | | | ✓ |
+| `role.manage` | | | ✓ |
+| `refund.read` | ✓ | ✓ | ✓ |
+| `refund.manage` | | ✓ | ✓ |
 
 A plain creator (a `User` with a `CreatorProfile` and no `UserRole` rows at all) has **zero**
 entries in this table — `RolesService.getRoleKeysAndPermissionsForUser` returns an empty array for

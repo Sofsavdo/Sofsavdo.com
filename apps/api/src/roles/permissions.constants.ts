@@ -75,6 +75,38 @@ export const PERMISSIONS = [
   "user.read",
   "user.manage",
   "audit.read",
+  // Communication & Notification domain (Phase 10) — genuinely new keys, unlike Phase 8/9's
+  // "zero new permissions" (nothing reserved these in the Phase 6 spec's original list).
+  // ".read" covers the admin notification queue/failed-deliveries views; ".manage" covers retry
+  // actions — same read/write split as every other two-verb domain in this file.
+  "notification.read",
+  "notification.manage",
+  // Onboarding creator-application review (Phase 11) — the pre-existing "creator.*" keys
+  // (read/review/suspend/block) are shaped for future admin *account* moderation (suspend/block
+  // are UserStatus verbs), not application decisions, so reusing them here would leave that future
+  // domain without its own review verb. "application.*" is already claimed by CampaignApplication
+  // review (a creator applying to join a Campaign — see admin-applications.controller.ts). This is
+  // a distinct domain: whether someone may be a creator on the platform at all. Read/review =
+  // MANAGER, approve/reject/revise = ADMIN — same split as content.* (MANAGER can move a
+  // submission into review, only ADMIN+ decides).
+  "onboarding.read",
+  "onboarding.review",
+  "onboarding.approve",
+  "onboarding.reject",
+  "onboarding.revise",
+  // Admin Operations domain (Phase 12) — the only two genuinely new keys this phase needs.
+  // Everything else it touches already had a fitting key reserved: Users (user.read/user.manage),
+  // Creators (creator.read/creator.review/creator.suspend/creator.block — "review" now means the
+  // creator *account* detail view: stats/history/summaries, distinct from onboarding.review which
+  // is the onboarding application queue), Payments (payment.read, read-only per this phase's own
+  // spec), Settings (settings.read/settings.write), Audit (audit.read). Roles has no admin
+  // permission key at all yet, and refund approve/reject is a genuinely new decision action
+  // distinct from `order.refund` (which stays as-is, gating refund *creation* on the order detail
+  // page — see DECISIONS.md ADR-019). Read/manage = same two-verb split as every other domain.
+  "role.read",
+  "role.manage",
+  "refund.read",
+  "refund.manage",
 ] as const;
 
 export type PermissionKey = (typeof PERMISSIONS)[number];
@@ -101,6 +133,10 @@ const MANAGER_PERMISSIONS: PermissionKey[] = [
   "payout.read",
   "analytics.read",
   "audit.read",
+  "notification.read",
+  "onboarding.read",
+  "onboarding.review",
+  "refund.read",
 ];
 
 const ADMIN_PERMISSIONS: PermissionKey[] = [
@@ -135,6 +171,11 @@ const ADMIN_PERMISSIONS: PermissionKey[] = [
   "payout.approve",
   "payout.pay",
   "analytics.export",
+  "notification.manage",
+  "onboarding.approve",
+  "onboarding.reject",
+  "onboarding.revise",
+  "refund.manage",
 ];
 
 const SUPER_ADMIN_PERMISSIONS: PermissionKey[] = [
@@ -145,6 +186,8 @@ const SUPER_ADMIN_PERMISSIONS: PermissionKey[] = [
   "settings.write",
   "user.read",
   "user.manage",
+  "role.read",
+  "role.manage",
 ];
 
 export const DEFAULT_ROLE_PERMISSIONS: Record<"manager" | "admin" | "super_admin", PermissionKey[]> = {

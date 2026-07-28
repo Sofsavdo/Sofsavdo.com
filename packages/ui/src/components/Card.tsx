@@ -4,7 +4,10 @@ import { cn } from "../lib/cn";
 export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn("rounded-card border border-border bg-surface p-6", className)}
+      // shadow-card: DESIGN_SYSTEM.md always specified "no drop shadow beyond a 1–2px ambient
+      // shadow" — this applies that token (added Phase 15) so every Card gets subtle edge
+      // definition instead of reading perfectly flat against the page background.
+      className={cn("rounded-card border border-border bg-surface p-6 shadow-card", className)}
       {...props}
     />
   );

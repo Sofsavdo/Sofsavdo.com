@@ -23,6 +23,7 @@ import {
   History,
   Gift,
   SlidersHorizontal,
+  Bell,
 } from "lucide-react";
 import type { AdminRole } from "@rosti/types";
 
@@ -95,6 +96,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
   {
     label: "Tizim",
     items: [
+      { href: "/admin/notifications", label: "Bildirishnomalar", icon: Bell },
       { href: "/admin/users", label: "Foydalanuvchilar", icon: UserCog, minRole: "SUPER_ADMIN" },
       { href: "/admin/roles", label: "Rollar", icon: ShieldCheck, minRole: "SUPER_ADMIN" },
       { href: "/admin/settings", label: "Sozlamalar", icon: Settings, minRole: "SUPER_ADMIN" },

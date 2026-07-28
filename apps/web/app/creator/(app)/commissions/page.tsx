@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { CommissionStatus } from "@rosti/types";
 import { formatMoneyMinor } from "@rosti/types";
-import { Alert, Badge, EmptyState, SelectField, Skeleton } from "@rosti/ui";
+import { Alert, Badge, EmptyState, MobileDataCard, SelectField, Skeleton } from "@rosti/ui";
 import { useCommissions } from "@/services/finance";
 import { commissionStatusMeta } from "@/lib/status";
 
@@ -47,38 +47,54 @@ export default function CommissionsPage() {
       {filtered.length === 0 ? (
         <EmptyState title="Bu holatda komissiya yo'q" />
       ) : (
-        <div className="overflow-x-auto rounded-card border border-border">
-          <table className="w-full text-left font-body text-sm">
-            <thead className="bg-bg text-text-secondary">
-              <tr>
-                <th className="whitespace-nowrap px-4 py-2.5 font-medium">Sana</th>
-                <th className="whitespace-nowrap px-4 py-2.5 font-medium">Kampaniya</th>
-                <th className="whitespace-nowrap px-4 py-2.5 text-right font-medium">Baza</th>
-                <th className="whitespace-nowrap px-4 py-2.5 text-right font-medium">Komissiya</th>
-                <th className="whitespace-nowrap px-4 py-2.5 font-medium">Holat</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((c) => (
-                <tr key={c.id} className="border-t border-border">
-                  <td className="whitespace-nowrap px-4 py-2.5 text-text-secondary">
-                    {new Date(c.createdAt).toLocaleDateString("uz-UZ")}
-                  </td>
-                  <td className="px-4 py-2.5 text-text-primary">{c.campaignName}</td>
-                  <td className="whitespace-nowrap px-4 py-2.5 text-right font-numeric tabular-nums text-text-secondary">
-                    {formatMoneyMinor(c.baseAmountMinor)}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-2.5 text-right font-numeric tabular-nums text-text-primary">
-                    {formatMoneyMinor(c.amountMinor)}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-2.5">
-                    <Badge tone={commissionStatusMeta[c.status].tone}>{commissionStatusMeta[c.status].label}</Badge>
-                  </td>
+        <>
+          <div className="space-y-3 md:hidden">
+            {filtered.map((c) => (
+              <MobileDataCard
+                key={c.id}
+                title={c.campaignName}
+                meta={<Badge tone={commissionStatusMeta[c.status].tone}>{commissionStatusMeta[c.status].label}</Badge>}
+                fields={[
+                  { label: "Sana", value: new Date(c.createdAt).toLocaleDateString("uz-UZ") },
+                  { label: "Baza", value: formatMoneyMinor(c.baseAmountMinor) },
+                  { label: "Komissiya", value: formatMoneyMinor(c.amountMinor), emphasis: true },
+                ]}
+              />
+            ))}
+          </div>
+          <div className="hidden overflow-x-auto rounded-card border border-border md:block">
+            <table className="w-full text-left font-body text-sm">
+              <thead className="bg-bg text-text-secondary">
+                <tr>
+                  <th className="whitespace-nowrap px-4 py-2.5 font-medium">Sana</th>
+                  <th className="whitespace-nowrap px-4 py-2.5 font-medium">Kampaniya</th>
+                  <th className="whitespace-nowrap px-4 py-2.5 text-right font-medium">Baza</th>
+                  <th className="whitespace-nowrap px-4 py-2.5 text-right font-medium">Komissiya</th>
+                  <th className="whitespace-nowrap px-4 py-2.5 font-medium">Holat</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {filtered.map((c) => (
+                  <tr key={c.id} className="border-t border-border">
+                    <td className="whitespace-nowrap px-4 py-2.5 text-text-secondary">
+                      {new Date(c.createdAt).toLocaleDateString("uz-UZ")}
+                    </td>
+                    <td className="px-4 py-2.5 text-text-primary">{c.campaignName}</td>
+                    <td className="whitespace-nowrap px-4 py-2.5 text-right font-numeric tabular-nums text-text-secondary">
+                      {formatMoneyMinor(c.baseAmountMinor)}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-2.5 text-right font-numeric tabular-nums text-text-primary">
+                      {formatMoneyMinor(c.amountMinor)}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-2.5">
+                      <Badge tone={commissionStatusMeta[c.status].tone}>{commissionStatusMeta[c.status].label}</Badge>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </div>
   );

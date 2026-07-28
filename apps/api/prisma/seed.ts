@@ -6,45 +6,13 @@ import { PrismaClient, CommissionType, DiscountType, SocialPlatform, Prisma } fr
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 import * as argon2 from "argon2";
-import { DEFAULT_ROLE_PERMISSIONS, PERMISSIONS } from "../src/roles/permissions.constants";
 import { createWithUniqueCode, generatePromoCode, generateReferralCode, randomSuffix } from "../src/common/codes/code-generator";
+import { seedRolesAndPermissions } from "./lib/seed-roles-permissions";
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL ?? "postgresql://rosti:rosti@localhost:5432/rosti" });
 const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
 
 const DEV_PASSWORD = "Rosti#2026dev";
-
-async function seedRolesAndPermissions() {
-  for (const key of PERMISSIONS) {
-    await prisma.permission.upsert({
-      where: { key },
-      update: {},
-      create: { key, label: key },
-    });
-  }
-
-  const roleDefs: { key: "manager" | "admin" | "super_admin"; name: string }[] = [
-    { key: "manager", name: "Manager" },
-    { key: "admin", name: "Admin" },
-    { key: "super_admin", name: "Super Admin" },
-  ];
-
-  for (const def of roleDefs) {
-    const role = await prisma.role.upsert({
-      where: { key: def.key },
-      update: { name: def.name },
-      create: { key: def.key, name: def.name },
-    });
-    const permKeys = DEFAULT_ROLE_PERMISSIONS[def.key];
-    const permissions = await prisma.permission.findMany({ where: { key: { in: permKeys } } });
-    await prisma.rolePermission.deleteMany({ where: { roleId: role.id } });
-    await prisma.rolePermission.createMany({
-      data: permissions.map((p) => ({ roleId: role.id, permissionId: p.id })),
-      skipDuplicates: true,
-    });
-  }
-  console.log(`Seeded ${PERMISSIONS.length} permissions and 3 roles.`);
-}
 
 async function seedStaffUsers() {
   const passwordHash = await argon2.hash(DEV_PASSWORD);
@@ -343,7 +311,19 @@ async function printSummary() {
 }
 
 async function main() {
-  await seedRolesAndPermissions();
+  // Phase 14 hard guard: this script seeds demo creators/campaigns/promo codes and gives every
+  // account the same publicly-known DEV_PASSWORD — never something a production database should
+  // ever run, accidentally or otherwise. There is no override flag by design; production's first
+  // super admin must go through a dedicated one-time bootstrap procedure instead (see RUNBOOK.md).
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "Refusing to run prisma/seed.ts against a production environment (NODE_ENV=production). " +
+        "This script creates demo accounts that all share one publicly-known password and is for " +
+        "local/staging development only. See RUNBOOK.md for the production super-admin bootstrap procedure.",
+    );
+  }
+
+  await seedRolesAndPermissions(prisma);
   await seedStaffUsers();
   const creators = await seedCreators();
   const { offer } = await seedCatalog();

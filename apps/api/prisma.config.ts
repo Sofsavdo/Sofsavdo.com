@@ -19,6 +19,7 @@ export default defineConfig({
   // `prisma studio` and the running app never disagree about how they connect.
   adapter: async () => {
     const { Pool } = await import("pg");
-    return new PrismaPg(new Pool({ connectionString: process.env.DATABASE_URL }));
+    // Mirrors src/prisma/prisma.service.ts's own connectionTimeoutMillis — see that file's comment.
+    return new PrismaPg(new Pool({ connectionString: process.env.DATABASE_URL, connectionTimeoutMillis: 10_000 }));
   },
 });

@@ -1,6 +1,8 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Logger } from "@nestjs/common";
 import type { Request, Response } from "express";
 import { DomainException } from "../errors/domain-error";
+import type { ErrorReportingPort } from "../error-reporting/error-reporting.port";
+import { NoopErrorReportingAdapter } from "../error-reporting/noop-error-reporting.adapter";
 
 interface ErrorBody {
   statusCode: number;
@@ -18,15 +20,32 @@ interface ErrorBody {
 export class AllExceptionsFilter implements ExceptionFilter {
   private readonly logger = new Logger(AllExceptionsFilter.name);
 
+  // Not DI-managed (this class is constructed directly in main.ts, before Nest's application
+  // context exists, so it can catch bootstrap-time exceptions too) — the reporting adapter is
+  // built the same way and passed in, defaulting to a no-op exactly like every other optional
+  // integration in this codebase (Telegram/email/storage all no-op or fail loudly per-call rather
+  // than being required for the app to start).
+  constructor(private readonly errorReporting: ErrorReportingPort = new NoopErrorReportingAdapter()) {}
+
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const res = ctx.getResponse<Response>();
-    const req = ctx.getRequest<Request & { requestId?: string }>();
+    const req = ctx.getRequest<Request & { requestId?: string; user?: { userId?: string } }>();
     const requestId = req.requestId ?? "unknown";
 
     const body = this.toErrorBody(exception, requestId);
     if (body.statusCode >= 500) {
       this.logger.error(`[${requestId}] ${body.message}`, exception instanceof Error ? exception.stack : undefined);
+      if (exception instanceof Error) {
+        this.errorReporting.report(exception, {
+          requestId,
+          statusCode: body.statusCode,
+          code: body.code,
+          method: req.method,
+          path: req.path,
+          userId: req.user?.userId,
+        });
+      }
     }
     res.status(body.statusCode).json(body);
   }

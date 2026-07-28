@@ -25,6 +25,6 @@
       "@/*": ["src/*"]
     }
   },
-  "include": ["src/**/*.ts", "prisma/seed.ts"],
+  "include": ["src/**/*.ts", "prisma/seed.ts", "prisma/bootstrap-admin.ts", "prisma/lib/**/*.ts", "scripts/**/*.ts"],
   "exclude": ["node_modules", "dist", "test"]
 }

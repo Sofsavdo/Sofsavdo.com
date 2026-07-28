@@ -37,9 +37,9 @@ export function Hero({
     <section className="mx-auto max-w-page px-pad-mobile py-10 md:px-pad-desktop md:py-16">
       <div className="grid grid-cols-1 items-center gap-8 md:grid-cols-2">
         <div>
-          <h1 className="font-heading text-3xl font-bold text-text-primary md:text-4xl">{offer.headline}</h1>
+          <h1 className="break-words font-heading text-3xl font-bold text-text-primary md:text-4xl">{offer.headline}</h1>
           <p className="mt-4 font-body text-lg text-text-secondary">{offer.subheadline}</p>
-          <div className="mt-6 flex items-baseline gap-3">
+          <div className="mt-6 flex flex-wrap items-baseline gap-3">
             <span className="font-numeric text-3xl font-bold tabular-nums text-accent">
               {formatMoneyMinor(selectedVariant.priceMinor, offer.currency)}
             </span>
@@ -173,7 +173,7 @@ export function Gallery({ images }: { images: string[] }) {
 export function PricingSection({ offer }: { offer: Offer }) {
   return (
     <section className="mx-auto max-w-page px-pad-mobile py-8 text-center md:px-pad-desktop">
-      <div className="flex items-baseline justify-center gap-3">
+      <div className="flex flex-wrap items-baseline justify-center gap-3">
         <span className="font-numeric text-3xl font-bold tabular-nums text-accent">
           {formatMoneyMinor(offer.priceMinor, offer.currency)}
         </span>

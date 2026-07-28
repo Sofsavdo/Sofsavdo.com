@@ -13,7 +13,11 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
 
   constructor(config: ConfigService) {
     const databaseUrl = config.get<string>("databaseUrl")!;
-    const pool = new Pool({ connectionString: databaseUrl });
+    // `pg`'s own default is `connectionTimeoutMillis: 0` — no timeout at all, so a stalled
+    // handshake against a flaky/proxied remote Postgres (observed against this project's Railway
+    // instance more than once) waits forever instead of failing. 10s surfaces that as a clear,
+    // bounded P1001/DatabaseNotReachable error instead of an indefinite hang.
+    const pool = new Pool({ connectionString: databaseUrl, connectionTimeoutMillis: 10_000 });
     // Without an "error" listener, an idle pooled connection dropped by the server (routine with
     // a remote/proxied Postgres — observed live against Railway during 6B verification) emits an
     // unhandled "error" event and crashes the entire Node process. node-postgres documents this

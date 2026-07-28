@@ -1,6 +1,18 @@
 @import "tailwindcss";
 @import "@rosti/config/tokens.css";
 
+/* Tailwind v4's zero-config content auto-detection only walks the directory tree from this file
+   outward within apps/web's own project root — it never reaches packages/ui (a sibling workspace
+   package outside that tree), so any utility class used ONLY inside a packages/ui component and
+   never coincidentally also used somewhere in apps/web is silently never generated at all. This
+   was a real, confirmed bug: `hidden md:block` on DataTableShell's table wrapper (Phase 15) never
+   produced a `.md\:block` rule anywhere in the built CSS, even after a full `.next` cache wipe and
+   dev-server restart, while `md:hidden`/`md:flex` "worked" only because those exact strings also
+   happen to appear in apps/web's own AdminShell.tsx/CreatorShell.tsx. Confirmed via direct
+   CSSOM inspection: `document.styleSheets[0]`'s `(min-width: 48rem)` media block had no
+   `.md\:block` rule before this fix. `@source` tells Tailwind to scan this directory too. */
+@source "../../../packages/ui/src";
+
 body {
   background-color: var(--color-bg);
   color: var(--color-text-primary);

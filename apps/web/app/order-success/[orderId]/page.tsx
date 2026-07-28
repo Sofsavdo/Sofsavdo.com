@@ -4,6 +4,7 @@ import { use } from "react";
 import Link from "next/link";
 import { formatMoneyMinor } from "@rosti/types";
 import { Card, CardHeader, CardTitle, Skeleton } from "@rosti/ui";
+import { BRAND } from "@rosti/config/brand";
 import { CheckCircle2 } from "lucide-react";
 import { useOrderPublic } from "@/services/offer";
 
@@ -90,7 +91,7 @@ export default function OrderSuccessPage({ params }: { params: Promise<{ orderId
       </Card>
 
       <p className="mt-6 text-center font-body text-xs text-text-muted">
-        Savol yuzasidan support@rosti.uz manziliga murojaat qiling.
+        Savol yuzasidan {BRAND.supportEmail} manziliga murojaat qiling.
       </p>
     </div>
   );

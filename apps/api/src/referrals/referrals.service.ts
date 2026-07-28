@@ -135,6 +135,27 @@ export class ReferralsService {
   // ---- Milestone hooks (called from CreatorApplicationsService — the only real activity source
   // today; see the module-level comment) ----
 
+  // Onboarding CreatorApplication reaches SUBMITTED for the first time (Phase 11) — the
+  // `onboardingCompletedAt` timestamp was designed into the schema back in the 6B Enhancement
+  // checkpoint and stayed NULL until this domain existed to emit the integration event (see
+  // DECISIONS.md ADR-018). No milestone/reward type maps to onboarding submission or approval (see
+  // ReferralMilestoneType in schema.prisma) — these are informational timestamps for
+  // activity-classification only, not reward-triggering events, so unlike
+  // onCampaignApplicationApproved below there is no rule-matching/reward-creation step here.
+  async onOnboardingSubmitted(referredCreatorId: string): Promise<void> {
+    const referral = await this.prisma.creatorReferral.findUnique({ where: { referredCreatorId } });
+    if (!referral || referral.onboardingCompletedAt) return;
+    await this.prisma.creatorReferral.update({ where: { id: referral.id }, data: { onboardingCompletedAt: new Date() } });
+  }
+
+  // Onboarding CreatorApplication reaches APPROVED for the first time (Phase 11) — same dormant-
+  // field-now-wired pattern as onOnboardingSubmitted above, for `creatorApprovedAt`.
+  async onCreatorApproved(referredCreatorId: string): Promise<void> {
+    const referral = await this.prisma.creatorReferral.findUnique({ where: { referredCreatorId } });
+    if (!referral || referral.creatorApprovedAt) return;
+    await this.prisma.creatorReferral.update({ where: { id: referral.id }, data: { creatorApprovedAt: new Date() } });
+  }
+
   // First-ever CampaignApplication submission by a referred creator.
   async onCampaignApplicationSubmitted(referredCreatorId: string): Promise<void> {
     const referral = await this.prisma.creatorReferral.findUnique({ where: { referredCreatorId } });

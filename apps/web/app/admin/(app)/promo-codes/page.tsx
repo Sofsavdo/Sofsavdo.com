@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { formatPercent, formatMoneyMinor } from "@rosti/types";
-import { Badge, DataTableShell } from "@rosti/ui";
+import { Badge, DataTableShell, MobileDataCard } from "@rosti/ui";
 import { useAdminPromoCodes } from "@/services/admin/marketing";
 
 export default function AdminPromoCodesPage() {
@@ -25,6 +25,19 @@ export default function AdminPromoCodesPage() {
       onRetry={() => query.refetch()}
       isEmpty={filtered.length === 0}
       emptyTitle="Promo kod topilmadi"
+      mobileCards={filtered.map((p) => (
+        <MobileDataCard
+          key={p.code}
+          title={p.code}
+          meta={<Badge tone={p.isActive ? "success" : "neutral"}>{p.isActive ? "Faol" : "Nofaol"}</Badge>}
+          fields={[
+            { label: "Creator", value: p.creatorName },
+            { label: "Campaign", value: p.campaignName },
+            { label: "Chegirma", value: p.discountValue === 0 ? "—" : p.discountType === "PERCENTAGE" ? formatPercent(p.discountValue) : formatMoneyMinor(p.discountValue) },
+            { label: "Ishlatilgan / Limit", value: p.usageLimit ? `${p.usageCount} / ${p.usageLimit}` : p.usageCount, emphasis: true },
+          ]}
+        />
+      ))}
     >
       <table className="w-full text-left font-body text-sm">
         <thead className="bg-bg text-text-secondary">

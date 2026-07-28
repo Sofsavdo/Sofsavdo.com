@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Plus } from "lucide-react";
-import { Button, DataTableShell, StatusBadge } from "@rosti/ui";
+import { Button, DataTableShell, MobileDataCard, StatusBadge } from "@rosti/ui";
 import { useAdminCampaigns } from "@/services/admin/campaigns";
 import { campaignStatusMeta } from "@/lib/status";
 import { formatCommission } from "@/lib/commission-display";
@@ -35,6 +35,19 @@ export default function AdminCampaignsPage() {
       onRetry={() => query.refetch()}
       isEmpty={filtered.length === 0}
       emptyTitle="Campaign topilmadi"
+      mobileCards={filtered.map((c) => (
+        <MobileDataCard
+          key={c.id}
+          href={`/admin/campaigns/${c.id}`}
+          title={c.name}
+          meta={<StatusBadge tone={campaignStatusMeta[c.status].tone} label={campaignStatusMeta[c.status].label} />}
+          fields={[
+            { label: "Offer", value: c.offer.name },
+            { label: "Komissiya", value: formatCommission(c) },
+            { label: "Creatorlar", value: `${c.approvedCreatorCount}/${c.creatorLimit}`, emphasis: true },
+          ]}
+        />
+      ))}
     >
       <table className="w-full text-left font-body text-sm">
         <thead className="bg-bg text-text-secondary">

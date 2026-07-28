@@ -24,6 +24,11 @@ export function formatCommissionValue(commissionType: "PERCENTAGE" | "FIXED_AMOU
 
 export function formatDeadline(iso: string): string {
   const days = Math.ceil((new Date(iso).getTime() - Date.now()) / 86_400_000);
+  // A malformed/empty deadline (real fixtures observed in a shared test database — see
+  // PROJECT_STATUS.md) produces an Invalid Date, and NaN silently fails every numeric
+  // comparison below it, falling through to the last branch as the literal string "NaN kun
+  // qoldi" — a visibly broken label rather than a graceful fallback.
+  if (Number.isNaN(days)) return "Muddat noma'lum";
   if (days < 0) return "Muddati tugagan";
   if (days === 0) return "Bugun tugaydi";
   return `${days} kun qoldi`;

@@ -124,6 +124,45 @@ export async function forgotPassword(email: string): Promise<{ sent: boolean }> 
   return { sent: true };
 }
 
+interface BackendOnboardingApplication {
+  id: string;
+  status: string;
+  currentStep: number;
+  data: unknown;
+  reviewNote: string | null;
+  submittedAt: string | null;
+  reviewedAt: string | null;
+}
+
+function mapOnboardingApplication(a: BackendOnboardingApplication): CreatorUser["application"] {
+  return {
+    id: a.id,
+    status: a.status as CreatorUser["application"]["status"],
+    currentStep: a.currentStep,
+    data: (a.data ?? {}) as CreatorUser["application"]["data"],
+    reviewNote: a.reviewNote ?? undefined,
+    submittedAt: a.submittedAt ?? undefined,
+    reviewedAt: a.reviewedAt ?? undefined,
+  };
+}
+
+// Onboarding CreatorApplication draft/submit/resubmit (Phase 11) — distinct from the
+// CampaignApplication update*/submit*/resubmit* functions below (a creator applying to join a
+// specific Campaign, see ADR-012): this is the account-admission onboarding flow, gated behind
+// nothing but a valid session (see /creator/onboarding — not RequireCreatorGuard, same reasoning
+// as getSession above). See DECISIONS.md ADR-018.
+export async function updateOnboardingApplication(currentStep: number, formData: Record<string, unknown>): Promise<CreatorUser["application"]> {
+  return mapOnboardingApplication(await apiRequest<BackendOnboardingApplication>("/creator/onboarding", { method: "PATCH", body: { currentStep, formData } }));
+}
+
+export async function submitOnboardingApplication(): Promise<CreatorUser["application"]> {
+  return mapOnboardingApplication(await apiRequest<BackendOnboardingApplication>("/creator/onboarding/submit", { method: "POST" }));
+}
+
+export async function resubmitOnboardingApplication(): Promise<CreatorUser["application"]> {
+  return mapOnboardingApplication(await apiRequest<BackendOnboardingApplication>("/creator/onboarding/resubmit", { method: "POST" }));
+}
+
 interface BackendCreatorCampaignOffer {
   id: string;
   name: string;

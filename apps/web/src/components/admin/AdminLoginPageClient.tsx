@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { Alert, Button, Card, CardHeader, CardTitle, TextField } from "@rosti/ui";
+import { BRAND } from "@rosti/config/brand";
 import { useAdminSession } from "@/services/adminSession";
 import { loginSchema, type LoginInput } from "@/lib/schemas";
 
@@ -40,7 +41,7 @@ export function AdminLoginPageClient() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-bg px-pad-mobile py-12 md:px-pad-desktop">
-      <p className="mb-8 font-heading text-2xl font-bold text-text-primary">Rosti Admin</p>
+      <p className="mb-8 font-heading text-2xl font-bold text-text-primary">{BRAND.name} Admin</p>
       <div className="w-full max-w-md">
         <Card>
           <CardHeader className="flex-col items-start gap-1">

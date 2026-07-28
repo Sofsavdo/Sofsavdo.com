@@ -63,3 +63,74 @@ export function useRequestPayout() {
     },
   });
 }
+
+// ---- Wallet, Commission Settlement & Payout domain (Phase 9) — real backend only, same
+// no-mock-counterpart precedent as Content's real-mode-only hooks. Named distinctly
+// (useWalletBalance/useWalletTransactions/...) to avoid colliding with the mock-only
+// useBalance/useCommissions/usePayoutMethods/usePayouts/useRequestPayout above. ----
+
+export function useWalletBalance() {
+  const { user } = useSession();
+  return useQuery({ queryKey: ["wallet-balance"], queryFn: api.getWalletBalance, enabled: !!user });
+}
+
+export function useWalletTransactions(page = 1) {
+  const { user } = useSession();
+  return useQuery({ queryKey: ["wallet-transactions", page], queryFn: () => api.getWalletTransactions(page), enabled: !!user });
+}
+
+export function useRealPayoutMethods() {
+  const { user } = useSession();
+  return useQuery({ queryKey: ["real-payout-methods"], queryFn: api.listPayoutMethods, enabled: !!user });
+}
+
+export function useCreatePayoutMethod() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: api.CreatePayoutMethodInput) => api.createPayoutMethod(input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["real-payout-methods"] }),
+  });
+}
+
+export function useSetDefaultPayoutMethod() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.setDefaultPayoutMethod(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["real-payout-methods"] }),
+  });
+}
+
+export function useDeletePayoutMethod() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.deletePayoutMethod(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["real-payout-methods"] }),
+  });
+}
+
+export function usePayoutsMine(page = 1) {
+  const { user } = useSession();
+  return useQuery({ queryKey: ["real-payouts", page], queryFn: () => api.listPayoutsMine(page), enabled: !!user });
+}
+
+function invalidateWallet(queryClient: ReturnType<typeof useQueryClient>) {
+  queryClient.invalidateQueries({ queryKey: ["real-payouts"] });
+  queryClient.invalidateQueries({ queryKey: ["wallet-balance"] });
+  queryClient.invalidateQueries({ queryKey: ["wallet-transactions"] });
+}
+
+export function useRequestRealPayout() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { amountMinor: number; payoutMethodId: string }) => api.requestRealPayout(input),
+    onSuccess: () => invalidateWallet(queryClient),
+  });
+}
+
+export function useCancelRealPayout() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.cancelPayout(id),
+    onSuccess: () => invalidateWallet(queryClient),
+  });
+}

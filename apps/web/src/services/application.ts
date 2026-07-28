@@ -32,3 +32,20 @@ export function useSubmitApplication() {
     },
   });
 }
+
+// Distinct from useSubmitApplication on the real backend (CHANGES_REQUESTED/REJECTED -> SUBMITTED,
+// not DRAFT -> SUBMITTED) — see OnboardingPageClient/OnboardingWizard's `mode` prop and
+// DECISIONS.md ADR-018. Mock mode's single apiSubmitApplication handles both identically.
+export function useResubmitApplication() {
+  const { user } = useSession();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => {
+      if (!user) throw new Error("Not authenticated");
+      return api.resubmitApplication(user.id);
+    },
+    onSuccess: (application) => {
+      queryClient.setQueryData(["session"], (prev: typeof user) => (prev ? { ...prev, application } : prev));
+    },
+  });
+}

@@ -90,19 +90,25 @@ export class PaymentsService {
     }
 
     if (verified.errorCode != null) {
-      await this.prisma.payment.update({ where: { id: payment.id }, data: { status: "FAILED", providerReference: verified.providerTransactionId } });
-      await this.orders.markPaymentFailed(payment.orderId, verified.errorNote ?? `Click error ${verified.errorCode}`);
+      // Phase 14 fix: Payment.status and the Order's CANCELLED transition used to be two separate,
+      // un-transacted writes (this one, then a second one inside markPaymentFailed) — a process
+      // crash between them could leave Payment showing FAILED while the Order stayed
+      // PAYMENT_PENDING forever. markPaymentFailed now sets both inside its own single
+      // transaction; providerReference is passed through instead of written here first.
+      await this.orders.markPaymentFailed(payment.orderId, verified.errorNote ?? `Click error ${verified.errorCode}`, verified.providerTransactionId);
       return { verified, alreadyProcessed: false };
     }
 
     if (verified.action === "PREPARE") {
+      // PREPARE never transitions the Order — there is no corresponding Order-side write to be
+      // atomic with, so a direct Payment update (metadata only, no status change) is correct here.
       await this.prisma.payment.update({ where: { id: payment.id }, data: { providerReference: verified.providerTransactionId } });
       return { verified, alreadyProcessed: false };
     }
 
-    // COMPLETE, no error — the payment succeeded.
-    await this.prisma.payment.update({ where: { id: payment.id }, data: { status: "PAID", providerReference: verified.providerTransactionId } });
-    await this.orders.markPaid(payment.orderId);
+    // COMPLETE, no error — the payment succeeded. Same atomicity fix as the FAILED branch above:
+    // markPaid sets Payment.status=PAID and the Order's PAID transition inside one transaction.
+    await this.orders.markPaid(payment.orderId, null, undefined, verified.providerTransactionId);
     return { verified, alreadyProcessed: false };
   }
 }

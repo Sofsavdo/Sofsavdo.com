@@ -1,0 +1,17 @@
+# Railway service config for the API. Assumes this service's "Root Directory" (dashboard) is left
+# at the monorepo root ("/"), NOT "apps/api" — apps/api/Dockerfile needs the repo root as its
+# Docker build context (npm workspaces: it installs via the root package.json/package-lock.json).
+# dockerfilePath below is relative to that root directory. See DEPLOYMENT.md for the full
+# Railway project setup (two services, one Postgres, one Redis, sharing this one repo).
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "apps/api/Dockerfile"
+
+[deploy]
+# Terminus-free by design (see src/health/health.controller.ts) — only Postgres gates readiness;
+# a Redis outage degrades but never fails this check, matching Phase 14's health-check design.
+healthcheckPath = "/health/ready"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3

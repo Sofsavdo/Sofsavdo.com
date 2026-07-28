@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Skeleton } from "@rosti/ui";
+import { BRAND } from "@rosti/config/brand";
 import { useOfferPublic } from "@/services/offer";
 import { LandingSectionRenderer, ReferralBanner, StickyMobileCta } from "./sections";
 import { DeliveryQuoteBox } from "./DeliveryQuoteBox";
@@ -54,7 +55,7 @@ export function OfferLandingPageClient({ offerSlug }: { offerSlug: string }) {
     <div className="pb-20 md:pb-0">
       <header className="border-b border-border bg-surface px-pad-mobile py-3 md:px-pad-desktop">
         <Link href="/" className="font-heading text-lg font-bold text-text-primary">
-          Rosti
+          {BRAND.name}
         </Link>
       </header>
 
@@ -74,7 +75,12 @@ export function OfferLandingPageClient({ offerSlug }: { offerSlug: string }) {
       {productType === "PHYSICAL_PRODUCT" ? <DeliveryQuoteBox offerSlug={offerSlug} deliveryRegions={deliveryRegions} /> : null}
 
       <footer className="border-t border-border bg-surface px-pad-mobile py-6 text-center font-body text-xs text-text-muted md:px-pad-desktop">
-        <p>Rosti · Aloqa: support@rosti.uz · Shartlar · Maxfiylik · Qaytarish siyosati</p>
+        <p>
+          {BRAND.name} · Aloqa: <a href={`mailto:${BRAND.supportEmail}`} className="hover:text-text-primary hover:underline">{BRAND.supportEmail}</a> ·{" "}
+          <Link href="/legal/terms" className="hover:text-text-primary hover:underline">Shartlar</Link> ·{" "}
+          <Link href="/legal/privacy" className="hover:text-text-primary hover:underline">Maxfiylik</Link> ·{" "}
+          <Link href="/legal/refund-policy" className="hover:text-text-primary hover:underline">Qaytarish siyosati</Link>
+        </p>
       </footer>
 
       <StickyMobileCta

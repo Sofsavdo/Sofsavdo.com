@@ -7,6 +7,7 @@ import { RolesService } from "../src/roles/roles.service";
 import { PrismaService } from "../src/prisma/prisma.service";
 import { TokenService } from "../src/auth/token.service";
 import { DEFAULT_ROLE_PERMISSIONS, PERMISSIONS } from "../src/roles/permissions.constants";
+import { AuditModule } from "../src/common/audit/audit.module";
 import configuration from "../src/config/configuration";
 
 // Real-database counterpart of permissions.constants.spec.ts (which is pure/no-DB) and
@@ -24,7 +25,10 @@ describe("RBAC (e2e)", () => {
 
   beforeAll(async () => {
     moduleRef = await Test.createTestingModule({
-      imports: [ConfigModule.forRoot({ isGlobal: true, load: [configuration] }), PrismaModule, RolesModule],
+      // AuditModule: see roles.e2e-spec.ts's identical fix — RolesService has needed AuditService
+      // since Phase 12's admin role management landed, and this suite (older, from Phase 6A) never
+      // picked up the new constructor dependency.
+      imports: [ConfigModule.forRoot({ isGlobal: true, load: [configuration] }), PrismaModule, AuditModule, RolesModule],
       providers: [TokenService, JwtService, ConfigService],
     }).compile();
     prisma = moduleRef.get(PrismaService);

@@ -1,4 +1,5 @@
 import { Test } from "@nestjs/testing";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import { Prisma } from "@prisma/client";
 import { CreatorApplicationsService } from "./creator-applications.service";
 import { CampaignsService } from "../campaigns/campaigns.service";
@@ -30,6 +31,7 @@ describe("CreatorApplicationsService", () => {
     $transaction: jest.Mock;
   };
   let campaigns: { computeAvailability: jest.Mock; computeApplicationAvailability: jest.Mock };
+  let events: { emitAsync: jest.Mock };
 
   const baseCampaign = {
     id: "camp1",
@@ -93,6 +95,7 @@ describe("CreatorApplicationsService", () => {
 
     campaigns = { computeAvailability: jest.fn().mockReturnValue("LIVE"), computeApplicationAvailability: jest.fn().mockReturnValue("OPEN") };
     const referrals = { onCampaignApplicationSubmitted: jest.fn(), onCampaignApplicationApproved: jest.fn() };
+    events = { emitAsync: jest.fn().mockResolvedValue([]) };
 
     const moduleRef = await Test.createTestingModule({
       providers: [
@@ -100,6 +103,7 @@ describe("CreatorApplicationsService", () => {
         { provide: PrismaService, useValue: prisma },
         { provide: CampaignsService, useValue: campaigns },
         { provide: ReferralsService, useValue: referrals },
+        { provide: EventEmitter2, useValue: events },
       ],
     }).compile();
     service = moduleRef.get(CreatorApplicationsService);
@@ -279,7 +283,7 @@ describe("CreatorApplicationsService", () => {
       await expect(service.submit("app1", "creator1")).rejects.toMatchObject({ code: "APPLICATION_NOT_ELIGIBLE" });
     });
 
-    it("moves DRAFT -> SUBMITTED when the campaign requires approval", async () => {
+    it("moves DRAFT -> SUBMITTED when the campaign requires approval, emitting campaign_application.submitted", async () => {
       prisma.campaignApplication.findUnique.mockResolvedValue(withRelations({ status: "DRAFT" }));
       prisma.campaignApplication.update.mockResolvedValue({});
       await service.submit("app1", "creator1");
@@ -287,9 +291,14 @@ describe("CreatorApplicationsService", () => {
         expect.objectContaining({ data: expect.objectContaining({ status: "SUBMITTED", submittedAt: expect.any(Date) }) }),
       );
       expect(prisma.creatorCampaign.create).not.toHaveBeenCalled();
+      expect(events.emitAsync).toHaveBeenCalledWith(
+        "campaign_application.submitted",
+        expect.objectContaining({ applicationId: "app1", creatorId: "creator1", creatorName: "Test Creator", campaignName: "Campaign" }),
+      );
+      expect(events.emitAsync).not.toHaveBeenCalledWith("campaign_application.approved", expect.anything());
     });
 
-    it("instantly approves and creates a CreatorCampaign when the campaign does not require approval", async () => {
+    it("instantly approves and creates a CreatorCampaign when the campaign does not require approval, emitting both submitted and approved", async () => {
       prisma.campaign.findUniqueOrThrow.mockResolvedValue({ ...baseCampaign, requiresApproval: false });
       prisma.campaignApplication.findUnique.mockResolvedValue(withRelations({ status: "DRAFT" }));
       prisma.campaignApplication.update.mockResolvedValue({});
@@ -300,6 +309,8 @@ describe("CreatorApplicationsService", () => {
       expect(prisma.creatorCampaign.create).toHaveBeenCalledWith({
         data: { campaignId: "camp1", creatorId: "creator1", status: "ACTIVE" },
       });
+      expect(events.emitAsync).toHaveBeenCalledWith("campaign_application.approved", expect.objectContaining({ applicationId: "app1", creatorId: "creator1" }));
+      expect(events.emitAsync).toHaveBeenCalledWith("campaign_application.submitted", expect.objectContaining({ applicationId: "app1", creatorId: "creator1" }));
     });
 
     it("instant-join path still enforces capacity — CAMPAIGN_FULL when the limit is already reached", async () => {
@@ -422,7 +433,7 @@ describe("CreatorApplicationsService", () => {
       });
     });
 
-    it("reject sets REJECTED with the reason, terminal timestamps, and reviewer", async () => {
+    it("reject sets REJECTED with the reason, terminal timestamps, and reviewer, emitting campaign_application.rejected", async () => {
       prisma.campaignApplication.findUnique.mockResolvedValue(withRelations({ status: "UNDER_REVIEW" }));
       prisma.campaignApplication.update.mockResolvedValue({});
       await service.reject("app1", "admin1", "Not a fit for this campaign");
@@ -435,6 +446,10 @@ describe("CreatorApplicationsService", () => {
             reviewedById: "admin1",
           }),
         }),
+      );
+      expect(events.emitAsync).toHaveBeenCalledWith(
+        "campaign_application.rejected",
+        expect.objectContaining({ applicationId: "app1", creatorId: "creator1", reason: "Not a fit for this campaign" }),
       );
     });
 
@@ -466,7 +481,7 @@ describe("CreatorApplicationsService", () => {
       expect(prisma.creatorCampaign.create).not.toHaveBeenCalled();
     });
 
-    it("approves and atomically creates the CreatorCampaign membership", async () => {
+    it("approves and atomically creates the CreatorCampaign membership, emitting campaign_application.approved", async () => {
       prisma.campaignApplication.findUnique.mockResolvedValue({
         ...withRelations({ status: "UNDER_REVIEW", submittedAt: new Date("2026-01-01") }),
         campaign: { ...baseCampaign, creatorLimit: null },
@@ -479,6 +494,10 @@ describe("CreatorApplicationsService", () => {
       expect(prisma.creatorCampaign.create).toHaveBeenCalledWith({
         data: { campaignId: "camp1", creatorId: "creator1", status: "ACTIVE" },
       });
+      expect(events.emitAsync).toHaveBeenCalledWith(
+        "campaign_application.approved",
+        expect.objectContaining({ applicationId: "app1", creatorId: "creator1", creatorName: "Test Creator" }),
+      );
     });
 
     it("retries once on a transient serialization conflict, then succeeds", async () => {

@@ -5,7 +5,7 @@ import { useFieldArray, useForm } from "react-hook-form";
 import type { CreatorApplicationData, SocialPlatform } from "@rosti/types";
 import { Button, Card, CardHeader, CardTitle, TextField, TextAreaField, SelectField, Alert, ProgressBar, cn } from "@rosti/ui";
 import { Plus, Trash2 } from "lucide-react";
-import { useSubmitApplication, useUpdateApplication } from "@/services/application";
+import { useResubmitApplication, useSubmitApplication, useUpdateApplication } from "@/services/application";
 
 const STEP_TITLES = [
   "Shaxsiy ma'lumot",
@@ -46,15 +46,22 @@ export function OnboardingWizard({
   initialData,
   initialStep,
   revisionNote,
+  mode = "submit",
 }: {
   initialData: CreatorApplicationData;
   initialStep: number;
   revisionNote?: string;
+  // "submit" (DRAFT's first-ever submission) and "resubmit" (from CHANGES_REQUESTED/REJECTED) are
+  // distinct real-backend actions (see OnboardingPageClient) — mock mode's single apiSubmitApplication
+  // handles both identically, so only the real branch actually differs.
+  mode?: "submit" | "resubmit";
 }) {
   const [step, setStep] = useState(Math.min(Math.max(initialStep, 1), STEP_TITLES.length));
   const [stepError, setStepError] = useState<string | null>(null);
   const updateApplication = useUpdateApplication();
   const submitApplication = useSubmitApplication();
+  const resubmitApplication = useResubmitApplication();
+  const finalizeApplication = mode === "resubmit" ? resubmitApplication : submitApplication;
 
   const {
     register,
@@ -139,7 +146,7 @@ export function OnboardingWizard({
     }
     try {
       await persist(STEP_TITLES.length);
-      await submitApplication.mutateAsync();
+      await finalizeApplication.mutateAsync();
     } catch {
       setStepError("Ariza yuborishda xatolik yuz berdi. Qaytadan urinib ko'ring.");
     }
@@ -345,8 +352,8 @@ export function OnboardingWizard({
                 Keyingisi
               </Button>
             ) : (
-              <Button type="submit" disabled={submitApplication.isPending}>
-                {submitApplication.isPending ? "Yuborilmoqda..." : "Arizani yuborish"}
+              <Button type="submit" disabled={finalizeApplication.isPending}>
+                {finalizeApplication.isPending ? "Yuborilmoqda..." : "Arizani yuborish"}
               </Button>
             )}
           </div>

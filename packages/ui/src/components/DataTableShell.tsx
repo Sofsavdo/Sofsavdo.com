@@ -22,7 +22,16 @@ export interface DataTableShellProps {
   page?: number;
   pageCount?: number;
   onPageChange?: (page: number) => void;
+  /** The real `<table>` — every admin/creator list table had zero mobile alternative before
+      Phase 15 (confirmed by audit: every one just rendered the same `<table>` under
+      `overflow-x-auto` at every viewport). Hidden below `md` when `mobileCards` is provided. */
   children: ReactNode;
+  /** A list of `MobileDataCard`s covering the same rows as `children`'s table — rendered instead
+      of the table below `md`, outside the table's own bordered/rounded wrapper (a MobileDataCard
+      already has its own border/shadow, so it must not be double-boxed inside the table's
+      container too). Omit to keep the previous table-at-every-width behavior for a page that
+      hasn't been given a card layout yet. */
+  mobileCards?: ReactNode;
 }
 
 // The shared chrome every /admin list page wraps its table/cards in — search box, filter slot,
@@ -47,6 +56,7 @@ export function DataTableShell({
   pageCount,
   onPageChange,
   children,
+  mobileCards,
 }: DataTableShellProps) {
   return (
     <div className="space-y-5">
@@ -94,7 +104,10 @@ export function DataTableShell({
         <EmptyState title={emptyTitle} description={emptyDescription} action={emptyAction} />
       ) : (
         <>
-          <div className="overflow-x-auto rounded-card border border-border bg-surface">{children}</div>
+          {mobileCards ? <div className="space-y-3 md:hidden">{mobileCards}</div> : null}
+          <div className={cn("overflow-x-auto rounded-card border border-border bg-surface", mobileCards && "hidden md:block")}>
+            {children}
+          </div>
           {pageCount && pageCount > 1 ? (
             <div className="flex items-center justify-center gap-2">
               {Array.from({ length: pageCount }).map((_, i) => (

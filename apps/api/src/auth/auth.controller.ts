@@ -89,6 +89,11 @@ export class AuthController {
     return { ok: true };
   }
 
+  // Phase 14 finding: this was the one auth mutation endpoint with no route-specific limit at
+  // all (register/login get 10/min, forgot-password gets 5/min) — a reset token is long and
+  // random, but rate limiting the endpoint that consumes it is still cheap defense-in-depth
+  // against a scripted guessing attempt, consistent with every other auth endpoint here.
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Public()
   @Post("reset-password")
   async resetPassword(@Body() dto: ResetPasswordDto) {

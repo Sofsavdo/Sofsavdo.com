@@ -10,6 +10,7 @@ import {
   Wallet,
   Banknote,
   Gift,
+  Bell,
 } from "lucide-react";
 
 export interface CreatorNavItem {
@@ -23,6 +24,7 @@ export interface CreatorNavItem {
 // never silently drift out of sync with each other.
 export const CREATOR_NAV_ITEMS: CreatorNavItem[] = [
   { href: "/creator/dashboard", label: "Dashboard", icon: LayoutDashboard, bottomNav: true },
+  { href: "/creator/notifications", label: "Bildirishnomalar", icon: Bell },
   { href: "/creator/campaigns", label: "Kampaniyalar", icon: Megaphone, bottomNav: true },
   { href: "/creator/my-campaigns", label: "Mening kampaniyalarim", icon: ListChecks },
   { href: "/creator/content", label: "Kontentlar", icon: FileText },

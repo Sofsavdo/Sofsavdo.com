@@ -7,26 +7,63 @@
 import type {
   AdminRole,
   AdminUser,
+  AnalyticsFilters,
   Campaign,
   CampaignApplicationAdminView,
   CampaignMediaItem,
   CampaignMediaRole,
   CampaignMediaType,
+  CommissionStatus,
   ContentAdminView,
   ContentAttachmentItem,
   ContentAttachmentType,
   ContentCommentItem,
   ContentReviewAction,
   ContentStatus,
+  CreatorApplicationStatus,
   LandingPage,
   LandingSectionAdmin,
   LandingSectionType,
   Offer,
+  OnboardingApplicationAdminView,
+  OnboardingAuditEntry,
   Product,
   ProductStatus,
+  RealAdminCommission,
+  RealAdminNotification,
   RealAdminOrder,
+  RealAdminPayment,
+  RealAdminPayout,
+  RealAdminRefund,
+  RealAuditLogEntry,
+  RealCampaignAnalyticsDetail,
+  RealCampaignAnalyticsListItem,
+  RealCampaignHistoryItem,
+  RealCreatorAdminDetail,
+  RealCreatorAdminListItem,
+  RealCreatorAnalyticsDetail,
+  RealCreatorAnalyticsListItem,
+  RealCustomerAnalytics,
+  RealEarningsSummary,
+  RealExecutiveAnalytics,
+  RealNotificationChannel,
+  RealNotificationDeliveryStatus,
+  RealPaginatedAnalytics,
+  RealPaymentAnalytics,
+  RealPayoutStatus,
+  RealPayoutSummary,
+  RealPaymentTimelineEntry,
+  RealProductAnalyticsDetail,
+  RealProductAnalyticsListItem,
+  RealRefundAnalytics,
+  RealRole,
+  RealSettingItem,
+  RealStaffUser,
+  RealUserStatus,
+  SettingCategory,
 } from "@rosti/types";
-import { apiRequest, setAccessToken, ApiError } from "./http-client";
+import type { ReferralSummary } from "./creator-real";
+import { apiRequest, getAccessToken, setAccessToken, ApiError } from "./http-client";
 import type { CreateCampaignInput, CreateLandingInput, CreateOfferInput } from "../../mocks/store";
 
 interface BackendSessionUser {
@@ -57,10 +94,16 @@ function mapSessionUserToAdminUser(user: BackendSessionUser): AdminUser {
   return { id: user.id, email: user.email ?? "", displayName, role };
 }
 
+// Phase 12 added real Roles CRUD, so a staff account can now hold only a custom role (neither
+// super_admin/admin/manager) — this coarse 3-tier mapping only drives frontend nav/section
+// visibility (see RoleGuard.tsx), so an unrecognized-but-present role key defaults to the lowest
+// tier rather than blocking login outright; the real authorization boundary is always the
+// backend's per-endpoint RequirePermissions check, unaffected by this fallback.
 function mapRoleKeysToAdminRole(roleKeys: string[]): AdminRole {
   if (roleKeys.includes("super_admin")) return "SUPER_ADMIN";
   if (roleKeys.includes("admin")) return "ADMIN";
   if (roleKeys.includes("manager")) return "MANAGER";
+  if (roleKeys.length > 0) return "MANAGER";
   throw new ApiError("FORBIDDEN", "Sizda admin panelga kirish huquqi yo'q.", 403);
 }
 
@@ -98,7 +141,11 @@ export async function adminDevSwitchRole(): Promise<AdminUser> {
 }
 
 export async function getProducts(): Promise<Product[]> {
-  const res = await apiRequest<PaginatedResponse<Product>>("/admin/products");
+  // pageSize=100 (the backend's max — see pagination.dto.ts) rather than the default 20: this
+  // function's callers (e.g. the analytics product filter dropdown) expect the whole catalog,
+  // not just its first page. A catalog bigger than 100 products would need real pagination here,
+  // but that's not this platform's current scale.
+  const res = await apiRequest<PaginatedResponse<Product>>("/admin/products?pageSize=100");
   return res.items;
 }
 
@@ -516,7 +563,8 @@ function mapCampaignInputToBackend(input: Record<string, unknown>, opts: { strip
 }
 
 export async function getCampaigns(): Promise<Campaign[]> {
-  const res = await apiRequest<PaginatedResponse<BackendCampaign>>("/admin/campaigns");
+  // Same pageSize=100 reasoning as getProducts() above — callers expect the full campaign list.
+  const res = await apiRequest<PaginatedResponse<BackendCampaign>>("/admin/campaigns?pageSize=100");
   return res.items.map(mapBackendCampaign);
 }
 
@@ -1145,6 +1193,582 @@ export async function updateOrderNotesReal(id: string, notes: string): Promise<R
 
 export async function createOrderRefund(id: string, amountMinor: number, reason: string): Promise<RealAdminOrder> {
   return apiRequest<RealAdminOrder>(`/admin/orders/${id}/refunds`, { method: "POST", body: { amountMinor, reason } });
+}
+
+// ---- Wallet, Commission Settlement & Payout domain (Phase 9) — real backend only, same
+// no-mock-counterpart precedent as Order management above. Renamed at this boundary
+// (getCommissionSettlementList/approveCommission/...) to avoid colliding with the legacy
+// mock-only getCommissions/manualAdjustCommission/getPayouts/approvePayout/rejectPayout/
+// markPayoutPaid re-exported further up in lib/api/admin.ts. Admin PAID is a manual confirmation
+// only (locked constraint: no automatic bank/provider payouts), so unlike the mock's
+// approve/markPayoutPaid, there is no referenceNumber field here. ----
+
+export interface CommissionSettlementQuery {
+  page?: number;
+  pageSize?: number;
+  status?: CommissionStatus;
+  creatorId?: string;
+  campaignId?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  search?: string;
+}
+
+export async function getCommissionSettlementList(
+  query: CommissionSettlementQuery = {},
+): Promise<{ items: RealAdminCommission[]; page: number; pageSize: number; total: number; totalPages: number }> {
+  const params = new URLSearchParams();
+  if (query.page) params.set("page", String(query.page));
+  if (query.pageSize) params.set("pageSize", String(query.pageSize));
+  if (query.status) params.set("status", query.status);
+  if (query.creatorId) params.set("creatorId", query.creatorId);
+  if (query.campaignId) params.set("campaignId", query.campaignId);
+  if (query.dateFrom) params.set("dateFrom", query.dateFrom);
+  if (query.dateTo) params.set("dateTo", query.dateTo);
+  if (query.search) params.set("search", query.search);
+  const qs = params.toString();
+  return apiRequest(`/admin/commissions${qs ? `?${qs}` : ""}`);
+}
+
+export async function getCommissionSettlementDetail(id: string): Promise<RealAdminCommission> {
+  return apiRequest<RealAdminCommission>(`/admin/commissions/${id}`);
+}
+
+export async function approveCommission(id: string): Promise<RealAdminCommission> {
+  return apiRequest<RealAdminCommission>(`/admin/commissions/${id}/approve`, { method: "POST" });
+}
+
+export async function rejectCommission(id: string, reason: string): Promise<RealAdminCommission> {
+  return apiRequest<RealAdminCommission>(`/admin/commissions/${id}/reject`, { method: "POST", body: { reason } });
+}
+
+export async function markCommissionPayable(id: string): Promise<RealAdminCommission> {
+  return apiRequest<RealAdminCommission>(`/admin/commissions/${id}/mark-payable`, { method: "POST" });
+}
+
+export interface AdminPayoutQuery {
+  page?: number;
+  pageSize?: number;
+  status?: RealPayoutStatus;
+  creatorId?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  search?: string;
+}
+
+export async function getAdminPayoutList(
+  query: AdminPayoutQuery = {},
+): Promise<{ items: RealAdminPayout[]; page: number; pageSize: number; total: number; totalPages: number }> {
+  const params = new URLSearchParams();
+  if (query.page) params.set("page", String(query.page));
+  if (query.pageSize) params.set("pageSize", String(query.pageSize));
+  if (query.status) params.set("status", query.status);
+  if (query.creatorId) params.set("creatorId", query.creatorId);
+  if (query.dateFrom) params.set("dateFrom", query.dateFrom);
+  if (query.dateTo) params.set("dateTo", query.dateTo);
+  if (query.search) params.set("search", query.search);
+  const qs = params.toString();
+  return apiRequest(`/admin/payouts${qs ? `?${qs}` : ""}`);
+}
+
+export async function getAdminPayoutDetail(id: string): Promise<RealAdminPayout> {
+  return apiRequest<RealAdminPayout>(`/admin/payouts/${id}`);
+}
+
+export async function approveAdminPayout(id: string): Promise<RealAdminPayout> {
+  return apiRequest<RealAdminPayout>(`/admin/payouts/${id}/approve`, { method: "POST" });
+}
+
+export async function rejectAdminPayout(id: string, reason: string): Promise<RealAdminPayout> {
+  return apiRequest<RealAdminPayout>(`/admin/payouts/${id}/reject`, { method: "POST", body: { reason } });
+}
+
+export async function markAdminPayoutProcessing(id: string): Promise<RealAdminPayout> {
+  return apiRequest<RealAdminPayout>(`/admin/payouts/${id}/processing`, { method: "POST" });
+}
+
+export async function markAdminPayoutPaid(id: string): Promise<RealAdminPayout> {
+  return apiRequest<RealAdminPayout>(`/admin/payouts/${id}/paid`, { method: "POST" });
+}
+
+export async function markAdminPayoutFailed(id: string, reason: string): Promise<RealAdminPayout> {
+  return apiRequest<RealAdminPayout>(`/admin/payouts/${id}/failed`, { method: "POST", body: { reason } });
+}
+
+// ---- Communication & Notification domain (Phase 10) — real backend only, no mock counterpart
+// (see @rosti/types' RealNotification comment). ----
+
+export interface AdminNotificationQuery {
+  page?: number;
+  pageSize?: number;
+  channel?: RealNotificationChannel;
+  status?: RealNotificationDeliveryStatus;
+  type?: string;
+  userId?: string;
+}
+
+export async function getAdminNotificationList(
+  query: AdminNotificationQuery = {},
+): Promise<{ items: RealAdminNotification[]; page: number; pageSize: number; total: number; totalPages: number }> {
+  const params = new URLSearchParams();
+  if (query.page) params.set("page", String(query.page));
+  if (query.pageSize) params.set("pageSize", String(query.pageSize));
+  if (query.channel) params.set("channel", query.channel);
+  if (query.status) params.set("status", query.status);
+  if (query.type) params.set("type", query.type);
+  if (query.userId) params.set("userId", query.userId);
+  const qs = params.toString();
+  return apiRequest(`/admin/notifications${qs ? `?${qs}` : ""}`);
+}
+
+export async function getAdminFailedNotificationList(
+  query: Omit<AdminNotificationQuery, "status"> = {},
+): Promise<{ items: RealAdminNotification[]; page: number; pageSize: number; total: number; totalPages: number }> {
+  const params = new URLSearchParams();
+  if (query.page) params.set("page", String(query.page));
+  if (query.pageSize) params.set("pageSize", String(query.pageSize));
+  if (query.channel) params.set("channel", query.channel);
+  if (query.type) params.set("type", query.type);
+  if (query.userId) params.set("userId", query.userId);
+  const qs = params.toString();
+  return apiRequest(`/admin/notifications/failed${qs ? `?${qs}` : ""}`);
+}
+
+export async function retryAdminNotification(id: string): Promise<RealAdminNotification> {
+  return apiRequest<RealAdminNotification>(`/admin/notifications/${id}/retry`, { method: "POST" });
+}
+
+// ---- Creator Onboarding & Admin Review domain (Phase 11) — real backend only, no mock
+// counterpart of this shape (mock's admin review works off the plain CreatorUser list — see
+// services/admin/creators.ts). Distinct route (admin/creator-onboarding) and distinct RBAC keys
+// (onboarding.*) from admin/creator-applications (CampaignApplication review, ADR-012) — see
+// DECISIONS.md ADR-018.
+
+export interface OnboardingQuery {
+  page?: number;
+  pageSize?: number;
+  status?: CreatorApplicationStatus;
+  dateFrom?: string;
+  dateTo?: string;
+  search?: string;
+  sortBy?: string;
+  sortDir?: "asc" | "desc";
+}
+
+export async function getOnboardingApplicationList(
+  query: OnboardingQuery = {},
+): Promise<{ items: OnboardingApplicationAdminView[]; page: number; pageSize: number; total: number; totalPages: number }> {
+  const params = new URLSearchParams();
+  if (query.page) params.set("page", String(query.page));
+  if (query.pageSize) params.set("pageSize", String(query.pageSize));
+  if (query.status) params.set("status", query.status);
+  if (query.dateFrom) params.set("dateFrom", query.dateFrom);
+  if (query.dateTo) params.set("dateTo", query.dateTo);
+  if (query.search) params.set("search", query.search);
+  if (query.sortBy) params.set("sortBy", query.sortBy);
+  if (query.sortDir) params.set("sortDir", query.sortDir);
+  const qs = params.toString();
+  return apiRequest(`/admin/creator-onboarding${qs ? `?${qs}` : ""}`);
+}
+
+export async function getOnboardingApplicationDetail(id: string): Promise<OnboardingApplicationAdminView | null> {
+  try {
+    return await apiRequest<OnboardingApplicationAdminView>(`/admin/creator-onboarding/${id}`);
+  } catch (err) {
+    if (err instanceof ApiError && err.statusCode === 404) return null;
+    throw err;
+  }
+}
+
+export async function getOnboardingAuditTrail(id: string): Promise<OnboardingAuditEntry[]> {
+  return apiRequest<OnboardingAuditEntry[]>(`/admin/creator-onboarding/${id}/audit`);
+}
+
+export async function startReviewOnboardingApplication(id: string): Promise<OnboardingApplicationAdminView> {
+  return apiRequest<OnboardingApplicationAdminView>(`/admin/creator-onboarding/${id}/start-review`, { method: "POST" });
+}
+
+export async function approveOnboardingApplication(id: string): Promise<OnboardingApplicationAdminView> {
+  return apiRequest<OnboardingApplicationAdminView>(`/admin/creator-onboarding/${id}/approve`, { method: "POST" });
+}
+
+export async function rejectOnboardingApplication(id: string, reason: string): Promise<OnboardingApplicationAdminView> {
+  return apiRequest<OnboardingApplicationAdminView>(`/admin/creator-onboarding/${id}/reject`, { method: "POST", body: { reason } });
+}
+
+export async function requestChangesOnboardingApplication(id: string, reason: string): Promise<OnboardingApplicationAdminView> {
+  return apiRequest<OnboardingApplicationAdminView>(`/admin/creator-onboarding/${id}/request-changes`, { method: "POST", body: { reason } });
+}
+
+// ---- Admin Operations domain (Phase 12) — real backend only, no mock counterpart. Every
+// function below is a thin, direct pass-through to its endpoint (the backend's response shapes
+// already match the Real* types field-for-field — no Backend*/mapper adapter needed, same as
+// Order management in Phase 8). See DECISIONS.md ADR-019. ----
+
+// -- Users (staff) --
+
+export interface UserQuery {
+  page?: number;
+  pageSize?: number;
+  status?: RealUserStatus;
+  roleKey?: string;
+  search?: string;
+}
+
+export async function getStaffUserList(query: UserQuery = {}): Promise<{ items: RealStaffUser[]; page: number; pageSize: number; total: number; totalPages: number }> {
+  const params = new URLSearchParams();
+  if (query.page) params.set("page", String(query.page));
+  if (query.pageSize) params.set("pageSize", String(query.pageSize));
+  if (query.status) params.set("status", query.status);
+  if (query.roleKey) params.set("roleKey", query.roleKey);
+  if (query.search) params.set("search", query.search);
+  const qs = params.toString();
+  return apiRequest(`/admin/users${qs ? `?${qs}` : ""}`);
+}
+
+export async function getStaffUserDetail(id: string): Promise<RealStaffUser | null> {
+  try {
+    return await apiRequest<RealStaffUser>(`/admin/users/${id}`);
+  } catch (err) {
+    if (err instanceof ApiError && err.statusCode === 404) return null;
+    throw err;
+  }
+}
+
+export interface CreateStaffUserInput {
+  email?: string;
+  phone?: string;
+  password: string;
+  displayName: string;
+  roleIds: string[];
+}
+
+export async function createStaffUser(input: CreateStaffUserInput): Promise<RealStaffUser> {
+  return apiRequest<RealStaffUser>("/admin/users", { method: "POST", body: input });
+}
+
+export async function updateStaffUser(id: string, input: Partial<Pick<CreateStaffUserInput, "displayName" | "email" | "phone">>): Promise<RealStaffUser> {
+  return apiRequest<RealStaffUser>(`/admin/users/${id}`, { method: "PATCH", body: input });
+}
+
+export async function activateStaffUser(id: string): Promise<RealStaffUser> {
+  return apiRequest<RealStaffUser>(`/admin/users/${id}/activate`, { method: "POST" });
+}
+
+export async function deactivateStaffUser(id: string): Promise<RealStaffUser> {
+  return apiRequest<RealStaffUser>(`/admin/users/${id}/deactivate`, { method: "POST" });
+}
+
+export async function resetStaffUserPassword(id: string, newPassword: string): Promise<void> {
+  await apiRequest(`/admin/users/${id}/reset-password`, { method: "POST", body: { newPassword } });
+}
+
+export async function assignStaffUserRole(id: string, roleId: string): Promise<RealStaffUser> {
+  return apiRequest<RealStaffUser>(`/admin/users/${id}/roles`, { method: "POST", body: { roleId } });
+}
+
+export async function removeStaffUserRole(id: string, roleId: string): Promise<RealStaffUser> {
+  return apiRequest<RealStaffUser>(`/admin/users/${id}/roles/${roleId}`, { method: "DELETE" });
+}
+
+// -- Roles & Permissions --
+
+export async function getRealRoleList(): Promise<RealRole[]> {
+  return apiRequest<RealRole[]>("/admin/roles");
+}
+
+export async function getRealRoleDetail(id: string): Promise<RealRole | null> {
+  try {
+    return await apiRequest<RealRole>(`/admin/roles/${id}`);
+  } catch (err) {
+    if (err instanceof ApiError && err.statusCode === 404) return null;
+    throw err;
+  }
+}
+
+export async function getAllPermissionKeys(): Promise<string[]> {
+  return apiRequest<string[]>("/admin/permissions");
+}
+
+export async function createRealRole(input: { key: string; name: string; description?: string }): Promise<RealRole> {
+  return apiRequest<RealRole>("/admin/roles", { method: "POST", body: input });
+}
+
+export async function updateRealRole(id: string, input: { name?: string; description?: string }): Promise<RealRole> {
+  return apiRequest<RealRole>(`/admin/roles/${id}`, { method: "PATCH", body: input });
+}
+
+export async function assignRolePermission(id: string, permissionKey: string): Promise<RealRole> {
+  return apiRequest<RealRole>(`/admin/roles/${id}/permissions`, { method: "POST", body: { permissionKey } });
+}
+
+export async function removeRolePermission(id: string, permissionKey: string): Promise<RealRole> {
+  return apiRequest<RealRole>(`/admin/roles/${id}/permissions/${permissionKey}`, { method: "DELETE" });
+}
+
+// -- Creator administration --
+
+export interface RealCreatorQuery {
+  page?: number;
+  pageSize?: number;
+  onboardingStatus?: string;
+  accountStatus?: RealUserStatus;
+  search?: string;
+}
+
+export async function getRealCreatorList(
+  query: RealCreatorQuery = {},
+): Promise<{ items: RealCreatorAdminListItem[]; page: number; pageSize: number; total: number; totalPages: number }> {
+  const params = new URLSearchParams();
+  if (query.page) params.set("page", String(query.page));
+  if (query.pageSize) params.set("pageSize", String(query.pageSize));
+  if (query.onboardingStatus) params.set("onboardingStatus", query.onboardingStatus);
+  if (query.accountStatus) params.set("accountStatus", query.accountStatus);
+  if (query.search) params.set("search", query.search);
+  const qs = params.toString();
+  return apiRequest(`/admin/creators${qs ? `?${qs}` : ""}`);
+}
+
+export async function getRealCreatorDetail(id: string): Promise<RealCreatorAdminDetail | null> {
+  try {
+    return await apiRequest<RealCreatorAdminDetail>(`/admin/creators/${id}`);
+  } catch (err) {
+    if (err instanceof ApiError && err.statusCode === 404) return null;
+    throw err;
+  }
+}
+
+export async function getRealCreatorCampaignHistory(id: string): Promise<RealCampaignHistoryItem[]> {
+  return apiRequest<RealCampaignHistoryItem[]>(`/admin/creators/${id}/campaign-history`);
+}
+
+export async function getRealCreatorEarningsSummary(id: string): Promise<RealEarningsSummary> {
+  return apiRequest<RealEarningsSummary>(`/admin/creators/${id}/earnings-summary`);
+}
+
+export async function getRealCreatorPayoutSummary(id: string): Promise<RealPayoutSummary> {
+  return apiRequest<RealPayoutSummary>(`/admin/creators/${id}/payout-summary`);
+}
+
+export async function getRealCreatorReferralSummary(id: string): Promise<ReferralSummary> {
+  return apiRequest<ReferralSummary>(`/admin/creators/${id}/referral-summary`);
+}
+
+export async function suspendRealCreator(id: string, reason: string): Promise<RealCreatorAdminDetail> {
+  return apiRequest<RealCreatorAdminDetail>(`/admin/creators/${id}/suspend`, { method: "POST", body: { reason } });
+}
+
+export async function unsuspendRealCreator(id: string): Promise<RealCreatorAdminDetail> {
+  return apiRequest<RealCreatorAdminDetail>(`/admin/creators/${id}/unsuspend`, { method: "POST" });
+}
+
+export async function blockRealCreator(id: string, reason: string): Promise<RealCreatorAdminDetail> {
+  return apiRequest<RealCreatorAdminDetail>(`/admin/creators/${id}/block`, { method: "POST", body: { reason } });
+}
+
+export async function unblockRealCreator(id: string): Promise<RealCreatorAdminDetail> {
+  return apiRequest<RealCreatorAdminDetail>(`/admin/creators/${id}/unblock`, { method: "POST" });
+}
+
+// -- Payments (read-only) --
+
+export interface RealPaymentQuery {
+  page?: number;
+  pageSize?: number;
+  status?: string;
+  provider?: string;
+  search?: string;
+}
+
+export async function getRealPaymentList(query: RealPaymentQuery = {}): Promise<{ items: RealAdminPayment[]; page: number; pageSize: number; total: number; totalPages: number }> {
+  const params = new URLSearchParams();
+  if (query.page) params.set("page", String(query.page));
+  if (query.pageSize) params.set("pageSize", String(query.pageSize));
+  if (query.status) params.set("status", query.status);
+  if (query.provider) params.set("provider", query.provider);
+  if (query.search) params.set("search", query.search);
+  const qs = params.toString();
+  return apiRequest(`/admin/payments${qs ? `?${qs}` : ""}`);
+}
+
+export async function getRealPaymentDetail(id: string): Promise<RealAdminPayment | null> {
+  try {
+    return await apiRequest<RealAdminPayment>(`/admin/payments/${id}`);
+  } catch (err) {
+    if (err instanceof ApiError && err.statusCode === 404) return null;
+    throw err;
+  }
+}
+
+export async function getRealPaymentTimeline(id: string): Promise<RealPaymentTimelineEntry[]> {
+  return apiRequest<RealPaymentTimelineEntry[]>(`/admin/payments/${id}/timeline`);
+}
+
+// -- Refunds --
+
+export interface RealRefundQuery {
+  page?: number;
+  pageSize?: number;
+  status?: string;
+  search?: string;
+}
+
+export async function getRealRefundList(query: RealRefundQuery = {}): Promise<{ items: RealAdminRefund[]; page: number; pageSize: number; total: number; totalPages: number }> {
+  const params = new URLSearchParams();
+  if (query.page) params.set("page", String(query.page));
+  if (query.pageSize) params.set("pageSize", String(query.pageSize));
+  if (query.status) params.set("status", query.status);
+  if (query.search) params.set("search", query.search);
+  const qs = params.toString();
+  return apiRequest(`/admin/refunds${qs ? `?${qs}` : ""}`);
+}
+
+export async function getRealRefundDetail(id: string): Promise<RealAdminRefund | null> {
+  try {
+    return await apiRequest<RealAdminRefund>(`/admin/refunds/${id}`);
+  } catch (err) {
+    if (err instanceof ApiError && err.statusCode === 404) return null;
+    throw err;
+  }
+}
+
+export async function approveRealRefund(id: string): Promise<RealAdminRefund> {
+  return apiRequest<RealAdminRefund>(`/admin/refunds/${id}/approve`, { method: "POST" });
+}
+
+export async function rejectRealRefund(id: string, reason: string): Promise<RealAdminRefund> {
+  return apiRequest<RealAdminRefund>(`/admin/refunds/${id}/reject`, { method: "POST", body: { reason } });
+}
+
+// -- Settings --
+
+export async function getRealSettings(): Promise<RealSettingItem[]> {
+  return apiRequest<RealSettingItem[]>("/admin/settings");
+}
+
+export async function updateRealSettings(values: Record<string, string | number | boolean>): Promise<RealSettingItem[]> {
+  return apiRequest<RealSettingItem[]>("/admin/settings", { method: "PATCH", body: { values } });
+}
+
+export type { SettingCategory };
+
+// -- Audit log (general browser) --
+
+export interface RealAuditQuery {
+  page?: number;
+  pageSize?: number;
+  entityType?: string;
+  actorId?: string;
+  action?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  search?: string;
+}
+
+export async function getRealAuditLogList(query: RealAuditQuery = {}): Promise<{ items: RealAuditLogEntry[]; page: number; pageSize: number; total: number; totalPages: number }> {
+  const params = new URLSearchParams();
+  if (query.page) params.set("page", String(query.page));
+  if (query.pageSize) params.set("pageSize", String(query.pageSize));
+  if (query.entityType) params.set("entityType", query.entityType);
+  if (query.actorId) params.set("actorId", query.actorId);
+  if (query.action) params.set("action", query.action);
+  if (query.dateFrom) params.set("dateFrom", query.dateFrom);
+  if (query.dateTo) params.set("dateTo", query.dateTo);
+  if (query.search) params.set("search", query.search);
+  const qs = params.toString();
+  return apiRequest(`/admin/audit-log${qs ? `?${qs}` : ""}`);
+}
+
+export async function getRealAuditLogDetail(id: string): Promise<RealAuditLogEntry | null> {
+  try {
+    return await apiRequest<RealAuditLogEntry>(`/admin/audit-log/${id}`);
+  } catch (err) {
+    if (err instanceof ApiError && err.statusCode === 404) return null;
+    throw err;
+  }
+}
+
+// -- Analytics & Business Intelligence (Phase 13) --
+
+// Every analytics endpoint (§7 of ANALYTICS.md) shares this exact querystring contract — one
+// builder, reused by every function below, instead of repeating a 14-field URLSearchParams block
+// per view.
+function buildAnalyticsQuery(filters: AnalyticsFilters): string {
+  const params = new URLSearchParams();
+  params.set("range", filters.range);
+  if (filters.from) params.set("from", filters.from);
+  if (filters.to) params.set("to", filters.to);
+  if (filters.compare) params.set("compare", filters.compare);
+  if (filters.creatorId) params.set("creatorId", filters.creatorId);
+  if (filters.campaignId) params.set("campaignId", filters.campaignId);
+  if (filters.productId) params.set("productId", filters.productId);
+  if (filters.paymentMethod) params.set("paymentMethod", filters.paymentMethod);
+  if (filters.region) params.set("region", filters.region);
+  if (filters.status) params.set("status", filters.status);
+  if (filters.page) params.set("page", String(filters.page));
+  if (filters.pageSize) params.set("pageSize", String(filters.pageSize));
+  if (filters.sortBy) params.set("sortBy", filters.sortBy);
+  if (filters.sortDir) params.set("sortDir", filters.sortDir);
+  return params.toString();
+}
+
+export async function getRealExecutiveAnalytics(filters: AnalyticsFilters): Promise<RealExecutiveAnalytics> {
+  return apiRequest(`/admin/analytics/executive?${buildAnalyticsQuery(filters)}`);
+}
+
+export async function getRealCreatorAnalyticsList(filters: AnalyticsFilters): Promise<RealPaginatedAnalytics<RealCreatorAnalyticsListItem>> {
+  return apiRequest(`/admin/analytics/creators?${buildAnalyticsQuery(filters)}`);
+}
+
+export async function getRealCreatorAnalyticsDetail(id: string, filters: AnalyticsFilters): Promise<RealCreatorAnalyticsDetail> {
+  return apiRequest(`/admin/analytics/creators/${id}?${buildAnalyticsQuery(filters)}`);
+}
+
+export async function getRealCampaignAnalyticsList(filters: AnalyticsFilters): Promise<RealPaginatedAnalytics<RealCampaignAnalyticsListItem>> {
+  return apiRequest(`/admin/analytics/campaigns?${buildAnalyticsQuery(filters)}`);
+}
+
+export async function getRealCampaignAnalyticsDetail(id: string, filters: AnalyticsFilters): Promise<RealCampaignAnalyticsDetail> {
+  return apiRequest(`/admin/analytics/campaigns/${id}?${buildAnalyticsQuery(filters)}`);
+}
+
+export async function getRealProductAnalyticsList(filters: AnalyticsFilters): Promise<RealPaginatedAnalytics<RealProductAnalyticsListItem>> {
+  return apiRequest(`/admin/analytics/products?${buildAnalyticsQuery(filters)}`);
+}
+
+export async function getRealProductAnalyticsDetail(id: string, filters: AnalyticsFilters): Promise<RealProductAnalyticsDetail> {
+  return apiRequest(`/admin/analytics/products/${id}?${buildAnalyticsQuery(filters)}`);
+}
+
+export async function getRealPaymentAnalytics(filters: AnalyticsFilters): Promise<RealPaymentAnalytics> {
+  return apiRequest(`/admin/analytics/payments?${buildAnalyticsQuery(filters)}`);
+}
+
+export async function getRealRefundAnalytics(filters: AnalyticsFilters): Promise<RealRefundAnalytics> {
+  return apiRequest(`/admin/analytics/refunds?${buildAnalyticsQuery(filters)}`);
+}
+
+export async function getRealCustomerAnalytics(filters: AnalyticsFilters): Promise<RealCustomerAnalytics> {
+  return apiRequest(`/admin/analytics/customers?${buildAnalyticsQuery(filters)}`);
+}
+
+// CSV only for v1 (approved scope) — Excel/PDF are deferred, see ANALYTICS.md §15. This endpoint
+// responds with `text/csv`, not JSON, so it can't go through `apiRequest` (which always calls
+// `res.json()`) — a small dedicated fetch instead, mirroring http-client.ts's auth-header
+// convention. Returns the raw CSV text; the page turns it into a download the same way the old
+// mock export already did (Blob + object URL), just with real data now.
+export async function exportRealAnalyticsCsv(view: string, filters: AnalyticsFilters): Promise<string> {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+  const qs = buildAnalyticsQuery(filters);
+  const res = await fetch(`${apiUrl}/admin/analytics/export?view=${view}&format=csv&${qs}`, {
+    credentials: "include",
+    headers: getAccessToken() ? { Authorization: `Bearer ${getAccessToken()}` } : {},
+  });
+  if (!res.ok) {
+    const json = (await res.json().catch(() => ({}))) as { code?: string; message?: string };
+    throw new ApiError(json.code ?? "ERROR", json.message ?? "Eksport qilib bo'lmadi.", res.status);
+  }
+  return res.text();
 }
 
 export { ApiError };

@@ -1,0 +1,127 @@
+name: Deploy
+
+# Phase 14 §14: "Do not automatically deploy to production without an explicit deployment
+# action." — this workflow ONLY ever runs via manual workflow_dispatch (an operator picking an
+# environment and clicking "Run workflow" in the Actions tab), never on push/PR. Pointing
+# `environment:` at a GitHub Environment additionally lets the repo be configured with required
+# reviewers/approval gates on top of that — see DEPLOYMENT.md for the full runbook.
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        type: choice
+        options: [staging, production]
+
+concurrency:
+  group: deploy-${{ github.event.inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  # Re-runs the exact same typecheck/lint/test/build gate as every push — a deploy must fail
+  # here exactly like a normal CI run would, not skip straight to shipping.
+  quality-gate:
+    uses: ./.github/workflows/ci.yml
+
+  migrate:
+    name: Apply database migrations (${{ github.event.inputs.environment }})
+    needs: quality-gate
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Prisma migrate deploy
+        # DATABASE_URL comes from this GitHub Environment's own secrets (Settings -> Environments
+        # -> staging/production -> Secrets) — configure it there, never hardcode a real connection
+        # string in this file. `migrate deploy` only ever applies already-committed, already-
+        # reviewed migrations; it never generates or edits one (that's `migrate dev`, a local-only
+        # command — see DEPLOYMENT.md's "Safe migration process").
+        run: npm run prisma:migrate:deploy --workspace=@rosti/api
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+  build-and-push:
+    name: Build and push Docker images (${{ github.event.inputs.environment }})
+    needs: migrate
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: true
+          tags: ghcr.io/${{ github.repository }}/api:${{ github.event.inputs.environment }}-${{ github.sha }}
+
+      - name: Build and push web image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          push: true
+          tags: ghcr.io/${{ github.repository }}/web:${{ github.event.inputs.environment }}-${{ github.sha }}
+          build-args: |
+            NEXT_PUBLIC_API_MODE=real
+            NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL }}
+
+  deploy:
+    name: Deploy to Railway (${{ github.event.inputs.environment }})
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+      # Requires RAILWAY_TOKEN configured as a secret on this GitHub Environment (Railway project
+      # settings -> Tokens) — deliberately not set up in this repo yet (no real Railway project
+      # exists to point at during this phase). Until that secret exists, this step fails loudly
+      # rather than silently no-op'ing, which is the correct behavior for a missing deploy
+      # credential — see RUNBOOK.md's "Click/Railway go-live checklist" for what must be
+      # configured before this workflow can actually ship anything.
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+      - name: Deploy API service
+        run: railway up --service ${{ vars.RAILWAY_API_SERVICE }} --environment ${{ github.event.inputs.environment }}
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      - name: Deploy web service
+        run: railway up --service ${{ vars.RAILWAY_WEB_SERVICE }} --environment ${{ github.event.inputs.environment }}
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+  verify:
+    name: Post-deploy readiness verification
+    needs: deploy
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    steps:
+      # Confirms the freshly-deployed instance is actually ready (not just "the deploy command
+      # exited 0") before this workflow reports success — a deploy that ships but boots into a
+      # crash loop or can't reach its database must show up as a failed workflow run.
+      - name: Poll /health/ready
+        run: |
+          for i in $(seq 1 12); do
+            status=$(curl -s -o /dev/null -w "%{http_code}" "${{ vars.API_URL }}/health/ready" || echo "000")
+            if [ "$status" = "200" ]; then echo "Ready (200)"; exit 0; fi
+            echo "Attempt $i: got $status, retrying in 10s..."
+            sleep 10
+          done
+          echo "API did not report ready within 2 minutes of deploy."
+          exit 1

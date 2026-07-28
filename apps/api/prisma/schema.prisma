@@ -16,29 +16,44 @@ datasource db {
 // Auth / RBAC
 // ────────────────────────────────────────────────────────────────────────────
 
+// BLOCKED added (Phase 12, Admin Operations) — a more severe, SUPER_ADMIN-only creator-account
+// action distinct from SUSPENDED (ADMIN-gated, reversible pause). Both are additive to a frozen
+// enum with zero behavior change to existing ACTIVE/SUSPENDED/DELETED handling. See DECISIONS.md
+// ADR-019.
 enum UserStatus {
   ACTIVE
   SUSPENDED
+  BLOCKED
   DELETED
 }
 
 model User {
-  id            String     @id @default(cuid())
-  email         String?    @unique
-  phone         String?    @unique
-  passwordHash  String
-  status        UserStatus @default(ACTIVE)
-  emailVerified DateTime?
-  phoneVerified DateTime?
-  lastLoginAt   DateTime?
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  id             String     @id @default(cuid())
+  email          String?    @unique
+  phone          String?    @unique
+  passwordHash   String
+  // Nullable — every account before Phase 12 was created without one (staff via seed, creators
+  // via CreatorProfile.displayName instead). Populated going forward for staff created through the
+  // real admin User Management UI; the frontend's pre-existing email-local-part fallback (see
+  // admin-real.ts's mapSessionUserToAdminUser) stays in place for rows where this is still null.
+  displayName    String?
+  status         UserStatus @default(ACTIVE)
+  emailVerified  DateTime?
+  phoneVerified  DateTime?
+  lastLoginAt    DateTime?
+  // Phase 10 — set once the user links their Telegram account (e.g. via a /start deep-link token
+  // exchanged for this chat id); null means Telegram delivery is impossible regardless of the
+  // user's own preference toggle, same as an unconfigured PayoutMethod blocking a payout request.
+  telegramChatId String?    @unique
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
 
   roles                        UserRole[]
   creatorProfile               CreatorProfile?
   refreshTokens                RefreshToken[]
   auditLogsActed               AuditLog[]             @relation("AuditActor")
   notifications                Notification[]
+  notificationPreferences      NotificationPreference[]
   offersCreated                Offer[]                @relation("OfferCreatedBy")
   offersUpdated                Offer[]                @relation("OfferUpdatedBy")
   landingPagesCreated          LandingPage[]          @relation("LandingCreatedBy")
@@ -105,11 +120,16 @@ model UserRole {
 // Creator
 // ────────────────────────────────────────────────────────────────────────────
 
+// CHANGES_REQUESTED (renamed from REVISION_REQUESTED — Phase 11) matches the identical state name
+// already used by CampaignApplicationStatus/ContentStatus, so one vocabulary describes "admin sent
+// this back for edits" everywhere in the codebase. Zero real rows existed with this status before
+// Phase 11 built the first real service to ever write it, so this is a rename, not a breaking
+// change — same precedent as ADR-011/012/015/016. See DECISIONS.md ADR-018.
 enum CreatorApplicationStatus {
   DRAFT
   SUBMITTED
   UNDER_REVIEW
-  REVISION_REQUESTED
+  CHANGES_REQUESTED
   APPROVED
   REJECTED
 }
@@ -1149,6 +1169,11 @@ model Order {
   @@index([offerId])
   @@index([customerId])
   @@index([campaignId])
+  // Phase 13 (Analytics) — every analytics KPI is a date-range query; this was the single
+  // biggest gap ANALYTICS.md's design flagged (Finding #1). A plain column index lets Postgres
+  // bitmap-scan it together with the existing status/offerId/campaignId indexes rather than
+  // needing a combinatorial set of composite indexes for every filter combination.
+  @@index([createdAt])
 }
 
 model OrderItem {
@@ -1216,6 +1241,9 @@ model Payment {
 
   @@index([status])
   @@index([providerReference])
+  // Phase 13 (Analytics) — see Order.createdAt's index comment above; Payment Analytics'
+  // method/success-rate breakdowns are date-range queries against this table directly.
+  @@index([createdAt])
 }
 
 enum ShipmentStatus {
@@ -1300,6 +1328,10 @@ model Commission {
   ledgerEntries CommissionLedger[]
 
   @@index([creatorId, status])
+  // Phase 13 (Analytics) — see Order.createdAt's index comment above; Creator Analytics'
+  // earnings time-series buckets by this column (Commission.createdAt ≈ Order.createdAt, set in
+  // the same checkout transaction — see DECISIONS.md ADR-020).
+  @@index([createdAt])
 }
 
 enum LedgerEntryType {
@@ -1330,17 +1362,30 @@ enum RefundStatus {
 }
 
 model Refund {
-  id            String       @id @default(cuid())
-  orderId       String
-  order         Order        @relation(fields: [orderId], references: [id])
-  amountMinor   Int
-  reason        String
-  status        RefundStatus @default(REQUESTED)
-  requestedById String?
-  processedAt   DateTime?
-  createdAt     DateTime     @default(now())
+  id              String       @id @default(cuid())
+  orderId         String
+  order           Order        @relation(fields: [orderId], references: [id])
+  amountMinor     Int
+  reason          String
+  status          RefundStatus @default(REQUESTED)
+  requestedById   String?
+  // Phase 12 (Admin Operations) — the administrative approve/reject decision on this Refund row,
+  // distinct from `processedAt` (when PROCESSED happens — still dormant, no code sets it, same as
+  // before this phase) and from the order-level financial action `OrdersService.createRefund`
+  // already performs synchronously at request time for full refunds (stock release + Order status
+  // -> REFUNDED). Approve/reject here is a review decision layered on top of the pre-existing
+  // Refund row, never a trigger for a second money-movement — see DECISIONS.md ADR-019.
+  reviewedById    String?
+  reviewedAt      DateTime?
+  rejectionReason String?
+  processedAt     DateTime?
+  createdAt       DateTime     @default(now())
 
   @@index([orderId])
+  @@index([status])
+  // Phase 13 (Analytics) — see Order.createdAt's index comment above; Refund Analytics' rate/
+  // reasons/average-amount breakdowns are date-range queries against this table directly.
+  @@index([createdAt])
 }
 
 enum PayoutMethodType {
@@ -1368,13 +1413,22 @@ model PayoutMethod {
   @@index([creatorId])
 }
 
+// Replaces the Phase 1 draft's UNDER_REVIEW-inclusive set with the Phase 9 spec's explicit
+// withdrawal-workflow states. Zero real Payout rows existed before this phase (no PayoutsService
+// existed), so this is a rename/narrowing, not a breaking change — same reasoning as ADR-015's
+// OrderStatus replacement. CANCELLED (creator withdraws the request while still REQUESTED) and
+// FAILED (admin marks a PROCESSING transfer as having bounced — no automatic bank integration, so
+// this is always a manual admin signal) are new; UNDER_REVIEW is dropped since REQUESTED already
+// covers "awaiting admin decision" and the spec's own list doesn't include it. See DECISIONS.md
+// ADR-016.
 enum PayoutStatus {
   REQUESTED
-  UNDER_REVIEW
   APPROVED
   PROCESSING
   PAID
   REJECTED
+  CANCELLED
+  FAILED
 }
 
 model Payout {
@@ -1404,19 +1458,63 @@ model Payout {
 enum NotificationChannel {
   IN_APP
   TELEGRAM
+  EMAIL
+}
+
+// Delivery state for the TELEGRAM/EMAIL channels — an IN_APP row is always created directly as
+// SENT (there is no real "delivery" step, it's just a database row the creator/admin reads later).
+// See DECISIONS.md ADR-017.
+enum NotificationDeliveryStatus {
+  PENDING
+  SENT
+  FAILED
 }
 
 model Notification {
-  id        String              @id @default(cuid())
-  userId    String
-  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  channel   NotificationChannel
-  type      String // "campaign.new", "content.revision_requested", "payout.paid", ...
-  payload   Json
-  readAt    DateTime?
-  createdAt DateTime            @default(now())
+  id            String                     @id @default(cuid())
+  userId        String
+  user          User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channel       NotificationChannel
+  type          String // "campaign_application.submitted", "order.received", "payout.paid", ...
+  payload       Json
+  readAt        DateTime?
+  status        NotificationDeliveryStatus @default(PENDING)
+  attempts      Int                        @default(0)
+  lastAttemptAt DateTime?
+  error         String?
+  // Deterministic idempotency key (e.g. "payout.failed:cmrx1eih8...") — lets the Phase 8/9 sweep
+  // (see NotificationSweepService, ADR-017) safely rescan every interval via
+  // `createMany({ skipDuplicates: true })` without ever double-notifying for the same business
+  // event, with no dependency on any timestamp/cursor state.
+  dedupKey      String?                    @unique
+  createdAt     DateTime                   @default(now())
 
   @@index([userId, readAt])
+  @@index([channel, status])
+}
+
+// One row per (user, category) that the user has explicitly touched — an absent row means "use
+// the default" (see NotificationsService), so existing users never need a backfill migration.
+enum NotificationCategory {
+  CAMPAIGN_APPLICATION
+  ORDER
+  COMMISSION
+  PAYOUT
+  ACCOUNT
+  ADMIN_ALERTS
+}
+
+model NotificationPreference {
+  id        String               @id @default(cuid())
+  userId    String
+  user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category  NotificationCategory
+  inApp     Boolean              @default(true)
+  telegram  Boolean              @default(false)
+  email     Boolean              @default(true)
+  updatedAt DateTime             @updatedAt
+
+  @@unique([userId, category])
 }
 
 model AuditLog {

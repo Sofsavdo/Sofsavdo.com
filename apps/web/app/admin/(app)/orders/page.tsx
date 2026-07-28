@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import type { OrderStatus, RealOrderStatus } from "@rosti/types";
 import { formatMoneyMinor } from "@rosti/types";
-import { DataTableShell, StatusBadge } from "@rosti/ui";
+import { DataTableShell, MobileDataCard, StatusBadge } from "@rosti/ui";
 import { useAdminOrders } from "@/services/admin/orders";
 import { useOrderReviewList } from "@/services/admin/orders";
 import { orderStatusMeta, realOrderStatusMeta } from "@/lib/status";
@@ -60,6 +60,20 @@ function RealAdminOrdersPage() {
       page={query.data?.page}
       pageCount={query.data?.totalPages}
       onPageChange={setPage}
+      mobileCards={(query.data?.items ?? []).map((o) => (
+        <MobileDataCard
+          key={o.id}
+          href={`/admin/orders/${o.id}`}
+          title={o.offer.name}
+          meta={<StatusBadge tone={realOrderStatusMeta[o.status].tone} label={realOrderStatusMeta[o.status].label} />}
+          fields={[
+            { label: "Mijoz", value: o.customer.fullName },
+            { label: "Creator", value: o.commission?.creatorName ?? "Direct" },
+            { label: "Sana", value: new Date(o.createdAt).toLocaleDateString("uz-UZ") },
+            { label: "Jami", value: formatMoneyMinor(o.totalMinor, o.currency), emphasis: true },
+          ]}
+        />
+      ))}
     >
       <table className="w-full text-left font-body text-sm">
         <thead className="bg-bg text-text-secondary">
@@ -132,6 +146,20 @@ function MockAdminOrdersPage() {
       isEmpty={filtered.length === 0}
       emptyTitle="Buyurtma topilmadi"
       emptyDescription="Buyer /checkout orqali buyurtma qilgach shu yerda ko'rinadi."
+      mobileCards={filtered.map((o) => (
+        <MobileDataCard
+          key={o.id}
+          href={`/admin/orders/${o.id}`}
+          title={o.offerName}
+          meta={<StatusBadge tone={orderStatusMeta[o.status].tone} label={orderStatusMeta[o.status].label} />}
+          fields={[
+            { label: "Mijoz", value: o.customer.fullName },
+            { label: "Creator", value: o.attributedCreatorName ?? "Direct" },
+            { label: "Sana", value: new Date(o.createdAt).toLocaleDateString("uz-UZ") },
+            { label: "Jami", value: formatMoneyMinor(o.totalMinor, o.currency), emphasis: true },
+          ]}
+        />
+      ))}
     >
       <table className="w-full text-left font-body text-sm">
         <thead className="bg-bg text-text-secondary">

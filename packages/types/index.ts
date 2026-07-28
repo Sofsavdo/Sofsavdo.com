@@ -4,11 +4,15 @@
 
 export type SocialPlatform = "INSTAGRAM" | "TIKTOK" | "YOUTUBE" | "TELEGRAM";
 
+// CHANGES_REQUESTED (renamed from REVISION_REQUESTED — Phase 11) matches the backend rename in
+// apps/api schema.prisma and the identical state name CampaignApplicationStatus/ContentStatus
+// already use. See DECISIONS.md ADR-018. REJECTED is resubmittable in this domain (not terminal
+// like CampaignApplicationStatus's REJECTED) — see OnboardingPageClient.tsx.
 export type CreatorApplicationStatus =
   | "DRAFT"
   | "SUBMITTED"
   | "UNDER_REVIEW"
-  | "REVISION_REQUESTED"
+  | "CHANGES_REQUESTED"
   | "APPROVED"
   | "REJECTED";
 
@@ -238,6 +242,34 @@ export interface CreatorApplication {
   reviewNote?: string;
   submittedAt?: string;
   reviewedAt?: string;
+}
+
+// Admin-facing view of the onboarding CreatorApplication review queue/detail (Phase 11) — real
+// backend only, no mock counterpart of this shape (mock's admin review uses the plain CreatorUser
+// list — see services/admin/creators.ts). Distinct from CampaignApplicationAdminView (a creator
+// applying to join a specific Campaign, see ADR-012). See DECISIONS.md ADR-018.
+export interface OnboardingApplicationAdminView {
+  id: string;
+  status: CreatorApplicationStatus;
+  currentStep: number;
+  formData: CreatorApplicationData;
+  reviewNote?: string;
+  reviewedById?: string;
+  reviewedAt?: string;
+  submittedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  creator: { id: string; displayName: string; city?: string; email?: string };
+}
+
+export interface OnboardingAuditEntry {
+  id: string;
+  actorId: string | null;
+  actor?: { id: string; email: string | null };
+  action: string;
+  before: unknown;
+  after: unknown;
+  createdAt: string;
 }
 
 export type CreatorAccountStatus = "ACTIVE" | "SUSPENDED" | "BLOCKED";
@@ -896,4 +928,416 @@ export interface RealAdminOrder {
   refunds: { id: string; amountMinor: number; reason: string; status: string; createdAt: string }[];
   createdAt: string;
   updatedAt: string;
+}
+
+// ---- Wallet, Commission Settlement & Payout domain (Phase 9) — real backend only; distinct from
+// the legacy mock-only Commission/PayoutMethod/Payout/BalanceSummary shapes above. `PayoutStatus`
+// above additionally differs in enum values from this domain's real set (no UNDER_REVIEW; adds
+// CANCELLED/FAILED) — see DECISIONS.md ADR-016. `CommissionStatus` above is reused as-is: its
+// values (PENDING/APPROVED/REJECTED/REFUNDED/PAYABLE/PAID) already match the real backend exactly.
+export type RealPayoutStatus = "REQUESTED" | "APPROVED" | "PROCESSING" | "PAID" | "REJECTED" | "CANCELLED" | "FAILED";
+
+export interface RealWalletBalance {
+  pendingMinor: number;
+  availableMinor: number;
+  lockedMinor: number;
+  paidMinor: number;
+  reversedMinor: number;
+  currency: string;
+  minimumPayoutMinor: number;
+}
+
+export interface RealWalletTransaction {
+  id: string;
+  type: "ACCRUAL" | "REVERSAL" | "PAYOUT";
+  amountMinor: number;
+  reason?: string;
+  createdAt: string;
+  commission: { id: string; orderPublicToken: string };
+}
+
+export interface RealPayoutMethod {
+  id: string;
+  type: PayoutMethodType;
+  label: string;
+  isDefault: boolean;
+}
+
+export interface RealPayout {
+  id: string;
+  amountMinor: number;
+  currency: string;
+  status: RealPayoutStatus;
+  payoutMethodLabel: string;
+  requestedAt: string;
+  reviewedAt?: string;
+  paidAt?: string;
+  rejectionReason?: string;
+  commissionCount: number;
+}
+
+export interface RealAdminCommission {
+  id: string;
+  orderId: string;
+  orderPublicToken: string;
+  creator: { id: string; displayName: string };
+  campaign: { id: string; name: string };
+  commissionType: CommissionType;
+  baseAmountMinor: number;
+  amountMinor: number;
+  currency: string;
+  status: CommissionStatus;
+  approvedAt?: string;
+  payableAt?: string;
+  paidAt?: string;
+  payoutId?: string;
+  ledger: { id: string; type: "ACCRUAL" | "REVERSAL" | "PAYOUT"; amountMinor: number; reason?: string; createdAt: string }[];
+  createdAt: string;
+}
+
+export interface RealAdminPayout {
+  id: string;
+  creator: { id: string; displayName: string };
+  payoutMethodLabel: string;
+  amountMinor: number;
+  currency: string;
+  status: RealPayoutStatus;
+  requestedAt: string;
+  reviewedAt?: string;
+  paidAt?: string;
+  rejectionReason?: string;
+  commissionCount: number;
+}
+
+// ---- Communication & Notification domain (Phase 10) — real backend only, no mock counterpart
+// (the mock store never had a real notification concept, only a stray
+// `telegramNotificationsEnabled` settings flag). See DECISIONS.md ADR-017.
+export type RealNotificationChannel = "IN_APP" | "TELEGRAM" | "EMAIL";
+export type RealNotificationDeliveryStatus = "PENDING" | "SENT" | "FAILED";
+export type RealNotificationCategory = "CAMPAIGN_APPLICATION" | "ORDER" | "COMMISSION" | "PAYOUT" | "ACCOUNT" | "ADMIN_ALERTS";
+
+export interface RealNotification {
+  id: string;
+  channel: RealNotificationChannel;
+  type: string;
+  payload: Record<string, unknown>;
+  readAt?: string;
+  status: RealNotificationDeliveryStatus;
+  createdAt: string;
+}
+
+export interface RealAdminNotification extends RealNotification {
+  user: { id: string; email: string | null; phone: string | null };
+  attempts: number;
+  lastAttemptAt?: string;
+  error?: string;
+}
+
+export interface RealNotificationPreference {
+  category: RealNotificationCategory;
+  inApp: boolean;
+  telegram: boolean;
+  email: boolean;
+}
+
+// ---- Admin Operations domain (Phase 12) — real backend only, no mock counterpart of these
+// shapes (the mock's admin pages use the older, coarser AdminUser/AdminRole/AdminOrder/AdminRefund/
+// AuditLogEntry types above). See DECISIONS.md ADR-019. ----
+
+export type RealUserStatus = "ACTIVE" | "SUSPENDED" | "BLOCKED" | "DELETED";
+
+export interface RealStaffUser {
+  id: string;
+  email: string | null;
+  phone: string | null;
+  displayName: string | null;
+  status: RealUserStatus;
+  lastLoginAt?: string;
+  createdAt: string;
+  roles: { id: string; key: string; name: string }[];
+}
+
+export interface RealRole {
+  id: string;
+  key: string;
+  name: string;
+  description?: string;
+  permissions: string[];
+  userCount: number;
+}
+
+export interface RealCreatorAdminListItem {
+  id: string;
+  displayName: string;
+  email: string | null;
+  phone: string | null;
+  city?: string;
+  createdAt: string;
+  accountStatus: RealUserStatus;
+  onboardingStatus: CreatorApplicationStatus;
+}
+
+export interface RealCreatorAdminDetail extends RealCreatorAdminListItem {
+  onboardingCurrentStep: number;
+  onboardingSubmittedAt?: string;
+  onboardingReviewedAt?: string;
+  verified: boolean;
+}
+
+export interface RealCampaignHistoryItem {
+  id: string;
+  campaignId: string;
+  campaignName: string;
+  campaignSlug: string;
+  status: string;
+  joinedAt: string;
+  endedAt?: string;
+}
+
+export interface RealEarningsSummary {
+  pendingMinor: number;
+  approvedMinor: number;
+  payableMinor: number;
+  paidMinor: number;
+  rejectedMinor: number;
+  refundedMinor: number;
+  currency: string;
+}
+
+export interface RealPayoutSummary {
+  requestedMinor: number;
+  approvedMinor: number;
+  processingMinor: number;
+  paidMinor: number;
+  rejectedMinor: number;
+  failedMinor: number;
+  currency: string;
+}
+
+export interface RealAdminPayment {
+  id: string;
+  provider: string;
+  status: string;
+  amountMinor: number;
+  currency: string;
+  providerReference?: string;
+  createdAt: string;
+  updatedAt: string;
+  order: { id: string; publicToken: string; offerName: string; customerName: string; customerPhone: string };
+}
+
+export interface RealPaymentTimelineEntry {
+  label: string;
+  at: string;
+  detail?: unknown;
+}
+
+export interface RealAdminRefund {
+  id: string;
+  orderId: string;
+  orderPublicToken: string;
+  offerName: string;
+  customerName: string;
+  amountMinor: number;
+  isPartial: boolean;
+  reason: string;
+  status: string;
+  requestedById?: string;
+  reviewedById?: string;
+  reviewedAt?: string;
+  rejectionReason?: string;
+  processedAt?: string;
+  createdAt: string;
+}
+
+export type SettingCategory = "general" | "commission" | "creatorDefaults" | "notificationDefaults" | "paymentConfiguration" | "featureFlags" | "validationRules";
+
+export interface RealSettingItem {
+  key: string;
+  category: SettingCategory;
+  label: string;
+  type: "string" | "number" | "boolean";
+  value: string | number | boolean;
+}
+
+export interface RealAuditLogEntry {
+  id: string;
+  actorId: string | null;
+  actor?: { id: string; email: string | null };
+  action: string;
+  entityType?: string;
+  entityId?: string;
+  before?: unknown;
+  after?: unknown;
+  createdAt: string;
+}
+
+// Analytics & Business Intelligence domain (Phase 13) — real backend only, no mock counterpart.
+// Field names/shapes mirror apps/api/src/analytics/*.service.ts exactly. See ANALYTICS.md and
+// DECISIONS.md ADR-020 for the approved business definitions behind every field here.
+export type AnalyticsRangePreset = "today" | "yesterday" | "this_week" | "last_week" | "this_month" | "last_month" | "quarter" | "year" | "custom";
+export type AnalyticsCompareMode = "none" | "previous" | "wow" | "mom" | "yoy";
+
+export interface AnalyticsFilters {
+  range: AnalyticsRangePreset;
+  from?: string;
+  to?: string;
+  compare?: AnalyticsCompareMode;
+  creatorId?: string;
+  campaignId?: string;
+  productId?: string;
+  paymentMethod?: string;
+  region?: string;
+  status?: string;
+  page?: number;
+  pageSize?: number;
+  sortBy?: string;
+  sortDir?: "asc" | "desc";
+}
+
+export interface RealDateRange {
+  from: string;
+  to: string;
+}
+
+export interface RealExecutiveMetrics {
+  gmvMinor: number;
+  revenueMinor: number;
+  netRevenueMinor: number;
+  ordersCount: number;
+  paidOrdersCount: number;
+  pendingOrdersCount: number;
+  refundsMinor: number;
+  refundRate: number;
+  activeCreatorsCount: number;
+  activeCampaignsCount?: number;
+  activeProductsCount?: number;
+  creatorLinkConversionRate: number;
+  averageOrderValueMinor: number;
+  newCustomers: number;
+  returningCustomers: number;
+}
+
+export interface RealDailyTrendPoint {
+  day: string;
+  ordersCount: number;
+  revenueMinor: number;
+}
+
+export interface RealExecutiveAnalytics {
+  current: RealExecutiveMetrics;
+  previous?: RealExecutiveMetrics;
+  deltaPct?: Partial<Record<keyof RealExecutiveMetrics, number | null>>;
+  trend: RealDailyTrendPoint[];
+  statusBreakdown: Array<{ status: string; count: number }>;
+}
+
+export interface RealCreatorAnalyticsListItem {
+  creatorId: string;
+  displayName: string;
+  ordersCount: number;
+  revenueMinor: number;
+  clicksCount: number;
+  conversionRate: number;
+}
+
+export interface RealCreatorAnalyticsDetail {
+  creatorId: string;
+  displayName: string;
+  range: RealDateRange;
+  earningsByStatus: Record<string, number>;
+  ordersCount: number;
+  revenueMinor: number;
+  clicksCount: number;
+  conversionRate: number;
+  viewsCount: null;
+  topCampaigns: Array<{ campaignId: string; name: string; ordersCount: number; revenueMinor: number }>;
+  topProducts: Array<{ productId: string; name: string; ordersCount: number; revenueMinor: number }>;
+  approvalRate: number;
+  averagePayoutMinor: number;
+  referralStats: { totalReferred: number; qualified: number; totalRewardsMinor: number };
+}
+
+export interface RealCampaignAnalyticsListItem {
+  campaignId: string;
+  name: string;
+  status: string;
+  ordersCount: number;
+  revenueMinor: number;
+  creatorCount: number;
+}
+
+export interface RealCampaignAnalyticsDetail {
+  campaignId: string;
+  name: string;
+  status: string;
+  range: RealDateRange;
+  ordersCount: number;
+  revenueMinor: number;
+  clicksCount: number;
+  conversionRate: number;
+  creatorCount: number;
+  averageCreatorRevenueMinor: number;
+  topCreators: Array<{ creatorId: string; displayName: string; ordersCount: number; revenueMinor: number }>;
+  trend: RealDailyTrendPoint[];
+}
+
+export interface RealProductAnalyticsListItem {
+  productId: string;
+  name: string;
+  ordersCount: number;
+  revenueMinor: number;
+  refundsMinor: number;
+  averageOrderValueMinor: number;
+}
+
+export interface RealProductAnalyticsDetail {
+  productId: string;
+  name: string;
+  range: RealDateRange;
+  ordersCount: number;
+  revenueMinor: number;
+  refundsMinor: number;
+  refundedOrdersCount: number;
+  clicksCount: number;
+  conversionRate: number;
+  averageOrderValueMinor: number;
+  trend: RealDailyTrendPoint[];
+}
+
+export interface RealPaymentAnalytics {
+  range: RealDateRange;
+  totalCount: number;
+  successRate: number;
+  byMethod: Array<{ provider: string; count: number; amountMinor: number }>;
+  pendingCount: number;
+  failedCount: number;
+  refundsMinor: number;
+}
+
+export interface RealRefundAnalytics {
+  range: RealDateRange;
+  requestedCount: number;
+  refundRate: number;
+  approvalRate: number;
+  averageRefundAmountMinor: number;
+  totalRefundedMinor: number;
+  topReasons: Array<{ reason: string; count: number }>;
+}
+
+export interface RealCustomerAnalytics {
+  range: RealDateRange;
+  activeCustomersCount: number;
+  newCustomersCount: number;
+  returningCustomersCount: number;
+  averageLifetimeValueMinor: number;
+  averageOrderFrequency: number;
+}
+
+export interface RealPaginatedAnalytics<T> {
+  items: T[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
 }

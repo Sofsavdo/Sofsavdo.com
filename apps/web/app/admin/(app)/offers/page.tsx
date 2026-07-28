@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { formatMoneyMinor } from "@rosti/types";
-import { Button, DataTableShell, StatusBadge } from "@rosti/ui";
+import { Button, DataTableShell, MobileDataCard, StatusBadge } from "@rosti/ui";
 import { useAdminOffers, useAdminProducts } from "@/services/admin/catalog";
 import { offerStatusMeta } from "@/lib/status";
 
@@ -50,6 +50,18 @@ export default function AdminOffersPage() {
       onRetry={() => offersQuery.refetch()}
       isEmpty={filtered.length === 0}
       emptyTitle="Offer topilmadi"
+      mobileCards={filtered.map((o) => (
+        <MobileDataCard
+          key={o.id}
+          href={`/admin/offers/${o.id}`}
+          title={o.name}
+          meta={<StatusBadge tone={offerStatusMeta[o.status].tone} label={offerStatusMeta[o.status].label} />}
+          fields={[
+            { label: "Product", value: productNameById.get(o.productId) ?? "—" },
+            { label: "Narx", value: formatMoneyMinor(o.priceMinor, o.currency), emphasis: true },
+          ]}
+        />
+      ))}
     >
       <table className="w-full text-left font-body text-sm">
         <thead className="bg-bg text-text-secondary">

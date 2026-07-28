@@ -1,43 +1,99 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { DataTableShell } from "@rosti/ui";
-import { useAdminAuditLog } from "@/services/admin/system";
+import { useState } from "react";
+import Link from "next/link";
+import { DataTableShell, MobileDataCard } from "@rosti/ui";
+import { useRealAuditLogList } from "@/services/admin/system";
 
 export default function AdminAuditLogPage() {
-  const query = useAdminAuditLog();
   const [search, setSearch] = useState("");
-  const [actionFilter, setActionFilter] = useState("ALL");
+  const [entityType, setEntityType] = useState("");
+  const [action, setAction] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [page, setPage] = useState(1);
 
-  const actions = useMemo(() => Array.from(new Set((query.data ?? []).map((e) => e.action))), [query.data]);
-
-  const filtered = (query.data ?? []).filter(
-    (e) =>
-      (actionFilter === "ALL" || e.action === actionFilter) &&
-      (e.actor.toLowerCase().includes(search.toLowerCase()) || e.entityType.toLowerCase().includes(search.toLowerCase()) || e.entityId.toLowerCase().includes(search.toLowerCase())),
-  );
+  const query = useRealAuditLogList({
+    search: search || undefined,
+    entityType: entityType || undefined,
+    action: action || undefined,
+    dateFrom: dateFrom || undefined,
+    dateTo: dateTo || undefined,
+    page,
+    pageSize: 20,
+  });
 
   return (
     <DataTableShell
       title="Audit log"
-      description="Barcha sezgir admin amallari — kim, nima, qachon, nima uchun."
+      description="Barcha sezgir admin amallari — kim, nima, qachon."
       searchValue={search}
-      onSearchChange={setSearch}
-      searchPlaceholder="Actor yoki entity bo'yicha qidirish"
+      onSearchChange={(v) => {
+        setSearch(v);
+        setPage(1);
+      }}
+      searchPlaceholder="Entity ID yoki actor emaili bo'yicha qidirish"
       filters={
-        <select value={actionFilter} onChange={(e) => setActionFilter(e.target.value)} className="h-10 rounded-input border border-border bg-bg px-3 font-body text-sm">
-          <option value="ALL">Barcha amallar</option>
-          {actions.map((a) => (
-            <option key={a} value={a}>
-              {a}
-            </option>
-          ))}
-        </select>
+        <div className="flex flex-wrap gap-2">
+          <input
+            placeholder="Entity turi (User, Refund, Role...)"
+            value={entityType}
+            onChange={(e) => {
+              setEntityType(e.target.value);
+              setPage(1);
+            }}
+            className="h-10 rounded-input border border-border bg-bg px-3 font-body text-sm"
+          />
+          <input
+            placeholder="Amal (STAFF_CREATED...)"
+            value={action}
+            onChange={(e) => {
+              setAction(e.target.value);
+              setPage(1);
+            }}
+            className="h-10 rounded-input border border-border bg-bg px-3 font-body text-sm"
+          />
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => {
+              setDateFrom(e.target.value);
+              setPage(1);
+            }}
+            className="h-10 rounded-input border border-border bg-bg px-3 font-body text-sm"
+          />
+          <input
+            type="date"
+            value={dateTo}
+            onChange={(e) => {
+              setDateTo(e.target.value);
+              setPage(1);
+            }}
+            className="h-10 rounded-input border border-border bg-bg px-3 font-body text-sm"
+          />
+        </div>
       }
       isLoading={query.isLoading}
-      isEmpty={filtered.length === 0}
+      isError={query.isError}
+      onRetry={() => query.refetch()}
+      isEmpty={(query.data?.items.length ?? 0) === 0}
       emptyTitle="Audit yozuv yo'q"
-      emptyDescription="Admin amallar (reject, refund, manual adjustment va h.k.) bajarilgach shu yerda ko'rinadi."
+      emptyDescription="Admin amallar (yaratish, tasdiqlash, rad etish va h.k.) bajarilgach shu yerda ko'rinadi."
+      page={query.data?.page}
+      pageCount={query.data?.totalPages}
+      onPageChange={setPage}
+      mobileCards={(query.data?.items ?? []).map((e) => (
+        <MobileDataCard
+          key={e.id}
+          href={`/admin/audit-log/${e.id}`}
+          title={e.action}
+          meta={<span className="font-body text-xs text-text-muted">{new Date(e.createdAt).toLocaleDateString("uz-UZ")}</span>}
+          fields={[
+            { label: "Actor", value: e.actor?.email ?? "Tizim" },
+            { label: "Entity", value: `${e.entityType}#${e.entityId?.slice(-6)}` },
+          ]}
+        />
+      ))}
     >
       <table className="w-full text-left font-body text-sm">
         <thead className="bg-bg text-text-secondary">
@@ -46,19 +102,19 @@ export default function AdminAuditLogPage() {
             <th className="whitespace-nowrap px-4 py-2.5 font-medium">Actor</th>
             <th className="whitespace-nowrap px-4 py-2.5 font-medium">Amal</th>
             <th className="whitespace-nowrap px-4 py-2.5 font-medium">Entity</th>
-            <th className="whitespace-nowrap px-4 py-2.5 font-medium">Sabab</th>
           </tr>
         </thead>
         <tbody>
-          {filtered.map((e) => (
-            <tr key={e.id} className="border-t border-border">
+          {(query.data?.items ?? []).map((e) => (
+            <tr key={e.id} className="border-t border-border hover:bg-bg">
               <td className="whitespace-nowrap px-4 py-2.5 text-xs text-text-muted">{new Date(e.createdAt).toLocaleString("uz-UZ")}</td>
-              <td className="whitespace-nowrap px-4 py-2.5 text-text-primary">{e.actor}</td>
+              <td className="whitespace-nowrap px-4 py-2.5 text-text-primary">{e.actor?.email ?? "Tizim"}</td>
               <td className="whitespace-nowrap px-4 py-2.5 text-text-secondary">{e.action}</td>
               <td className="whitespace-nowrap px-4 py-2.5 text-xs text-text-muted">
-                {e.entityType}#{e.entityId.slice(-6)}
+                <Link href={`/admin/audit-log/${e.id}`} className="hover:text-accent hover:underline">
+                  {e.entityType}#{e.entityId?.slice(-6)}
+                </Link>
               </td>
-              <td className="px-4 py-2.5 text-text-secondary">{e.reason ?? "—"}</td>
             </tr>
           ))}
         </tbody>

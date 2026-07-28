@@ -1,13 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
 import { formatMoneyMinor } from "@rosti/types";
-import { Button, Card, CardHeader, CardTitle, SelectField, Skeleton, StatTile } from "@rosti/ui";
+import type { RealExecutiveMetrics } from "@rosti/types";
+import { AnalyticsFilterBar, Button, Card, CardHeader, CardTitle, Skeleton, StatTile, deltaFromPct } from "@rosti/ui";
 import { Download } from "lucide-react";
-import { useAdminAnalytics, useExportAnalyticsCsv } from "@/services/admin/analytics";
-import { useAdminCampaigns } from "@/services/admin/campaigns";
-import { useAdminOffers } from "@/services/admin/catalog";
-import { useAdminCreators } from "@/services/admin/creators";
+import { useAnalyticsFilters } from "@/lib/useAnalyticsFilters";
+import { useExecutiveAnalytics, useCreatorAnalyticsList, useCampaignAnalyticsList, useProductAnalyticsList, usePaymentAnalytics, useExportAnalyticsCsv } from "@/services/admin/analytics";
+import { RevenueTrendChart, OrderStatusBarChart, PaymentMixPieChart } from "@/components/admin/AnalyticsCharts";
+import { CampaignFilterSelect, CreatorFilterSelect } from "@/components/admin/AnalyticsEntityFilters";
+import { useAdminSession } from "@/services/adminSession";
+import { hasRole } from "@/lib/adminRouting";
 
 function downloadCsv(content: string, filename: string) {
   const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
@@ -19,115 +22,123 @@ function downloadCsv(content: string, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-export default function AdminAnalyticsPage() {
-  const [campaignId, setCampaignId] = useState("");
-  const [offerId, setOfferId] = useState("");
-  const [creatorId, setCreatorId] = useState("");
+const pct = (v: number) => `${(v * 100).toFixed(1)}%`;
 
-  const campaignsQuery = useAdminCampaigns();
-  const offersQuery = useAdminOffers();
-  const creatorsQuery = useAdminCreators();
-  const analyticsQuery = useAdminAnalytics({ campaignId: campaignId || undefined, offerId: offerId || undefined, creatorId: creatorId || undefined });
+// The 14 requested Executive Dashboard KPIs (+ Net Revenue, an extra already-computed field the
+// backend carries for free) — one array instead of 15 near-identical <StatTile> blocks.
+const TILES: Array<{ key: keyof RealExecutiveMetrics; label: string; format: (v: number) => string }> = [
+  { key: "revenueMinor", label: "Revenue", format: formatMoneyMinor },
+  { key: "gmvMinor", label: "GMV", format: formatMoneyMinor },
+  { key: "netRevenueMinor", label: "Net Revenue", format: formatMoneyMinor },
+  { key: "ordersCount", label: "Buyurtmalar", format: (v) => String(v) },
+  { key: "paidOrdersCount", label: "To'langan buyurtmalar", format: (v) => String(v) },
+  { key: "pendingOrdersCount", label: "Kutilayotgan buyurtmalar", format: (v) => String(v) },
+  { key: "refundsMinor", label: "Refundlar", format: formatMoneyMinor },
+  { key: "refundRate", label: "Refund darajasi", format: pct },
+  { key: "activeCreatorsCount", label: "Faol creatorlar", format: (v) => String(v) },
+  { key: "activeCampaignsCount", label: "Faol kampaniyalar", format: (v) => String(v) },
+  { key: "activeProductsCount", label: "Faol mahsulotlar", format: (v) => String(v) },
+  { key: "creatorLinkConversionRate", label: "Creator link konversiyasi", format: pct },
+  { key: "averageOrderValueMinor", label: "O'rtacha buyurtma (AOV)", format: formatMoneyMinor },
+  { key: "newCustomers", label: "Yangi mijozlar", format: (v) => String(v) },
+  { key: "returningCustomers", label: "Qaytgan mijozlar", format: (v) => String(v) },
+];
+
+export default function AdminAnalyticsPage() {
+  const { filters, setRange, setFrom, setTo, setCompare, setFilter } = useAnalyticsFilters();
+  const { user: admin } = useAdminSession();
+  // analytics.export is ADMIN+ only (RBAC.md) — hiding the button for MANAGER is UI-only
+  // convenience matching every other ADMIN+-only action elsewhere in the admin UI; the real
+  // boundary is the backend's @RequirePermissions("analytics.read", "analytics.export") guard.
+  const canExport = hasRole(admin?.role, "ADMIN");
+
+  const executive = useExecutiveAnalytics(filters);
+  const topCreators = useCreatorAnalyticsList({ ...filters, pageSize: 5 });
+  const topCampaigns = useCampaignAnalyticsList({ ...filters, pageSize: 5 });
+  const topProducts = useProductAnalyticsList({ ...filters, pageSize: 5 });
+  const payments = usePaymentAnalytics(filters);
   const exportCsv = useExportAnalyticsCsv();
 
-  if (analyticsQuery.isLoading || !analyticsQuery.data) {
+  if (executive.isLoading || !executive.data) {
     return (
       <div className="space-y-6">
         <Skeleton className="h-8 w-56" />
-        <Skeleton className="h-48 w-full" />
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <Skeleton key={i} className="h-24" />
+          ))}
+        </div>
       </div>
     );
   }
 
-  const d = analyticsQuery.data;
+  const d = executive.data;
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-heading text-2xl font-bold text-text-primary">Analytics</h1>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={async () => {
-            const csv = await exportCsv.mutateAsync();
-            downloadCsv(csv, `rosti-analytics-${new Date().toISOString().slice(0, 10)}.csv`);
-          }}
-          disabled={exportCsv.isPending}
-        >
-          <Download className="mr-1.5 size-4" /> {exportCsv.isPending ? "Tayyorlanmoqda..." : "CSV eksport"}
-        </Button>
+        <h1 className="font-heading text-2xl font-bold text-text-primary">Executive Dashboard</h1>
+        {canExport ? (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={async () => {
+              const csv = await exportCsv.mutateAsync({ view: "executive", filters });
+              downloadCsv(csv, `rosti-analytics-executive-${new Date().toISOString().slice(0, 10)}.csv`);
+            }}
+            disabled={exportCsv.isPending}
+          >
+            <Download className="mr-1.5 size-4" /> {exportCsv.isPending ? "Tayyorlanmoqda..." : "CSV eksport"}
+          </Button>
+        ) : null}
       </div>
 
-      <div className="grid grid-cols-1 gap-3 rounded-card border border-border bg-surface p-4 sm:grid-cols-3">
-        <SelectField label="Campaign" value={campaignId} onChange={(e) => setCampaignId(e.target.value)}>
-          <option value="">Barchasi</option>
-          {(campaignsQuery.data ?? []).map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </SelectField>
-        <SelectField label="Offer" value={offerId} onChange={(e) => setOfferId(e.target.value)}>
-          <option value="">Barchasi</option>
-          {(offersQuery.data ?? []).map((o) => (
-            <option key={o.id} value={o.id}>
-              {o.name}
-            </option>
-          ))}
-        </SelectField>
-        <SelectField label="Creator" value={creatorId} onChange={(e) => setCreatorId(e.target.value)}>
-          <option value="">Barchasi</option>
-          {(creatorsQuery.data ?? [])
-            .filter((c) => c.application.status === "APPROVED")
-            .map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.displayName}
-              </option>
-            ))}
-        </SelectField>
-      </div>
+      <AnalyticsFilterBar
+        range={filters.range}
+        onRangeChange={setRange}
+        from={filters.from}
+        to={filters.to}
+        onFromChange={setFrom}
+        onToChange={setTo}
+        compare={filters.compare ?? "none"}
+        onCompareChange={setCompare}
+        extra={
+          <>
+            <CreatorFilterSelect value={filters.creatorId} onChange={(v) => setFilter("creatorId", v)} />
+            <CampaignFilterSelect value={filters.campaignId} onChange={(v) => setFilter("campaignId", v)} />
+          </>
+        }
+      />
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <StatTile label="Revenue" value={formatMoneyMinor(d.revenueMinor)} />
-        <StatTile label="Net revenue" value={formatMoneyMinor(d.netRevenueMinor)} />
-        <StatTile label="Buyurtmalar" value={d.ordersCount} />
-        <StatTile label="To'langan" value={d.paidOrdersCount} />
-        <StatTile label="Conversion" value={`${(d.conversionRate * 100).toFixed(1)}%`} />
-        <StatTile label="AOV" value={formatMoneyMinor(d.averageOrderValueMinor)} />
-        <StatTile label="Refund rate" value={`${(d.refundRate * 100).toFixed(1)}%`} />
-        <StatTile label="EPC" value={formatMoneyMinor(1_240_00)} />
+        {TILES.map((tile) => {
+          const value = d.current[tile.key];
+          if (value === undefined) return null;
+          return <StatTile key={tile.key} label={tile.label} value={tile.format(value as number)} delta={deltaFromPct(d.deltaPct?.[tile.key])} />;
+        })}
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Click → Landing → Checkout → Order</CardTitle>
-        </CardHeader>
-        <div className="grid grid-cols-5 gap-2 text-center">
-          {[
-            ["Click", d.funnel.clicks],
-            ["Landing", d.funnel.landingViews],
-            ["Checkout", d.funnel.checkoutStarts],
-            ["Order", d.funnel.orders],
-            ["Paid", d.funnel.paidOrders],
-          ].map(([label, value]) => (
-            <div key={label as string} className="rounded-input border border-border bg-bg p-3">
-              <p className="font-numeric text-lg font-semibold tabular-nums text-text-primary">{value}</p>
-              <p className="font-body text-xs text-text-muted">{label}</p>
-            </div>
-          ))}
-        </div>
-      </Card>
+      <RevenueTrendChart trend={d.trend} />
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <OrderStatusBarChart statusBreakdown={d.statusBreakdown} />
+        {payments.data ? <PaymentMixPieChart byMethod={payments.data.byMethod} /> : <Skeleton className="h-64 w-full" />}
+      </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <Card>
           <CardHeader>
-            <CardTitle>Top creatorlar (ROI)</CardTitle>
+            <CardTitle>Top creatorlar</CardTitle>
           </CardHeader>
-          {d.topCreators.length === 0 ? <p className="font-body text-sm text-text-muted">Ma&apos;lumot yo&apos;q.</p> : (
+          {!topCreators.data || topCreators.data.items.length === 0 ? (
+            <p className="font-body text-sm text-text-muted">Ma&apos;lumot yo&apos;q.</p>
+          ) : (
             <ul className="space-y-2 font-body text-sm">
-              {d.topCreators.map((c) => (
-                <li key={c.name} className="flex justify-between">
-                  <span className="text-text-primary">{c.name}</span>
+              {topCreators.data.items.map((c) => (
+                <li key={c.creatorId} className="flex justify-between">
+                  <Link href={`/admin/analytics/creators/${c.creatorId}`} className="text-text-primary hover:text-accent hover:underline">
+                    {c.displayName}
+                  </Link>
                   <span className="font-numeric tabular-nums text-text-secondary">{formatMoneyMinor(c.revenueMinor)}</span>
                 </li>
               ))}
@@ -136,13 +147,17 @@ export default function AdminAnalyticsPage() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Top campaignlar</CardTitle>
+            <CardTitle>Top kampaniyalar</CardTitle>
           </CardHeader>
-          {d.topCampaigns.length === 0 ? <p className="font-body text-sm text-text-muted">Ma&apos;lumot yo&apos;q.</p> : (
+          {!topCampaigns.data || topCampaigns.data.items.length === 0 ? (
+            <p className="font-body text-sm text-text-muted">Ma&apos;lumot yo&apos;q.</p>
+          ) : (
             <ul className="space-y-2 font-body text-sm">
-              {d.topCampaigns.map((c) => (
-                <li key={c.name} className="flex justify-between">
-                  <span className="text-text-primary">{c.name}</span>
+              {topCampaigns.data.items.map((c) => (
+                <li key={c.campaignId} className="flex justify-between">
+                  <Link href={`/admin/analytics/campaigns/${c.campaignId}`} className="text-text-primary hover:text-accent hover:underline">
+                    {c.name}
+                  </Link>
                   <span className="font-numeric tabular-nums text-text-secondary">{formatMoneyMinor(c.revenueMinor)}</span>
                 </li>
               ))}
@@ -151,19 +166,44 @@ export default function AdminAnalyticsPage() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Top offerlar</CardTitle>
+            <CardTitle>Top mahsulotlar</CardTitle>
           </CardHeader>
-          {d.topOffers.length === 0 ? <p className="font-body text-sm text-text-muted">Ma&apos;lumot yo&apos;q.</p> : (
+          {!topProducts.data || topProducts.data.items.length === 0 ? (
+            <p className="font-body text-sm text-text-muted">Ma&apos;lumot yo&apos;q.</p>
+          ) : (
             <ul className="space-y-2 font-body text-sm">
-              {d.topOffers.map((o) => (
-                <li key={o.name} className="flex justify-between">
-                  <span className="text-text-primary">{o.name}</span>
-                  <span className="font-numeric tabular-nums text-text-secondary">{formatMoneyMinor(o.revenueMinor)}</span>
+              {topProducts.data.items.map((p) => (
+                <li key={p.productId} className="flex justify-between">
+                  <Link href={`/admin/analytics/products/${p.productId}`} className="text-text-primary hover:text-accent hover:underline">
+                    {p.name}
+                  </Link>
+                  <span className="font-numeric tabular-nums text-text-secondary">{formatMoneyMinor(p.revenueMinor)}</span>
                 </li>
               ))}
             </ul>
           )}
         </Card>
+      </div>
+
+      <div className="flex flex-wrap gap-3 font-body text-sm">
+        <Link href="/admin/analytics/creators" className="text-accent hover:underline">
+          Creator analytics →
+        </Link>
+        <Link href="/admin/analytics/campaigns" className="text-accent hover:underline">
+          Campaign analytics →
+        </Link>
+        <Link href="/admin/analytics/products" className="text-accent hover:underline">
+          Product analytics →
+        </Link>
+        <Link href="/admin/analytics/payments" className="text-accent hover:underline">
+          Payment analytics →
+        </Link>
+        <Link href="/admin/analytics/refunds" className="text-accent hover:underline">
+          Refund analytics →
+        </Link>
+        <Link href="/admin/analytics/customers" className="text-accent hover:underline">
+          Customer analytics →
+        </Link>
       </div>
     </div>
   );

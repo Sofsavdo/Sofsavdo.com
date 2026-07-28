@@ -230,12 +230,12 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
       </Link>
 
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
-        <div>
+        <div className="min-w-0">
           <p className="font-body text-sm text-text-muted">{campaign.category}</p>
-          <h1 className="font-heading text-2xl font-bold text-text-primary">{campaign.name}</h1>
+          <h1 className="font-heading text-2xl font-bold text-text-primary break-words">{campaign.name}</h1>
           <p className="mt-1 font-body text-sm text-text-secondary">{campaign.offer.name}</p>
         </div>
-        <div className="text-right">
+        <div className="shrink-0 text-right">
           <p className="font-numeric text-xl font-semibold text-accent">{formatCommission(campaign)}</p>
           <p className="font-body text-xs text-text-muted">{formatDeadline(campaign.applicationDeadline)}</p>
         </div>

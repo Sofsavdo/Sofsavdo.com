@@ -59,7 +59,7 @@ export function classifyActivity(input: ActivityInput): ActivityClass {
     return "APPROVED_INACTIVE";
   }
 
-  // DRAFT / SUBMITTED / UNDER_REVIEW / REVISION_REQUESTED
+  // DRAFT / SUBMITTED / UNDER_REVIEW / CHANGES_REQUESTED
   if (daysSince(now, lastMeaningfulActivityAt) > DORMANT_AFTER_DAYS) return "DORMANT";
   if (onboardingStatus === "UNDER_REVIEW") return "AWAITING_APPROVAL";
   if (onboardingSubmittedAt == null && daysSince(now, registeredAt) <= ONBOARDING_STALLED_AFTER_DAYS) return "NEW";

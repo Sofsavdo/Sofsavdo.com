@@ -1,64 +1,135 @@
 # Deployment
 
-No existing production infrastructure was found for this project during the Phase 0 audit (the
-working directory was empty). The targets below are proposed, not yet provisioned — nothing in
-this file has been deployed.
+Supersedes the original Phase 0/1 speculative version of this file — that draft predated any real
+implementation (it assumed S3 storage, a Dockerfile that didn't actually exist yet, etc.). Everything
+below reflects what's actually built as of Phase 14 (Production Hardening). See
+[RUNBOOK.md](RUNBOOK.md) for the operational side (first admin, Click go-live, daily/weekly
+checklists) and [ENVIRONMENT.md](ENVIRONMENT.md) for the full environment variable reference.
 
 ## Targets
 
 ```
-Frontend (apps/web):  Vercel
-Backend  (apps/api):  Railway
-Database:              Railway Postgres (or any managed Postgres — connection is via
-                        DATABASE_URL + the pg driver adapter, see DATABASE.md)
-Redis:                  Railway Redis (BullMQ queues + cache)
-Object storage:         Cloudflare R2 (S3-compatible — FilesModule uses the S3 SDK against it)
-DNS / CDN:              Cloudflare
-Error monitoring:       Sentry
-Product analytics:      PostHog
+Frontend (apps/web):  Railway (Docker) — see apps/web/Dockerfile, apps/web/railway.toml
+Backend  (apps/api):  Railway (Docker) — see apps/api/Dockerfile, apps/api/railway.toml
+Database:              Railway Postgres (DATABASE_URL + @prisma/adapter-pg)
+Redis:                  Railway Redis (rate limiting + analytics caching — see health.controller.ts
+                        for why a Redis outage degrades performance rather than taking the app down)
+Object storage:         LocalDiskStorage today (dev/test only, gitignored uploads/ dir) — a cloud
+                        adapter (S3/R2/GCS) implements the same StoragePort when one is actually
+                        provisioned; none is wired up yet (see PROJECT_STATUS.md's deferred list)
+Container registry:     GitHub Container Registry (ghcr.io) — images built and pushed by
+                        .github/workflows/deploy.yml
+Error reporting:        None required — AllExceptionsFilter always logs 5xxs locally; an optional
+                        webhook-based forwarder activates only if ERROR_REPORTING_WEBHOOK_URL is set
+                        (see apps/api/src/common/error-reporting/)
 ```
 
-Domain plan (per spec, not yet registered/confirmed by the user):
+No production domain, Railway project, or GitHub Environment secrets have been provisioned during
+this phase — the pipeline below is real and ready to run, but nobody has pointed it at a live
+Railway project yet. See RUNBOOK.md §1 and §6 for what must happen before that's true.
+
+## CI/CD pipeline
+
+Two workflows, both real (`.github/workflows/`):
+
+**`ci.yml`** — runs on every push and PR: `npm ci` → `prisma generate` → `prisma validate` →
+typecheck → lint → `prisma migrate deploy` against a real Postgres+Redis service-container pair →
+unit tests → e2e tests → build. Both apps (`api` and `web` jobs) run in parallel. This is the
+Phase 14 §14 requirement in force: a broken typecheck, lint failure, failing test, or failed build
+blocks everything downstream, because `deploy.yml` calls this workflow as its own first job.
+
+**`deploy.yml`** — **manual only** (`workflow_dispatch`, choose `staging` or `production`; never
+triggered by a push). Per Phase 14 §14 ("do not automatically deploy to production without an
+explicit deployment action"), there is no path from a git push to a production deploy without a
+human explicitly running this workflow. Steps, in order:
+1. `quality-gate` — reruns `ci.yml` in full.
+2. `migrate` — `prisma migrate deploy` against the target environment's real `DATABASE_URL`
+   (a GitHub Environment secret, not committed anywhere).
+3. `build-and-push` — builds both Dockerfiles, pushes to `ghcr.io/<repo>/api` and `.../web`, tagged
+   `<environment>-<git-sha>`.
+4. `deploy` — `railway up` for both services via the Railway CLI (needs `RAILWAY_TOKEN` as a GitHub
+   Environment secret — not configured yet, since no real Railway project exists to point at).
+5. `verify` — polls the deployed API's `/health/ready` for up to 2 minutes; the workflow only
+   reports success once that returns 200. A deploy that ships but boots into a crash loop, or can't
+   reach its database, shows up as a **failed** Actions run, not a silent bad deploy.
+
+Configuring a GitHub Environment (Settings → Environments) for `staging`/`production` also lets a
+required-reviewer approval gate be added on top of the manual trigger, if that's wanted.
+
+## Docker — built, hand-reviewed, NOT yet build-verified
+
+Both `apps/api/Dockerfile` and `apps/web/Dockerfile` exist, are multi-stage (deps → build →
+prod-deps → runtime), and were written and reviewed against this repo's actual npm-workspaces
+layout — but **neither has been through an actual `docker build` in this environment**: the
+development sandbox this phase was done in has no working Docker Desktop virtualization backend
+(confirmed: the engine never comes up, `docker build`/`docker info` fail with a pipe-connection
+error). See PROJECT_STATUS.md's Phase 14 entry for the full confirmation detail.
+
+**Before trusting either image for a real deploy**, build both for real in an environment with a
+working Docker engine (a developer machine, or simply by triggering `deploy.yml` against `staging`
+— its `build-and-push` job runs on GitHub-hosted runners, which do have Docker):
+```bash
+docker build -f apps/api/Dockerfile -t rosti-api:test .
+docker build -f apps/web/Dockerfile -t rosti-web:test .
 ```
-rosti.uz            marketing/root
-creator.rosti.uz     creator app (or /creator path on the same Next.js app at MVP)
-admin.rosti.uz       admin app (or /admin path, same app, at MVP)
-api.rosti.uz         NestJS API + Swagger docs
+Both must be built with the **repo root** as the build context (`.`), not `apps/api`/`apps/web` —
+see each Dockerfile's own header comment for why (npm workspaces).
+
+The web build's `NEXT_PUBLIC_API_MODE`/`NEXT_PUBLIC_API_URL` are baked in at build time via Docker
+`ARG`s (Next.js inlines `NEXT_PUBLIC_*` into the client bundle) — a staging build and a production
+build are genuinely different images, not the same image with different runtime env vars for those
+two specific variables.
+
+## Railway project setup (once a real project exists)
+
+Two services in one Railway project, both pointed at this same repo with **Root Directory left at
+the monorepo root** (`/`), not `apps/api`/`apps/web` — each service's `railway.toml`
+(`dockerfilePath`) already assumes that. Plus one Postgres and one Redis instance (Railway's own
+managed offerings, or any Postgres/Redis reachable via `DATABASE_URL`/`REDIS_URL`).
+
 ```
-At MVP scale a single Next.js deployment serving `/`, `/creator/*`, `/o/*`, `/checkout/*`, and
-`/admin/*` behind route groups is simpler to operate than three separate deployments — the
-subdomain split is a later infra migration, not a Phase-1 requirement.
-
-## Health endpoints
-
-```
-GET /health         liveness + a static OK
-GET /health/ready    checks DB connection + Redis connection
-GET /health/live     process liveness only, no dependency checks (safe for aggressive polling)
+rosti-api    → apps/api/railway.toml → healthcheckPath /health/ready
+rosti-web    → apps/web/railway.toml → healthcheckPath /
 ```
 
-## Docker
+Configure every required environment variable per [ENVIRONMENT.md](ENVIRONMENT.md) directly in
+Railway's dashboard for each service — never in a committed file.
 
-`apps/api` ships a `Dockerfile` (Phase 6). Local dev uses `docker-compose.yml` at the repo root
-for Postgres + Redis only — the Next.js and NestJS apps run via `npm run dev` locally, not
-containerized, to keep the inner dev loop fast.
+## Safe migration process
 
-## Migrations & seed
-
-`npx prisma migrate deploy` runs in the Railway deploy pipeline before the API process starts.
-Seed data (`apps/api/prisma/seed.ts`, per the realistic-Uzbek-content requirement in the master
-spec) runs once against a fresh environment, never against production without an explicit
-operator action.
+- **Never** run `prisma migrate dev` against a real environment — that command can generate a new
+  migration interactively and is meant for local development only.
+- Production/staging always run `prisma migrate deploy` (`npm run prisma:migrate:deploy
+  --workspace=@rosti/api`), which only applies migrations already committed and code-reviewed —
+  it never creates or edits one.
+- Write every migration to be additive/backward-compatible where realistically possible (add a
+  column nullable or with a default, don't rename in the same migration you also change application
+  code to read the new name) — this is what actually makes a rollback safe, more than any specific
+  tooling.
+- Migrations run as their own CI/CD step (`deploy.yml`'s `migrate` job), before the new image is
+  even built — never baked into the Docker image's `CMD` (see `apps/api/Dockerfile`'s comment on
+  why: multiple replicas starting the same image must never race each other into applying the same
+  migration concurrently).
 
 ## Rollback
 
-Railway/Vercel both support redeploying a previous build immediately; database rollback relies on
-Prisma migration `down` scripts being written for any migration that isn't purely additive — this
-is a Phase 6+ discipline, tracked per-migration once migrations exist.
+- **Application code**: redeploy the previous image tag (`ghcr.io/<repo>/api:<environment>-<previous-sha>`)
+  via `railway up` (or Railway's dashboard "redeploy" on a previous deployment) — the image registry
+  keeps every previously-pushed tag.
+- **Database**: only safe if the migration being rolled back from was additive (see above). A
+  destructive migration (dropped column, changed type) is not safely reversible by redeploying old
+  code alone — restoring from a recent backup is the real answer in that case (see
+  [BACKUP_RESTORE.md](BACKUP_RESTORE.md)).
+- Always confirm `/health/ready` returns `{status: "ok"}` after any rollback, the same as after a
+  forward deploy.
 
-## What I will not assume
+## Emergency hotfix process
 
-Per the master prompt's own guidance, I have not assumed production payment credentials,
-production secrets, an officially confirmed domain, legal documents, or performed any destructive
-database operation. All provider integrations (Click, Payme, Uzum Nasiya) run against the
-`MockProvider` (see ARCHITECTURE.md §7) until real credentials are supplied by the user.
+1. Branch from `main`, make the minimal fix, open a PR — `ci.yml` still gates it like any other
+   change; skipping tests/typecheck to "move fast" during an incident is exactly when a second bug
+   gets shipped on top of the first.
+2. Merge once CI is green.
+3. Run `deploy.yml` manually against `production` — the same pipeline as any other deploy, not a
+   separate "fast path" that bypasses migration safety or the post-deploy `/health/ready` check.
+4. Record the incident (what broke, what the fix was, why) in DECISIONS.md or wherever the team
+   tracks postmortems — not covered by any file in this repo today.

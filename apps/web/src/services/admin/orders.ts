@@ -85,3 +85,44 @@ export function useUpdateRealOrderNotes() {
 export function useCreateRealOrderRefund() {
   return useOrderReviewMutation(({ id, amountMinor, reason }: { id: string; amountMinor: number; reason: string }) => api.createRealOrderRefund(id, amountMinor, reason));
 }
+
+// ---- Platform Payments & Refunds (Phase 12, real backend, real-only) — distinct from the legacy
+// mock-only useAdminPayments/useAdminRefunds/useCreateRefund above, which stay untouched but are
+// now unused (this domain's page is replaced, not branched — see DECISIONS.md ADR-019). Payments
+// is read-only, per this phase's own spec; Refunds gets an approve/reject review decision.
+
+export function useRealPaymentList(query: import("@/lib/api/admin").RealPaymentQuery = {}) {
+  return useQuery({ queryKey: ["admin-payments-real", query], queryFn: () => api.getRealPaymentList(query) });
+}
+
+export function useRealPaymentDetail(id: string) {
+  return useQuery({ queryKey: ["admin-payments-real", "detail", id], queryFn: () => api.getRealPaymentDetail(id), enabled: !!id });
+}
+
+export function useRealPaymentTimeline(id: string) {
+  return useQuery({ queryKey: ["admin-payments-real", "timeline", id], queryFn: () => api.getRealPaymentTimeline(id), enabled: !!id });
+}
+
+export function useRealRefundList(query: import("@/lib/api/admin").RealRefundQuery = {}) {
+  return useQuery({ queryKey: ["admin-refunds-real", query], queryFn: () => api.getRealRefundList(query) });
+}
+
+export function useRealRefundDetail(id: string) {
+  return useQuery({ queryKey: ["admin-refunds-real", "detail", id], queryFn: () => api.getRealRefundDetail(id), enabled: !!id });
+}
+
+function useRealRefundMutation<TVars>(mutationFn: (vars: TVars) => Promise<unknown>) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-refunds-real"] }),
+  });
+}
+
+export function useApproveRealRefund() {
+  return useRealRefundMutation((id: string) => api.approveRealRefund(id));
+}
+
+export function useRejectRealRefund() {
+  return useRealRefundMutation(({ id, reason }: { id: string; reason: string }) => api.rejectRealRefund(id, reason));
+}

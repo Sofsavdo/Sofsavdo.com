@@ -5,8 +5,8 @@ import { DEFAULT_ROLE_PERMISSIONS, PERMISSIONS } from "./permissions.constants";
 // permissions.constants.ts that silently drops or duplicates a grant fails immediately, without
 // needing a database to catch it. RBAC.md's tables must match this file exactly.
 describe("permission matrix", () => {
-  it("has exactly 54 permission keys, each domain.action shaped", () => {
-    expect(PERMISSIONS).toHaveLength(54);
+  it("has exactly 65 permission keys, each domain.action shaped", () => {
+    expect(PERMISSIONS).toHaveLength(65);
     for (const key of PERMISSIONS) {
       expect(key).toMatch(/^[a-z]+\.[a-z]+$/);
     }
@@ -38,6 +38,10 @@ describe("permission matrix", () => {
         "payout.read",
         "analytics.read",
         "audit.read",
+        "notification.read",
+        "onboarding.read",
+        "onboarding.review",
+        "refund.read",
       ]),
     );
     for (const forbidden of [
@@ -71,6 +75,13 @@ describe("permission matrix", () => {
       "settings.write",
       "user.manage",
       "attribution.override",
+      "notification.manage",
+      "onboarding.approve",
+      "onboarding.reject",
+      "onboarding.revise",
+      "refund.manage",
+      "role.read",
+      "role.manage",
     ]) {
       expect(manager).not.toContain(forbidden);
     }
@@ -112,10 +123,15 @@ describe("permission matrix", () => {
       "payout.approve",
       "payout.pay",
       "analytics.export",
+      "notification.manage",
+      "onboarding.approve",
+      "onboarding.reject",
+      "onboarding.revise",
+      "refund.manage",
     ]) {
       expect(admin).toContain(granted);
     }
-    for (const forbidden of ["creator.block", "attribution.override", "settings.write", "user.manage"]) {
+    for (const forbidden of ["creator.block", "attribution.override", "settings.write", "user.manage", "role.read", "role.manage"]) {
       expect(admin).not.toContain(forbidden);
     }
   });
@@ -125,7 +141,16 @@ describe("permission matrix", () => {
     const superAdmin = DEFAULT_ROLE_PERMISSIONS.super_admin;
     for (const perm of admin) expect(superAdmin).toContain(perm);
 
-    for (const granted of ["creator.block", "attribution.override", "settings.read", "settings.write", "user.read", "user.manage"]) {
+    for (const granted of [
+      "creator.block",
+      "attribution.override",
+      "settings.read",
+      "settings.write",
+      "user.read",
+      "user.manage",
+      "role.read",
+      "role.manage",
+    ]) {
       expect(superAdmin).toContain(granted);
     }
   });

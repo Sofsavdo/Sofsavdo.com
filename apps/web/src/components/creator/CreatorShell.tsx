@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X, LogOut } from "lucide-react";
 import { cn } from "@rosti/ui";
+import { BRAND } from "@rosti/config/brand";
 import { useSession } from "@/services/session";
 import { CREATOR_NAV_ITEMS } from "./nav-items";
 
@@ -43,7 +44,7 @@ export function CreatorShell({ children }: { children: ReactNode }) {
       <aside className="hidden w-64 shrink-0 border-r border-border bg-surface px-4 py-6 md:flex md:flex-col md:justify-between">
         <div>
           <Link href="/creator/dashboard" className="mb-8 block font-heading text-xl font-bold text-text-primary">
-            Rosti
+            {BRAND.name}
           </Link>
           <nav className="flex flex-col gap-1">
             {CREATOR_NAV_ITEMS.map((item) => (
@@ -72,7 +73,7 @@ export function CreatorShell({ children }: { children: ReactNode }) {
       {/* Mobile header */}
       <header className="flex items-center justify-between border-b border-border bg-surface px-pad-mobile py-3 md:hidden">
         <Link href="/creator/dashboard" className="font-heading text-lg font-bold text-text-primary">
-          Rosti
+          {BRAND.name}
         </Link>
         <button
           type="button"

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Badge, Button, ConfirmModal, DataTableShell } from "@rosti/ui";
+import { Badge, Button, ConfirmModal, DataTableShell, MobileDataCard } from "@rosti/ui";
 import { useAdminSession } from "@/services/adminSession";
 import { hasRole } from "@/lib/adminRouting";
 import { useAdminVisitors, useOverrideAttribution } from "@/services/admin/marketing";
@@ -38,6 +38,42 @@ export default function AdminVisitorsPage() {
       onRetry={() => query.refetch()}
       isEmpty={filtered.length === 0}
       emptyTitle="Visitor topilmadi"
+      mobileCards={filtered.map((v) => {
+        const orderId = orderIdForToken(v.attributedOrderToken);
+        return (
+          <MobileDataCard
+            key={v.id}
+            title={v.offerName}
+            meta={<Badge tone={v.source === "PROMO_CODE" ? "accent" : "info"}>{v.source === "PROMO_CODE" ? "Promo kod" : "Referral"}</Badge>}
+            fields={[
+              { label: "Creator", value: v.creatorName ?? "—" },
+              { label: "Campaign", value: v.campaignName },
+              { label: "Yaratilgan", value: new Date(v.createdAt).toLocaleDateString("uz-UZ") },
+              { label: "Fraud", value: v.fraudRiskFlags.length > 0 ? v.fraudRiskFlags.join(", ") : "—" },
+            ]}
+            actions={
+              canOverride && orderId ? (
+                <select
+                  className="h-8 rounded-input border border-border bg-surface px-2 font-body text-xs"
+                  defaultValue=""
+                  onChange={(e) => {
+                    if (e.target.value) setOverrideTarget({ orderId, newCreatorId: e.target.value });
+                  }}
+                >
+                  <option value="">Attributionni o&apos;zgartirish...</option>
+                  {(creatorsQuery.data ?? [])
+                    .filter((c) => c.application.status === "APPROVED")
+                    .map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.displayName}
+                      </option>
+                    ))}
+                </select>
+              ) : undefined
+            }
+          />
+        );
+      })}
     >
       <table className="w-full text-left font-body text-sm">
         <thead className="bg-bg text-text-secondary">

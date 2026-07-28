@@ -463,7 +463,13 @@ export class OrdersService {
   // ADR-015 point 6) — both are "this order got paid" events and must trigger the exact same
   // consequences. Owns every one of them in one place: status transition, stock reservation, and
   // the referral qualified-sale hook — so callers never have to know what paying for an order means.
-  async markPaid(orderId: string, actorId: string | null = null, note?: string): Promise<void> {
+  // `providerReference` (Phase 14): PaymentsService.handleClickCallback used to update
+  // Payment.status/providerReference in its own, separate, un-transacted write before calling
+  // this method — a real crash-window gap (a process death between that write and this one's own
+  // transaction could leave Payment showing PAID while Order stayed PAYMENT_PENDING). Accepting
+  // the provider reference here and setting it inside this method's own transaction closes that
+  // window: Order status, stock, and Payment now commit atomically or not at all.
+  async markPaid(orderId: string, actorId: string | null = null, note?: string, providerReference?: string): Promise<void> {
     const order = await this.findRawOrThrow(orderId);
     if (order.status === "PAID") return; // already processed — replayed callback, no-op
     this.assertTransition(order.status, "PAID");
@@ -473,9 +479,10 @@ export class OrdersService {
       await tx.orderStatusHistory.create({ data: { orderId, fromStatus: order.status, toStatus: "PAID", changedById: actorId ?? undefined, note } });
       await this.reserveStock(tx, orderId);
       // Keeps Payment.status in sync for the admin-manual-approval path (Pay Later): the Click
-      // callback path already sets this to PAID itself before calling markPaid, so this is a
-      // harmless no-op there; for a MANUAL Payment it's the only place that ever marks it PAID.
-      await tx.payment.updateMany({ where: { orderId, status: { not: "PAID" } }, data: { status: "PAID" } });
+      // callback path passes providerReference through to be set here in the same transaction, so
+      // this is a harmless no-op there; for a MANUAL Payment it's the only place that ever marks
+      // it PAID.
+      await tx.payment.updateMany({ where: { orderId, status: { not: "PAID" } }, data: { status: "PAID", ...(providerReference ? { providerReference } : {}) } });
     });
     await this.audit.record({ actorId, action: "PAYMENT_SUCCESS", entityType: "Order", entityId: orderId, after: { status: "PAID", note } });
 
@@ -483,10 +490,20 @@ export class OrdersService {
     if (attribution) await this.referrals.onQualifiedSale(attribution.creatorId, orderId);
   }
 
-  async markPaymentFailed(orderId: string, reason: string): Promise<void> {
+  // `providerReference` (Phase 14): same atomicity fix as markPaid above — Payment.status=FAILED
+  // and the Order's CANCELLED transition now commit inside one transaction instead of two
+  // separate un-transacted writes from PaymentsService.
+  async markPaymentFailed(orderId: string, reason: string, providerReference?: string): Promise<void> {
     const order = await this.findRawOrThrow(orderId);
     if (order.status !== "PAYMENT_PENDING" && order.status !== "CREATED") return; // already resolved
-    await this.transitionStatus(orderId, "CANCELLED", null, `To'lov muvaffaqiyatsiz: ${reason}`);
+    const note = `To'lov muvaffaqiyatsiz: ${reason}`;
+    this.assertTransition(order.status, "CANCELLED");
+    await this.prisma.$transaction(async (tx) => {
+      await tx.order.update({ where: { id: orderId }, data: { status: "CANCELLED" } });
+      await tx.orderStatusHistory.create({ data: { orderId, fromStatus: order.status, toStatus: "CANCELLED", note } });
+      await tx.payment.updateMany({ where: { orderId, status: { not: "FAILED" } }, data: { status: "FAILED", ...(providerReference ? { providerReference } : {}) } });
+    });
+    await this.audit.record({ actorId: null, action: "STATUS_UPDATED", entityType: "Order", entityId: orderId, before: { status: order.status }, after: { status: "CANCELLED" } });
     await this.audit.record({ actorId: null, action: "PAYMENT_FAILED", entityType: "Order", entityId: orderId, after: { reason } });
   }
 

@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Plus } from "lucide-react";
-import { DataTableShell, Button, StatusBadge } from "@rosti/ui";
+import { DataTableShell, Button, MobileDataCard, StatusBadge } from "@rosti/ui";
 import { useAdminProducts } from "@/services/admin/catalog";
 import { productStatusMeta } from "@/lib/status";
 
@@ -44,6 +44,18 @@ export default function AdminProductsPage() {
       isEmpty={filtered.length === 0}
       emptyTitle="Mahsulot topilmadi"
       emptyDescription="Filtrni o'zgartiring yoki yangi mahsulot qo'shing."
+      mobileCards={filtered.map((p) => (
+        <MobileDataCard
+          key={p.id}
+          href={`/admin/products/${p.id}`}
+          title={p.name}
+          meta={<StatusBadge tone={productStatusMeta[p.status].tone} label={productStatusMeta[p.status].label} />}
+          fields={[
+            { label: "Turi", value: TYPE_LABELS[p.type] ?? p.type },
+            { label: "SKU", value: p.sku ?? "—" },
+          ]}
+        />
+      ))}
     >
       <table className="w-full text-left font-body text-sm">
         <thead className="bg-bg text-text-secondary">

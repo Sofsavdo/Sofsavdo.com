@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Alert, Button, Card, CardHeader, CardTitle, Skeleton } from "@rosti/ui";
+import { BRAND } from "@rosti/config/brand";
 import { useSession } from "@/services/session";
 import { applicationStatusMeta } from "@/lib/status";
 import { OnboardingWizard } from "./OnboardingWizard";
@@ -40,7 +41,7 @@ export function OnboardingPageClient() {
     <div className="mx-auto max-w-2xl px-pad-mobile py-12 md:px-pad-desktop">
       <div className="mb-6 flex items-center justify-between">
         <Link href="/" className="font-heading text-xl font-bold text-text-primary">
-          Rosti
+          {BRAND.name}
         </Link>
         <button type="button" onClick={logout} className="font-body text-sm text-text-muted underline">
           Chiqish
@@ -65,26 +66,17 @@ export function OnboardingPageClient() {
     );
   }
 
-  if (application.status === "REJECTED") {
-    return shell(
-      <Card>
-        <CardHeader className="flex-col items-start gap-1">
-          <CardTitle>Ariza rad etildi</CardTitle>
-        </CardHeader>
-        <Alert tone="error">{application.reviewNote ?? "Arizangiz rad etildi."}</Alert>
-        <p className="mt-4 font-body text-sm text-text-secondary">
-          Ko&apos;rsatilgan sababni bartaraf etgach, qayta ariza topshirishingiz mumkin bo&apos;ladi.
-        </p>
-      </Card>,
-    );
-  }
-
-  // DRAFT or REVISION_REQUESTED — editable wizard
+  // DRAFT, CHANGES_REQUESTED, or REJECTED — all editable. Unlike CampaignApplication, REJECTED is
+  // not terminal here: a rejected applicant can address the stated reason and resubmit rather than
+  // being permanently locked out (see DECISIONS.md ADR-018). "submit" (DRAFT's first-ever
+  // submission) and "resubmit" (from CHANGES_REQUESTED/REJECTED) are distinct real-backend actions
+  // — see OnboardingWizard's `mode` prop.
   return shell(
     <OnboardingWizard
       initialData={application.data}
       initialStep={application.currentStep || 1}
-      revisionNote={application.status === "REVISION_REQUESTED" ? application.reviewNote : undefined}
+      revisionNote={application.status !== "DRAFT" ? application.reviewNote : undefined}
+      mode={application.status === "DRAFT" ? "submit" : "resubmit"}
     />,
   );
 }

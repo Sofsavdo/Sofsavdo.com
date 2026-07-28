@@ -129,9 +129,25 @@ export {
   withdrawCampaignApplication,
 } from "./creator-real";
 
+// Onboarding CreatorApplication draft/submit/resubmit (Phase 11) — real mode calls the dedicated
+// PATCH/POST /creator/onboarding/* endpoints (distinct submit-from-DRAFT vs resubmit-from-
+// CHANGES_REQUESTED|REJECTED transitions, see DECISIONS.md ADR-018); mock mode's single
+// apiSubmitApplication already handles both identically (no from-state guard), so resubmitApplication
+// simply delegates to it there.
+export const updateApplication = (
+  userId: string,
+  patch: Partial<import("@rosti/types").CreatorApplicationData>,
+  step: number,
+): Promise<CreatorUser["application"]> =>
+  USE_REAL_API ? creatorRealApi.updateOnboardingApplication(step, patch) : mockApi.apiUpdateApplication(userId, patch, step);
+
+export const submitApplication = (userId: string): Promise<CreatorUser["application"]> =>
+  USE_REAL_API ? creatorRealApi.submitOnboardingApplication() : mockApi.apiSubmitApplication(userId);
+
+export const resubmitApplication = (userId: string): Promise<CreatorUser["application"]> =>
+  USE_REAL_API ? creatorRealApi.resubmitOnboardingApplication() : mockApi.apiSubmitApplication(userId);
+
 export {
-  apiUpdateApplication as updateApplication,
-  apiSubmitApplication as submitApplication,
   apiGetContent as getContent,
   apiSubmitContent as submitContent,
   apiGetSales as getSales,
@@ -164,3 +180,32 @@ export const createOrder = (input: CreateOrderInput): Promise<CheckoutOrderResul
 
 export const getOrderPublic = (publicToken: string): Promise<CheckoutOrderResult> =>
   USE_REAL_API ? checkoutRealApi.getOrderPublic(publicToken) : (mockApi.apiGetOrderPublic(publicToken) as unknown as Promise<CheckoutOrderResult>);
+
+// ---- Wallet, Commission Settlement & Payout domain (Phase 9) — real backend only, same
+// no-mock-counterpart precedent as Content/Order above. Distinct function names avoid colliding
+// with the legacy mock-only getBalance/getPayoutMethods/addPayoutMethod/getPayouts/requestPayout
+// re-exported further up from mocks/store.ts. ----
+export type { CreatePayoutMethodInput } from "./wallet-real";
+export {
+  getWalletBalance,
+  getWalletTransactions,
+  listPayoutMethods,
+  createPayoutMethod,
+  setDefaultPayoutMethod,
+  deletePayoutMethod,
+  listPayoutsMine,
+  requestPayout as requestRealPayout,
+  cancelPayout,
+} from "./wallet-real";
+
+// ---- Communication & Notification domain (Phase 10) — real backend only, no mock counterpart
+// (see @rosti/types' RealNotification comment). ----
+export type { NotificationListQuery } from "./notifications-real";
+export {
+  getNotifications,
+  getNotification,
+  markNotificationRead,
+  markAllNotificationsRead,
+  getNotificationPreferences,
+  updateNotificationPreference,
+} from "./notifications-real";

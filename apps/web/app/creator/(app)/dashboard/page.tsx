@@ -71,15 +71,40 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <h1 className="font-heading text-2xl font-bold text-text-primary">Dashboard</h1>
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <StatTile label="Bugungi click" value={d.today.clicks} />
-        <StatTile label="Bugungi sotuv" value={d.today.orders} />
-        <StatTile label="Bugungi daromad" value={formatMoneyMinor(d.today.revenueMinor)} />
-        <StatTile label="Conversion" value={`${(d.conversionRate * 100).toFixed(1)}%`} />
-        <StatTile label="Oylik savdo" value={formatMoneyMinor(d.monthToDate.salesMinor)} />
-        <StatTile label="Oylik komissiya" value={formatMoneyMinor(d.monthToDate.commissionMinor)} />
-        <StatTile label="EPC (click boshiga)" value={formatMoneyMinor(d.epcMinor)} />
-        <StatTile label="Mavjud balans" value={formatMoneyMinor(d.availableBalanceMinor)} />
+      {/* Hero balance card — the single highest-stakes number on this page (the creator's own
+          money) previously sat as one equally-weighted tile among eight in a flat grid, with no
+          visual distinction from "today's click count". Promoted to its own card with a direct
+          withdraw CTA, matching DESIGN_SYSTEM.md's "no more than one solid-accent button visible
+          at a time" rule (the dashboard's one primary action). */}
+      <Card className="flex flex-col items-start justify-between gap-4 border-accent/20 bg-gradient-to-br from-surface to-bg sm:flex-row sm:items-center">
+        <div>
+          <p className="font-body text-sm text-text-secondary">Mavjud balans</p>
+          <p className="mt-1 font-numeric text-3xl font-bold tabular-nums text-text-primary md:text-4xl">
+            {formatMoneyMinor(d.availableBalanceMinor)}
+          </p>
+        </div>
+        <Button asChild size="lg">
+          <Link href="/creator/payouts">Pul yechish</Link>
+        </Button>
+      </Card>
+
+      <div>
+        <p className="mb-2 font-body text-xs font-semibold uppercase tracking-wide text-text-muted">Bugun</p>
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+          <StatTile label="Click" value={d.today.clicks} />
+          <StatTile label="Sotuv" value={d.today.orders} />
+          <StatTile label="Daromad" value={formatMoneyMinor(d.today.revenueMinor)} />
+          <StatTile label="Conversion" value={`${(d.conversionRate * 100).toFixed(1)}%`} />
+        </div>
+      </div>
+
+      <div>
+        <p className="mb-2 font-body text-xs font-semibold uppercase tracking-wide text-text-muted">Shu oy</p>
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+          <StatTile label="Savdo" value={formatMoneyMinor(d.monthToDate.salesMinor)} />
+          <StatTile label="Komissiya" value={formatMoneyMinor(d.monthToDate.commissionMinor)} />
+          <StatTile label="EPC (click boshiga)" value={formatMoneyMinor(d.epcMinor)} className="col-span-2 md:col-span-1" />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -104,8 +129,8 @@ export default function DashboardPage() {
             <CardTitle>Payout holati</CardTitle>
           </CardHeader>
           {latestPayout ? (
-            <div className="flex items-center justify-between">
-              <span className="font-numeric text-lg font-semibold tabular-nums">
+            <div className="flex items-center justify-between gap-2">
+              <span className="break-words font-numeric text-lg font-semibold tabular-nums">
                 {formatMoneyMinor(latestPayout.amountMinor)}
               </span>
               <Badge tone={payoutStatusMeta[latestPayout.status].tone}>

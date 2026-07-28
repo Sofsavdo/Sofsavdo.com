@@ -60,3 +60,57 @@ export function useSetCreatorAccountStatus() {
     onSuccess: (_d, vars) => invalidateCreator(qc, vars.userId),
   });
 }
+
+// ---- Creator administration (Phase 12, real backend, real-only) — distinct from the legacy
+// mock-only hooks above, which stay untouched but are now unused (this page is replaced, not
+// branched — see DECISIONS.md ADR-019). Onboarding decisions (approve/reject/request-changes) are
+// deliberately NOT duplicated here — they already have a real, complete implementation at
+// /admin/creator-applications (Phase 11); this domain is account administration only.
+
+export function useRealCreatorList(query: import("@/lib/api/admin").RealCreatorQuery = {}) {
+  return useQuery({ queryKey: ["admin-creators-real", query], queryFn: () => api.getRealCreatorList(query) });
+}
+
+export function useRealCreatorDetail(id: string) {
+  return useQuery({ queryKey: ["admin-creators-real", "detail", id], queryFn: () => api.getRealCreatorDetail(id), enabled: !!id });
+}
+
+export function useRealCreatorCampaignHistory(id: string) {
+  return useQuery({ queryKey: ["admin-creators-real", "campaign-history", id], queryFn: () => api.getRealCreatorCampaignHistory(id), enabled: !!id });
+}
+
+export function useRealCreatorEarningsSummary(id: string) {
+  return useQuery({ queryKey: ["admin-creators-real", "earnings", id], queryFn: () => api.getRealCreatorEarningsSummary(id), enabled: !!id });
+}
+
+export function useRealCreatorPayoutSummary(id: string) {
+  return useQuery({ queryKey: ["admin-creators-real", "payouts", id], queryFn: () => api.getRealCreatorPayoutSummary(id), enabled: !!id });
+}
+
+export function useRealCreatorReferralSummary(id: string) {
+  return useQuery({ queryKey: ["admin-creators-real", "referrals", id], queryFn: () => api.getRealCreatorReferralSummary(id), enabled: !!id });
+}
+
+function useRealCreatorMutation<TVars>(mutationFn: (vars: TVars) => Promise<unknown>) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-creators-real"] }),
+  });
+}
+
+export function useSuspendRealCreator() {
+  return useRealCreatorMutation(({ id, reason }: { id: string; reason: string }) => api.suspendRealCreator(id, reason));
+}
+
+export function useUnsuspendRealCreator() {
+  return useRealCreatorMutation((id: string) => api.unsuspendRealCreator(id));
+}
+
+export function useBlockRealCreator() {
+  return useRealCreatorMutation(({ id, reason }: { id: string; reason: string }) => api.blockRealCreator(id, reason));
+}
+
+export function useUnblockRealCreator() {
+  return useRealCreatorMutation((id: string) => api.unblockRealCreator(id));
+}

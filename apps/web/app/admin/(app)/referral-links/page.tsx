@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { formatMoneyMinor } from "@rosti/types";
-import { Badge, Button, ConfirmModal, DataTableShell } from "@rosti/ui";
+import { Badge, Button, ConfirmModal, DataTableShell, MobileDataCard } from "@rosti/ui";
 import { useAdminReferralLinks, useDeactivateReferralLink } from "@/services/admin/marketing";
 
 export default function AdminReferralLinksPage() {
@@ -28,6 +28,26 @@ export default function AdminReferralLinksPage() {
       onRetry={() => query.refetch()}
       isEmpty={filtered.length === 0}
       emptyTitle="Referral havola topilmadi"
+      mobileCards={filtered.map((l) => (
+        <MobileDataCard
+          key={l.code}
+          title={l.creatorName}
+          meta={<Badge tone={l.status === "ACTIVE" ? "success" : "neutral"}>{l.status}</Badge>}
+          fields={[
+            { label: "Campaign / Offer", value: `${l.campaignName} · ${l.offerName}` },
+            { label: "Clicks", value: l.clicks },
+            { label: "Orders", value: l.orders },
+            { label: "Revenue", value: formatMoneyMinor(l.revenueMinor), emphasis: true },
+          ]}
+          actions={
+            l.status === "ACTIVE" ? (
+              <Button size="sm" variant="ghost" className="text-error" onClick={() => setConfirmCode(l.code)}>
+                Deaktivatsiya
+              </Button>
+            ) : undefined
+          }
+        />
+      ))}
     >
       <table className="w-full text-left font-body text-sm">
         <thead className="bg-bg text-text-secondary">

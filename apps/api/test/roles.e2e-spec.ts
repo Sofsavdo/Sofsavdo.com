@@ -4,6 +4,7 @@ import { PrismaModule } from "../src/prisma/prisma.module";
 import { RolesModule } from "../src/roles/roles.module";
 import { RolesService } from "../src/roles/roles.service";
 import { PrismaService } from "../src/prisma/prisma.service";
+import { AuditModule } from "../src/common/audit/audit.module";
 import configuration from "../src/config/configuration";
 
 // Exercises the real Role/Permission/RolePermission/UserRole join against Postgres — the part
@@ -18,7 +19,11 @@ describe("RolesService (e2e)", () => {
 
   beforeAll(async () => {
     moduleRef = await Test.createTestingModule({
-      imports: [ConfigModule.forRoot({ isGlobal: true, load: [configuration] }), PrismaModule, RolesModule],
+      // AuditModule: RolesService writes an audit entry on role/permission mutations (added
+      // alongside Phase 12's admin role management) — this suite predates that and never picked
+      // up the new constructor dependency, so `compile()` threw "Nest can't resolve dependencies
+      // of the RolesService (PrismaService, ?)" before this fix (confirmed via a real e2e run).
+      imports: [ConfigModule.forRoot({ isGlobal: true, load: [configuration] }), PrismaModule, AuditModule, RolesModule],
     }).compile();
     prisma = moduleRef.get(PrismaService);
     roles = moduleRef.get(RolesService);

@@ -27,11 +27,17 @@ export function CampaignCard({ campaign }: { campaign: Campaign }) {
       )}
       <div className="flex flex-1 flex-col gap-3 p-5">
         <div className="flex items-start justify-between gap-2">
-          <div>
+          {/* min-w-0 lets line-clamp actually take effect inside a flex item (without it, a flex
+              child's intrinsic min-width can exceed its allotted space and it never wraps/clamps
+              at all) — a long campaign name previously had no overflow protection and could push
+              against or crowd the commission badge. */}
+          <div className="min-w-0">
             <p className="font-body text-xs text-text-muted">{campaign.category}</p>
-            <h3 className="font-heading text-base font-semibold text-text-primary">{campaign.name}</h3>
+            <h3 className="line-clamp-2 font-heading text-base font-semibold text-text-primary">{campaign.name}</h3>
           </div>
-          {isFull ? <Badge tone="neutral">To&apos;lgan</Badge> : <Badge tone="accent">{formatCommission(campaign)}</Badge>}
+          <Badge tone={isFull ? "neutral" : "accent"} className="shrink-0">
+            {isFull ? "To'lgan" : formatCommission(campaign)}
+          </Badge>
         </div>
 
         <div className="flex flex-wrap gap-1.5">

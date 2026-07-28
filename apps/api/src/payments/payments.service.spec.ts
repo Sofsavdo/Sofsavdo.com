@@ -75,20 +75,24 @@ describe("PaymentsService", () => {
       await expect(service.handleClickCallback({})).rejects.toMatchObject({ code: "INVALID_PAYMENT_AMOUNT" });
     });
 
-    it("marks the Payment PAID and calls OrdersService.markPaid on a successful COMPLETE", async () => {
+    it("delegates the PAID transition (Payment + Order, atomically) to OrdersService.markPaid, passing the provider reference through", async () => {
+      // Phase 14 fix: this used to be a direct `prisma.payment.update({status: "PAID"})` here,
+      // then a separate call to markPaid — two un-transacted writes with a crash window between
+      // them. Now markPaid alone sets both inside its own transaction; this service never writes
+      // Payment.status directly for the COMPLETE/error paths.
       paymentPort.verifyCallback.mockReturnValue(verifiedBase);
       prisma.payment.findUnique.mockResolvedValue({ id: "payment1", orderId: "order1", amountMinor: 150_000_00, status: "PENDING" });
       await service.handleClickCallback({ click_trans_id: "555" });
-      expect(prisma.payment.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "PAID", providerReference: "555" }) }));
-      expect(orders.markPaid).toHaveBeenCalledWith("order1");
+      expect(prisma.payment.update).not.toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "PAID" }) }));
+      expect(orders.markPaid).toHaveBeenCalledWith("order1", null, undefined, "555");
     });
 
-    it("marks the Payment FAILED and calls markPaymentFailed when the provider reports an error", async () => {
+    it("delegates the FAILED transition (Payment + Order, atomically) to OrdersService.markPaymentFailed, passing the provider reference through", async () => {
       paymentPort.verifyCallback.mockReturnValue({ ...verifiedBase, errorCode: -9, errorNote: "cancelled" });
       prisma.payment.findUnique.mockResolvedValue({ id: "payment1", orderId: "order1", amountMinor: 150_000_00, status: "PENDING" });
       await service.handleClickCallback({});
-      expect(prisma.payment.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "FAILED" }) }));
-      expect(orders.markPaymentFailed).toHaveBeenCalledWith("order1", "cancelled");
+      expect(prisma.payment.update).not.toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "FAILED" }) }));
+      expect(orders.markPaymentFailed).toHaveBeenCalledWith("order1", "cancelled", "555");
     });
 
     it("does not reprocess a callback for an already-terminal Payment (replay protection)", async () => {

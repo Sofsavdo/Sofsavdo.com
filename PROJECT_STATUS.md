@@ -1636,3 +1636,809 @@ every scoping decision below.
 APIs, automatic publishing, view/like/comment count sync, analytics sync, Payment, Orders,
 Wallet, Commission payout, and any other social-platform integration. These belong to later
 phases; nothing in this checkpoint fakes or stubs them.
+
+## Phase 8 — Checkout, Payment & Order Domain — DONE (2026-07-23)
+
+Full buyer-facing purchase path: Landing → Checkout → Click Payment → Payment Callback → Order
+Created → Order Status Updates → Delivered, plus Pay Later, failed/cancelled payment, stock
+reservation, referral/promo attribution, commission snapshotting, and full admin order
+management. See DECISIONS.md ADR-015 for the full reasoning behind every scoping decision below.
+
+- **Extended, not superseded.** `Order`/`Payment`/`Commission`/`CommissionRule`/`Attribution`/
+  `Customer`/`Address`/`PromoCode`/`ReferralLink`/`ReferralVisit`/`Refund` were fully-designed
+  Phase 1 models with zero real backend service ever touching them (confirmed by grep) — the
+  opposite situation from Content's mock-era stubs. This checkpoint extends them in place.
+- **Schema** — `OrderStatus` enum values replaced (`NEW`/`CONFIRMED`/`COMPLETED`/`RETURNED` →
+  `CREATED`/`PAYMENT_PENDING`/`PAID`/`PROCESSING`/`SHIPPED`/`IN_TRANSIT`/`DELIVERED`/`CANCELLED`/
+  `REFUNDED`) since zero real Order rows existed; `CommissionRule.commissionValue`/
+  `fixedPaymentMinor` renamed to `commissionRateBps`/`commissionAmountMinor` to match Campaign's
+  post-6B shape; `Product.stockQuantity` added (nullable = untracked) with a hand-written
+  `Product_stock_non_negative_check` CHECK constraint as the real concurrency guard against
+  overselling; `Order.deliveryMethod` added. Migration `20260724000000_checkout_payment_order` —
+  additive/renames only, hand-written (not `prisma migrate dev`, which hit an unrelated
+  false-positive checksum mismatch on an already-applied historical migration during shadow-DB
+  replay) and verified against the live schema directly.
+- **PaymentPort abstraction** (`apps/api/src/payments/payment.port.ts`) mirrors `StoragePort`
+  exactly — domain code depends only on the interface. `ClickPaymentAdapter` implements Click's
+  real published Prepare/Complete two-phase callback protocol: MD5 signature verification, replay
+  protection (a terminal Payment re-acknowledges without reprocessing), and idempotent Payment-row
+  reuse on a retried checkout call.
+- **Checkout/Order flow** — `OrdersService.createOrder` validates offer/landing/campaign
+  active-and-not-expired, product not archived, physical-product stock and customer
+  region/address, resolves the payment provider against the Offer's own configured
+  `paymentOptions`, computes authoritative pricing via `DeliveryService.resolveDeliveryFee`
+  (extracted from `quote()`, not duplicated) plus promo-code discount, snapshots the offer/variant
+  into `Order.offerSnapshot`, and — inside one transaction — creates Order/OrderItem/
+  OrderStatusHistory, redeems the promo code, and resolves referral/promo attribution
+  (`Attribution`, with a materialized `CommissionRule` snapshot + `Commission` row). Idempotency
+  key replay returns the existing Order rather than erroring.
+- **Referral attribution — `POST /offers/:slug/visit` is genuinely new.** `ReferralLink`/
+  `ReferralVisit` existed in the schema since Phase 1 with zero runtime code ever creating a
+  visit row (confirmed by grep; distinct from the unrelated 6B Enhancement creator-to-creator
+  `?ref=` registration system). A visit now records visitorId/sessionId/ipHash/UTM fields and
+  computes `expiresAt` from the link's own `attributionWindowDays`. Attribution resolution order:
+  promo code (carries its own creatorId/campaignId) before ref code; an invalid/expired ref code
+  rejects checkout (`REFERRAL_CODE_INVALID`) since a ref-coded checkout is read as "about that
+  campaign," while an invalid promo code used only for discount is silently ignored for
+  attribution purposes.
+- **Pay Later reuses the existing `PaymentProviderType.MANUAL` value — no new model or endpoint.**
+  Customer picks "Keyinroq to'lash" at checkout (Offer-configurable, same array-membership
+  validation as every other method); admin approval routes through the same
+  `PATCH /admin/orders/:id/status` transition to PAID. `adminUpdateStatus` routes a PAID target
+  through `markPaid()` (not a bare status flip) so stock reservation, the referral qualified-sale
+  hook, and Payment-row sync all fire identically whether a real Click callback or a manual Pay
+  Later approval triggered them — a real gap caught during browser verification and fixed (see
+  Known limitations/fixes below).
+- **Inventory** — reservation (atomic decrement) happens at PAID, not at checkout submission,
+  matching the spec's literal "when Order becomes PAID, reserve stock." A soft pre-check at
+  checkout time fails fast (`OUT_OF_STOCK`); the DB CHECK constraint is the real guard against two
+  concurrent PAID transitions overselling the last unit.
+- **REFUNDED is only reachable via `createRefund`, never a bare admin status flip** —
+  `adminUpdateStatus` explicitly rejects a direct `to: "REFUNDED"` (`VALIDATION_ERROR`), since only
+  `createRefund` creates the `Refund` record and releases stock. Full refund is allowed from any
+  post-payment state (PAID/PROCESSING/SHIPPED/IN_TRANSIT/DELIVERED), not just PAID/DELIVERED — a
+  second real gap caught during browser verification (see below).
+- **RBAC — zero new permission keys added.** `order.read`/`order.update`/`order.refund`,
+  `payment.read`, `commission.read`/`commission.adjust`, `attribution.read`/
+  `attribution.override` all already existed, reserved and unused. This checkpoint is the first to
+  wire real admin routes behind them. Public checkout/payment endpoints are unauthenticated
+  (`@Public()`) by design and gated by domain validation, not RBAC.
+- **Backend endpoints** — public: `POST /offers/:slug/visit`, `POST /offers/:slug/promo-code/validate`,
+  `POST /offers/:slug/checkout`, `GET /orders/public/:publicToken`, `POST /payments/click/{prepare,complete}`.
+  Admin: `GET /admin/orders[/:id]`, `PATCH /admin/orders/:id/{status,notes}`,
+  `POST /admin/orders/:id/refunds`. Swagger confirmed live with all new routes (Click callback
+  endpoints marked `@ApiExcludeController` — not browsable, Click's own servers call them
+  directly).
+- **Frontend** — `validatePromoCode`/`createOrder`/`getOrderPublic` (the only three mock-store
+  functions with zero real branch left after 6B/7A) now dispatch on `NEXT_PUBLIC_API_MODE`
+  exactly like `getOfferPublic`/`getOfferQuote`; `trackVisit` is new. `CheckoutPageClient` fires
+  `trackVisit` on mount, adds a delivery-region selector for physical offers (reusing the
+  already-built `deliveryRegions` list), and redirects externally to Click's `paymentRedirectUrl`
+  when present (Pay Later/mock mode fall through to the internal order-success page). Admin order
+  management (`getOrderReviewList`, `updateRealOrderStatus`, `createRealOrderRefund`, etc.) is
+  named distinctly from the legacy mock-only `getOrders`/`updateOrderStatus`/`createRefund` at the
+  same re-export boundary; `/admin/orders` and `/admin/orders/[id]` branch on
+  `NEXT_PUBLIC_API_MODE` — identical pattern to ADR-014's Content frontend integration.
+- **Tests** — 343 → 401 backend unit tests (new `promo-codes.service.spec.ts`, 12 tests;
+  `click-payment.adapter.spec.ts`, 10 tests; `orders.service.spec.ts`, 23 tests covering creation
+  validation, attribution/commission snapshotting, transition guards, `markPaid`'s stock/referral
+  side effects, and refund eligibility; `payments.service.spec.ts`, 9 tests covering callback
+  verification, replay protection, and Payment/Order sync). New `checkout.e2e-spec.ts` — 17/17,
+  covering the complete visit→checkout→Click Prepare/Complete→PAID→admin status
+  progression→refund lifecycle over real HTTP with real MD5-signed callbacks, failed payment,
+  tampered-signature rejection, Pay Later end-to-end, stock/overselling, full validation matrix,
+  promo-code discount + usage tracking, referral-link attribution with commission snapshotting,
+  RBAC, and audit trail assertions — plus two regression tests added after browser verification
+  caught real gaps (see below). Full backend suite: 401/401 unit; e2e confirmed via three
+  consecutive isolated runs of `checkout.e2e-spec.ts` at 17/17 each, and one full 14-suite run at
+  209/211 (the 2 failures were the pre-existing documented remote-Postgres connection-drop
+  artifact hitting `checkout.e2e-spec.ts`'s teardown ~28 minutes into a long sequential run — not
+  a logic failure; immediately reconfirmed clean in isolation afterward).
+- **Two real bugs found via real-browser verification and fixed, with regression tests added:**
+  (a) `createRefund`'s eligibility list (PAID/PROCESSING/SHIPPED/IN_TRANSIT/DELIVERED) had no
+  matching `REFUNDED` edge in the transition matrix for PROCESSING/SHIPPED/IN_TRANSIT, so
+  refunding an order still being fulfilled 409'd; (b) an admin manually approving a Pay Later
+  order to PAID went through a bare status flip that skipped stock reservation, the referral hook,
+  and Payment-row sync entirely — fixed by routing that path through the same `markPaid()` every
+  Click callback uses.
+- **Browser verification (real backend, real Postgres, `NEXT_PUBLIC_API_MODE=real`):** completed
+  a full CLICK checkout (real MD5-signed Prepare/Complete callbacks sent to the live dev server),
+  confirmed order-success page renders "To'landi" (Paid), confirmed the admin order detail page's
+  full status history/payment panel/attribution card, progressed PAID→PROCESSING→SHIPPED→
+  DELIVERED via the real UI, refunded (hit the REFUNDED-transition bug, fixed it, re-verified the
+  refund succeeded and stock restored). Completed a separate Pay Later checkout end-to-end (no
+  external redirect, correct "To'lov kutilmoqda" status), approved it as admin (hit the
+  markPaid-routing bug, fixed it, re-verified Payment.status synced to PAID). Completed a third
+  checkout through a real seeded `?ref=` referral link, confirmed the "Malika Yusupova orqali"
+  attribution banner rendered from the new visit-tracking endpoint, and confirmed the admin order
+  detail page showed the correct Referral-link attribution source, campaign name, and commission
+  snapshot amount. Verified RBAC directly via HTTP: a real manager-role account could read orders
+  (200) but was correctly denied refund creation (403 `FORBIDDEN`, `required: ["order.refund"]`).
+- **Known limitations, documented honestly:** the one-time-per-(referral,rule) guard on
+  `onQualifiedSale` shares the same non-race-proof-under-true-concurrency caveat already
+  documented for `onCampaignApplicationApproved`/`onContentApproved`; no automatic
+  Campaign-level customer discount is layered into checkout pricing (discount comes from
+  promo-code redemption only — see ADR-015 point 9); PAYME/CARD/COD are Offer-configurable payment
+  method labels with no adapter behind them yet (rejected with `PAYMENT_METHOD_NOT_SUPPORTED`,
+  never faked). Manual browser-verification test data (3 orders + customers/addresses/referral
+  visits) was deleted afterward. The orphaned fixtures from one connection-drop-interrupted
+  full-suite e2e run (suffix `checkout-e2e-1784745880176`) were deleted as a separate housekeeping
+  pass once connectivity returned (2026-07-23) — 15 Product/Offer/LandingPage rows, 2 Campaign, 1
+  ReferralLink, 1 PromoCode, 1 ReferralVisit, 2 CreatorProfile, 4 User, 2 Role, plus their
+  RolePermission/UserRole rows; confirmed isolated (zero Orders/Payments/Commissions, zero overlap
+  with any live user or role) before deletion, and confirmed zero remaining rows with that suffix
+  afterward.
+
+## Phase 9 — Wallet, Commission Settlement & Payout Domain — DONE (2026-07-23)
+
+Full creator-facing financial domain: Commission settlement lifecycle (PENDING → APPROVED →
+PAYABLE → PAID, with REJECTED/REFUNDED), an immutable `CommissionLedger` as the financial source
+of truth, computed creator wallet balances, payout methods, withdrawal requests, and the full
+admin payout approval workflow (REQUESTED → APPROVED → PROCESSING → PAID, with
+REJECTED/CANCELLED/FAILED). Built under a hard constraint that did not apply to any prior
+checkpoint: Phase 8 is frozen — every decision below finds a path that touches zero Phase 8 files.
+See DECISIONS.md ADR-016 for the full reasoning behind every scoping decision.
+
+- **Extended, not superseded.** `Commission`/`CommissionLedger`/`Payout`/`PayoutMethod` were
+  fully-designed Phase 1 models with zero real settlement/payout service ever touching them
+  (confirmed by grep) — same situation as Phase 8's Order/Payment models. This checkpoint extends
+  them in place.
+- **Refund-triggered commission reversal is a lazy sweep, not a Phase-8 hook call** —
+  `CommissionsService.reconcileRefundedOrders()` runs at the top of every Commission read/mutate
+  entry point, mirroring `ContentService.expireStaleContent()`'s established convention, and
+  reverses any Commission whose linked Order has become REFUNDED. Zero edits to
+  `orders.service.ts` or any other Phase 8 file were required.
+- **`ACCRUAL` ledger entries are written at admin-approve time**, not at Commission-creation time
+  (Phase 8 creates Commission rows PENDING with no ledger entry) — a PENDING commission can still
+  be rejected, so only an APPROVED commission is confirmed as earned.
+- **Wallet balance is computed on read, never stored — no new `Wallet` model.** Five buckets
+  (`pendingMinor`/`availableMinor`/`lockedMinor`/`paidMinor`/`reversedMinor`) are derived per
+  request from Commission status + Payout linkage, matching `CommissionLedger`'s own "source of
+  truth" schema comment and the codebase's dominant computed-availability convention.
+- **Schema** — `PayoutStatus` enum values replaced (`REQUESTED`/`UNDER_REVIEW`/`APPROVED`/
+  `PROCESSING`/`PAID`/`REJECTED` → `REQUESTED`/`APPROVED`/`PROCESSING`/`PAID`/`REJECTED`/
+  `CANCELLED`/`FAILED`) since zero real Payout rows existed. Migration
+  `20260725000000_wallet_payout_domain` — hand-written (same shadow-DB checksum-mismatch reason as
+  Phase 8's migration), Prisma Client regenerated and all Phase 9 code compiles against the new
+  enum shape; **not yet applied to any database** — the shared dev/test Postgres has been
+  unreachable (`P1001`) throughout this checkpoint, per the user's explicit instruction to stop
+  probing connectivity and continue all DB-independent work. Will be applied via `migrate deploy`
+  once connectivity returns.
+- **Commission locking for a payout request is FIFO over oldest unlocked PAYABLE commissions**,
+  made race-safe by re-checking `payoutId: null` inside the reservation UPDATE's own WHERE clause
+  — a real race condition caught during design review (not by a test) and fixed before any test
+  was written.
+- **`PayoutMethod.cardNumberEnc` is encrypted at rest (AES-256-GCM)** via a new
+  `common/crypto/encryption.util.ts`, keyed from `PAYOUT_ENCRYPTION_KEY`; decrypted only
+  internally to compute a `•••• 1234` mask, never serialized in any response.
+- **RBAC — zero new permission keys added.** `commission.read`/`commission.adjust` and
+  `payout.read`/`payout.approve`/`payout.pay` all already existed, reserved and unused. This
+  checkpoint is the first to wire real routes behind them. Creator-facing wallet/payout-method/
+  withdrawal routes are ownership-scoped via `RequireCreatorGuard`, not RBAC-gated.
+- **Backend endpoints** — Creator: `GET /creator/wallet/{balance,transactions}`,
+  `GET/POST /creator/payout-methods`, `PATCH /creator/payout-methods/:id/set-default`,
+  `DELETE /creator/payout-methods/:id`, `GET/POST /creator/payouts`,
+  `POST /creator/payouts/:id/cancel`. Admin: `GET /admin/commissions[/:id]`,
+  `POST /admin/commissions/:id/{approve,reject,mark-payable}`, `GET /admin/payouts[/:id]`,
+  `POST /admin/payouts/:id/{approve,reject,processing,paid,failed}`.
+- **Tests** — 401 → 442 backend unit tests (new `commissions.service.spec.ts`, 17 tests;
+  `payout-methods.service.spec.ts`, 8 tests; `payouts.service.spec.ts`, 16 tests), covering
+  settlement transitions and ledger side effects, wallet balance aggregation math, the lazy-sweep
+  reversal path, FIFO commission locking/release/settlement, encryption-before-storage, and every
+  admin/creator transition guard. New `test/wallet-payouts.e2e-spec.ts` — 16/16, covering the full
+  settlement→payout lifecycle (PENDING→APPROVED→PAYABLE→PAID with a PAYOUT ledger entry each),
+  reject/cancel/failed release paths, refund-triggered reversal (lazy sweep), insufficient-balance
+  and below-minimum rejection, RBAC, and ownership-not-RBAC checks — over real HTTP and real
+  Postgres, run once connectivity returned mid-checkpoint (see below). Full backend suite:
+  442/442 unit passing, `eslint` clean, `nest build` clean; e2e confirmed at 16/16 in isolation.
+- **Frontend** — `wallet-real.ts` (new) adds the creator-side real API surface
+  (`getWalletBalance`/`getWalletTransactions`/`listPayoutMethods`/`createPayoutMethod`/
+  `setDefaultPayoutMethod`/`deletePayoutMethod`/`listPayoutsMine`/`requestPayout`/`cancelPayout`),
+  named distinctly from the legacy mock-only `getBalance`/`getPayoutMethods`/`addPayoutMethod`/
+  `getPayouts`/`requestPayout` re-exported unchanged from the mock store. `admin-real.ts` gains the
+  admin-side surface (`getCommissionSettlementList`/`approveCommission`/`rejectCommission`/
+  `markCommissionPayable`, `getAdminPayoutList`/`approveAdminPayout`/`rejectAdminPayout`/
+  `markAdminPayoutProcessing`/`markAdminPayoutPaid`/`markAdminPayoutFailed`), same
+  no-mock-counterpart precedent as Phase 8's Order management functions. `/creator/balance` and
+  `/creator/payouts` and the two admin pages each gained a `Real*`/`Mock*` component split
+  switched on `NEXT_PUBLIC_API_MODE`, identical to `/admin/orders`'s established pattern — no
+  redesign, same components (`Card`/`DataTableShell`/`ConfirmModal`/`StatusBadge`/etc.) reused
+  throughout. New `RealWalletBalance`/`RealWalletTransaction`/`RealPayoutMethod`/`RealPayout`/
+  `RealPayoutStatus`/`RealAdminCommission`/`RealAdminPayout` types added to `@rosti/types`,
+  distinct from the legacy mock shapes (mirrors `RealOrderStatus`/`RealAdminOrder` from ADR-015).
+- **Not built, per the spec's own locked constraints:** Analytics, Notifications, automatic
+  bank/payment-provider payouts (admin PAID is a manual confirmation only — no provider
+  integration), multi-currency and tax calculations.
+- **Database connectivity returned mid-checkpoint** (single confirmation check, not repeated
+  probing, per the standing instruction) — the hand-written migration was applied via
+  `migrate deploy`, the e2e suite was run for real, and a full browser-verification pass followed.
+  One real e2e fixture bug was caught and fixed in the process: `wallet-payouts.e2e-spec.ts`'s
+  `makeCreator` helper created a `CreatorProfile` without an approved `CreatorApplication` row,
+  which `RequireCreatorGuard` requires — every creator-facing route 403'd until fixed to mirror
+  `content.e2e-spec.ts`'s exact fixture convention.
+- **Browser verification (real backend, real Postgres, `NEXT_PUBLIC_API_MODE=real`):** logged in
+  as a real seeded creator (Malika Yusupova) and a real seeded admin; confirmed the wallet balance
+  page's five computed buckets and transaction ledger render correctly, added a real payout method
+  (masked `•••• 9012 — MALIKA YUSUPOVA`), requested a payout (available balance correctly dropped
+  to 0, locking both PAYABLE commissions), then as admin: approved a PENDING commission (writing
+  the ACCRUAL entry), marked it PAYABLE, and progressed the payout request
+  REQUESTED→APPROVED→PROCESSING→PAID through the real UI — confirmed directly against the database
+  afterward that both locked commissions settled to PAID with a PAYOUT ledger entry each. One
+  transient `500` ("Unable to start a transaction in the given time") was hit on the first approve
+  click — a Railway-proxy connection-pool timeout, not a logic error (identical retry succeeded
+  immediately with `201 Created`, and the DB read afterward confirmed the eventual state was
+  correct). All manual browser-verification fixtures (3 commissions, 1 payout, 1 payout method, and
+  their backing orders/customers/commission rule) were deleted afterward; the seed data itself
+  (`npm run seed`) was left in place as ordinary reusable dev fixtures.
+
+## Phase 10 — Communication & Notification Domain — DONE (2026-07-23)
+
+Full event-driven notification system: in-app notification center, per-category channel
+preferences (in-app/Telegram/email), Telegram Bot API and SMTP email infrastructure, centralized
+templates, and automatic notifications for the creator- and admin-facing business events the spec
+lists — built without modifying any Phase 8 (Checkout/Orders/Payments) or Phase 9 (Wallet/
+Settlement/Payout) file. See DECISIONS.md ADR-017 for the full reasoning behind every decision
+below, including a real production incident this checkpoint found and fixed along the way.
+
+- **Extended, not superseded.** `Notification` was a fully-designed Phase 1 model (`channel`,
+  `type`, `payload`, `readAt`) with zero real service ever touching it — this checkpoint adds
+  `EMAIL` to `NotificationChannel`, delivery-status/retry/dedup tracking, and a new
+  `NotificationPreference` model (one row per `(user, category)` the user has explicitly touched;
+  an absent row means "use the default," so no backfill migration was needed).
+- **Two notification sources, one pipeline.** Domains this phase may freely edit
+  (`CreatorApplicationsService`, `AuthService`) emit real `EventEmitter2` events directly, handled
+  by a new `NotificationEventsListener`. The frozen Phase 8/9 domains (Orders/Payments/Commissions/
+  Payouts) are discovered by a new `NotificationSweepService` that reads their tables directly
+  (read-only, no import of their modules — same convention as `CommissionsService.
+  reconcileRefundedOrders`) and calls `NotificationsService` the same way a real listener would.
+  Both paths converge on one dispatch pipeline, so "what does event X mean" is defined once.
+  Idempotent via a deterministic `dedupKey` unique constraint, not a cursor — safe to rescan the
+  whole table every interval.
+- **"Campaign application submitted/approved/rejected" + "Campaign joined" (creator) and "new
+  creator application" (admin) map onto the existing `CampaignApplication` model** (a creator
+  applying to a Campaign — ADR-012's Phase 6B domain), not the still-backend-less onboarding
+  `CreatorApplication` model, which stays out of scope per this phase's own charter.
+- **Telegram/Email infrastructure is real, not stubbed.** `TelegramPort`/`EmailPort` mirror
+  `PaymentPort`/`StoragePort`; `TelegramBotAdapter` implements Telegram's actual Bot API via raw
+  `fetch` (same precedent as `ClickPaymentAdapter`), `SmtpEmailAdapter` uses `nodemailer`. Neither
+  ever fakes success — an unconfigured provider or a rejected send is recorded as a `FAILED`
+  `Notification` with a real error message, retryable from the admin failed-queue. Confirmed live
+  in browser verification, since this environment has no real SMTP/Telegram credentials.
+- **RBAC — `notification.read`/`notification.manage` are genuinely new keys**, unlike every phase
+  since 6B where the needed keys were already reserved. Same read/write split as every other
+  two-verb domain; MANAGER read-only, ADMIN+ gets manage. Creator-facing notification routes are
+  ownership-scoped by `userId` from the JWT (not `creatorId`, not RBAC-gated — staff have
+  notifications too, and a not-yet-approved creator still needs to see their own "application
+  submitted" notification, so this deliberately does not sit behind `RequireCreatorGuard`).
+- **Backend endpoints** — Creator: `GET /creator/notifications[/:id]`,
+  `PATCH /creator/notifications/:id/read`, `POST /creator/notifications/mark-all-read`,
+  `GET /creator/notification-preferences`, `PATCH /creator/notification-preferences/:category`.
+  Admin: `GET /admin/notifications[/:id]`, `GET /admin/notifications/failed`,
+  `POST /admin/notifications/:id/retry`.
+- **A real production bug found and fixed during verification, not during initial development:**
+  `EventEmitter2.emit()` is fire-and-forget — it never awaits async `@OnEvent` listeners. Approving
+  a campaign application returned before the listener's second dispatch (the `campaign.joined`
+  notification) had finished writing, so an immediate follow-up read sometimes missed it. Fixed by
+  switching all 4 real emit call sites to `emitAsync` (awaited).
+- **A second real bug, root-caused via a recovered Jest log after an e2e run appeared to hang for
+  over an hour:** `NotificationSweepService`'s `@Interval(30_000)` — a live `setInterval` handle —
+  kept Node's event loop alive after every test run finished, since `moduleRef.close()` doesn't
+  clear `@nestjs/schedule` timers on its own. Fixed by deleting the timer via `SchedulerRegistry`
+  from `onApplicationBootstrap` (not `onModuleInit`, which raced `@nestjs/schedule`'s own timer
+  registration) when `nodeEnv === "test"` — verified via 3 dedicated unit tests and a full,
+  cleanly-exiting e2e run (12/12, no `--forceExit`, `--detectOpenHandles` clean).
+- **Tests** — 442 → 484 backend unit tests (new `notifications.service.spec.ts`,
+  `notification-sweep.service.spec.ts`, `telegram-bot.adapter.spec.ts`, `smtp.adapter.spec.ts`,
+  plus updates to `creator-applications.service.spec.ts`/`auth.service.spec.ts` for the
+  `emitAsync` migration). New `test/notifications.e2e-spec.ts` — 12/12 passing over real HTTP and
+  real Postgres, covering the campaign-application event lifecycle, sweep-triggered
+  commission/payout notifications (invoked directly rather than waiting out the real interval),
+  read/mark-all-read, preference-gated channel dispatch, a real FAILED email delivery and its
+  admin retry, and RBAC. Full backend suite: 484/484 unit passing, `eslint` clean, `nest build`
+  clean.
+- **Frontend** — `notifications-real.ts` (creator) and `admin-real.ts` additions (admin), both
+  real-backend-only with no mock counterpart (the mock store never had a real notification
+  concept). New pages: `/creator/notifications` (center, filters, mark read/all-read),
+  `/creator/notification-preferences` (per-category channel toggles), `/admin/notifications`
+  (queue + failed-only tab + retry) — all reusing existing components
+  (`Card`/`DataTableShell`/`Badge`/`EmptyState`/etc.), no redesign. New nav entries in both
+  sidebars. New `RealNotification`/`RealAdminNotification`/`RealNotificationPreference` types.
+- **Not built, per the spec's own locked constraints:** Analytics, marketing broadcasts/bulk
+  messaging, and the onboarding `CreatorApplication` review workflow (out of this phase's charter
+  — see ADR-012/ADR-017).
+- **Browser verification (real backend, real Postgres, `NEXT_PUBLIC_API_MODE=real`):** submitted a
+  real campaign application as a seeded creator (Malika Yusupova), confirmed both the IN_APP and
+  EMAIL notification rows appeared in the notification center (EMAIL correctly `FAILED` with a
+  real `SMTP_HOST is not configured` error, since this environment has no SMTP credentials),
+  confirmed mark-read and mark-all-read both work, confirmed the preferences page's 6-category
+  table renders correct defaults and persists a toggle (disabling in-app for
+  `CAMPAIGN_APPLICATION`, then confirming a later real event correctly produced no new IN_APP row
+  while still producing the still-enabled EMAIL row). As admin: approved the application, confirmed
+  all three seeded admin accounts (manager/admin/super) received the "new creator application"
+  notification, confirmed the admin queue's Failed tab and Retry action (attempts incremented from
+  1→2 on retry). Also used this pass to directly confirm the real automatic `@Interval` sweep is
+  correctly *disabled* in this environment specifically because the local dev server's launch
+  config loads `.env.test` (which sets `NODE_ENV=test`) — not a bug, the intended behavior per
+  ADR-017 point 5. All manual verification fixtures (1 campaign, 1 application, 1 commission, 1
+  order/customer, 4 notifications) were deleted afterward.
+
+## Phase 11 — Creator Onboarding & Admin Review Domain — DONE (2026-07-24)
+
+A pre-Phase-11 audit (run before starting Analytics, at the user's explicit request) found the
+single most production-critical gap in the codebase: the onboarding `CreatorApplication` model had
+never had a real service built against it, so a brand-new real registration created a `DRAFT` row
+that could never transition via any real endpoint — and `RequireCreatorGuard` (gating every real
+creator-facing route) requires `status === "APPROVED"`. In practice, no real new user could ever
+reach wallet, payouts, content, campaign applications, referrals, or notifications. This phase
+closes that gap end to end. See DECISIONS.md ADR-018 for the full reasoning.
+
+- **Full lifecycle implemented:** DRAFT → SUBMITTED → UNDER_REVIEW → APPROVED | REJECTED |
+  CHANGES_REQUESTED. `REVISION_REQUESTED` renamed to `CHANGES_REQUESTED` (matches
+  `CampaignApplicationStatus`/`ContentStatus`'s existing spelling; zero real rows carried the old
+  value). Unlike `CampaignApplication`, `REJECTED` is **resubmittable**, not terminal — the
+  platform's premise is that anyone can become a creator once they meet the bar.
+- **New backend module (`src/onboarding/`), new routes, new RBAC keys — nothing borrowed from the
+  adjacent `CampaignApplication` domain.** Creator: `GET/PATCH /creator/onboarding`,
+  `POST /creator/onboarding/submit`, `POST /creator/onboarding/resubmit` — deliberately **not**
+  gated by `RequireCreatorGuard` (that guard requires already-`APPROVED`, which would make these
+  routes permanently unreachable); ownership is the `creatorId` off the JWT, same pattern as
+  `/creator/profile`. Admin: `GET /admin/creator-onboarding` (queue, status filter, search,
+  pagination), `GET /admin/creator-onboarding/:id` (detail), `GET .../:id/audit` (reviewer audit
+  trail), `POST .../:id/start-review|approve|reject|request-changes`. New permission keys
+  `onboarding.read/review/approve/reject/revise` (MANAGER gets read/review, ADMIN+ gets the
+  decisions — same split as `content.*`); `application.*` (CampaignApplication, ADR-012) and
+  `creator.read/review/suspend/block` (reserved for a still-not-built admin account-moderation
+  domain) were both left untouched.
+- **Reuses the Phase 10 notification pipeline exactly** — 4 new creator-facing event types under
+  the existing `ACCOUNT` category (submitted/approved/rejected/changes_requested) plus 1
+  admin-facing alert under `ADMIN_ALERTS`, all via `emitAsync`, all handled by the existing
+  `NotificationEventsListener`. No changes to `NotificationsService`, the sweep, or any adapter.
+- **Two dormant `CreatorReferral` timestamps from the 6B Enhancement checkpoint —
+  `onboardingCompletedAt`/`creatorApprovedAt` — are now wired up** via two new `ReferralsService`
+  hooks (`onOnboardingSubmitted`/`onCreatorApproved`), mirroring the existing
+  `onCampaignApplicationSubmitted`/`onCampaignApplicationApproved` hooks. Neither triggers a reward
+  (no `ReferralMilestoneType` represents "approved as a creator") — informational only.
+- **Reviewer audit trail** — new `AuditService.listForEntity(entityType, entityId)` method (the
+  first real read path against the previously write-only `AuditLog` model, deliberately scoped to
+  one entity rather than a general admin audit browser, which stays a separate open gap). Every
+  admin decision now calls `AuditService.record`.
+- **Transactional, explicitly-validated state transitions** — `onboarding.service.ts` uses the same
+  explicit per-action allowed-source-states convention as `creator-applications.service.ts`
+  (`SUBMIT_FROM`/`RESUBMIT_FROM`/`START_REVIEW_FROM`/`DECIDE_FROM`), throwing
+  `INVALID_ONBOARDING_TRANSITION` (409) on any disallowed transition.
+- **Frontend: completed, not rebuilt.** The entire creator onboarding UI (`OnboardingPageClient`,
+  `OnboardingWizard`, `CreatorAppGuard`, `lib/routing.ts`) already existed as a mock-only,
+  localStorage-backed 8-step wizard with its real design already in place — this phase wired it to
+  the real backend (`updateOnboardingApplication`/`submitOnboardingApplication`/
+  `resubmitOnboardingApplication` in `creator-real.ts`) and completed a previously-broken promise:
+  the old `REJECTED` screen's copy claimed a creator could resubmit after addressing the reason,
+  but rendered no wizard to do so. The wizard now renders for DRAFT/CHANGES_REQUESTED/REJECTED
+  alike, threading a `submit`-vs-`resubmit` mode so the real backend's two distinct transitions are
+  called correctly. The admin review queue (`/admin/creator-applications`, already existing as a
+  mock-only page) got a `Real`/`Mock` branch plus a new detail page
+  (`/admin/creator-applications/[id]`) for the full formData view and reviewer audit trail.
+- **Tests** — new `onboarding.service.spec.ts` (32 unit tests: every transition, every guard,
+  notification-emit assertions, referral-hook assertions, audit-record assertions). New
+  `test/onboarding.e2e-spec.ts` (real HTTP, real Postgres) covering RBAC guardrails, the
+  `RequireCreatorGuard` regression end to end (a fresh DRAFT creator is blocked from
+  `/creator/wallet/balance`, stays blocked through SUBMITTED/UNDER_REVIEW, and is only let through
+  after a real APPROVED), draft/submit/resubmit, the admin queue's DRAFT-exclusion-by-default
+  filter, the full submit → changes-requested → resubmit → approve path with referral-hook and
+  audit-trail assertions, reject-then-resubmit (proving REJECTED is not terminal), and permission
+  revocation taking effect immediately.
+- **Not built, per this phase's own explicit exclusions:** Analytics; admin Users/Roles CRUD,
+  Settings, general audit-log browsing, admin Creator account/Payments/Refunds management (the
+  "Admin Operations" cluster the pre-phase audit separately identified as future work); email
+  verification; Payme/Uzum Nasiya payment adapters.
+- **Verification status — complete.** Backend `tsc --noEmit` clean, `eslint` clean. Unit:
+  `onboarding.service.spec.ts` 32/32 passing. E2e: `test/onboarding.e2e-spec.ts` 16/16 passing over
+  real HTTP and real Postgres (run once, after the Railway proxy's earlier outage — see below —
+  had cleared; ~4.7 minutes wall time, consistent with this proxy's documented per-request latency,
+  not a hang). Frontend `tsc --noEmit` clean, `eslint` clean (0 errors; pre-existing warnings only).
+  Full real-backend, real-browser verification (`NEXT_PUBLIC_API_MODE=real`) covering the entire
+  requested checklist: new creator registration → draft onboarding (all 8 wizard steps, real
+  `PATCH /creator/onboarding` per step) → `RequireCreatorGuard` blocking `/creator/wallet/balance`
+  with a real `403 CREATOR_NOT_APPROVED` both client-side (redirect to `/creator/onboarding`) and
+  server-side (direct call with the creator's real bearer token) → submit for review → admin
+  start-review → admin request-changes (with a real reason) → creator sees the exact admin note and
+  resubmits (calling the distinct `resubmit`, not `submit`, endpoint — confirmed via network trace)
+  → admin approve → creator access after approval (login now routes straight to
+  `/creator/dashboard`; `GET /creator/wallet/balance` with the same creator's fresh token now
+  returns a real `200` with real wallet data) → all 4 creator-facing notification events
+  (`onboarding.submitted/changes_requested/approved`, plus the pre-existing `user.registered`
+  welcome) confirmed in the creator's real notification center, both IN_APP (`SENT`) and EMAIL
+  (`FAILED` with the real `SMTP_HOST is not configured` error — the same no-SMTP-in-this-environment
+  precedent as every Phase 10 email) → the admin-facing `onboarding.new` alert confirmed fanned out
+  to all 3 seeded admin accounts (manager/admin/super) → the reviewer audit trail confirmed showing
+  all 4 real actions (review started ×2, changes requested, approved) in correct reverse-chronological
+  order with the correct actor email on each.
+- **One real bug found and fixed during this verification pass (not a design gap):** the admin
+  detail page's reviewer-audit-trail panel and the application-detail panel used separate React
+  Query keys (`admin-onboarding-audit` vs. `admin-onboarding-list`); every review-action mutation's
+  `onSuccess` only invalidated the list key, so the audit trail silently kept showing stale
+  (pre-action) history until a manual page reload. Fixed in `services/admin/onboarding.ts` by
+  invalidating both keys on every mutation; re-verified live (without reloading) on the very next
+  action, confirming the panel now updates in place. This is a frontend cache-invalidation bug
+  only — no backend logic was affected, so `onboarding.e2e-spec.ts` was not re-run for it.
+- **Infrastructure note, not a defect:** the shared remote test Postgres (Railway proxy) went
+  briefly unreachable mid-session (a genuine `connect` timeout, confirmed via bounded `pg` checks
+  independent of the app, and via a real `500 Connection terminated due to connection timeout`
+  surfaced through `AllExceptionsFilter` during live browser verification) and recovered on its own
+  a few minutes later; verification resumed and completed once `GET /health/ready` reported the
+  database back up. No code or infrastructure change was made in response — this is the same
+  documented proxy flakiness referenced throughout this project's migrations and prior phase
+  reports.
+- **Fixtures:** the one test creator account, its `CreatorApplication`, its 12 dedup-keyed
+  notifications (6 creator-facing + 6 admin-facing), and its 4 `AuditLog` rows were all deleted
+  after verification; confirmed zero rows remain for that application/user.
+
+## Phase 12 — Admin Operations Domain — DONE (2026-07-24)
+
+Phase 11's own exclusions list named this exact cluster as the remaining gap: admin Users/Roles
+CRUD, Settings, general audit-log browsing, and admin Creator account/Payments/Refunds management.
+This phase replaces all seven of those mock-only admin pages with real backend-wired ones — no
+redesign, no new architecture, reusing `PermissionsGuard`/`AuditService`/`PaginationQueryDto`/
+`DomainException` throughout. See DECISIONS.md ADR-019 for the full reasoning.
+
+- **Schema (additive only):** `UserStatus` gained `BLOCKED` (a more severe state than `SUSPENDED`,
+  for creator account moderation specifically); `User` gained a nullable `displayName`; `Refund`
+  gained `reviewedById`/`reviewedAt`/`rejectionReason` plus a `status` index. Migration
+  `20260728000000_admin_operations_domain`, applied clean.
+- **RBAC:** 61 → 65 permission keys. Only two genuinely new domains: `role.read`/`role.manage`
+  (SUPER_ADMIN-only) and `refund.read`/`refund.manage` (MANAGER read / ADMIN+ manage). The other
+  five subsystems (Users, Creators, Payments, Settings, Audit) all reused keys already reserved
+  since earlier phases — full mapping, including the `creator.review` repurposing (account detail
+  view, distinct from `onboarding.review`'s admission queue), in RBAC.md's Phase 12 note.
+- **Backend — 6 new modules** (`admin-creators`, `admin-payments`, `admin-refunds`, `settings`,
+  `admin-audit`, plus real services added to the pre-existing thin `users`/`roles` modules):
+  - **Users** (`src/users/`): staff list/detail/create/update/activate/deactivate/reset-password/
+    assign-role/remove-role. Self-modification guarded (`CANNOT_MODIFY_SELF`); removing a staff
+    member's last role blocked (`VALIDATION_ERROR`); no delete route.
+  - **Roles** (`src/roles/`): role list/detail/create/update, permission assign/remove, a
+    permission-matrix read (`GET /admin/permissions`). No delete-role route at all — the
+    structural way "prevent removal of critical system roles" is satisfied. One narrow runtime
+    guard (`CANNOT_MODIFY_SYSTEM_ROLE`) blocks stripping `role.manage`/`user.manage` from the
+    seeded `super_admin` role specifically (the one true lockout risk).
+  - **Admin Creators** (`src/admin-creators/`, new): list/detail/campaign-history/earnings-summary/
+    payout-summary (`groupBy` aggregates)/referral-summary (delegates to the existing
+    `ReferralsService.getMySummary`, not reimplemented); suspend/unsuspend/block/unblock with
+    explicit from-state guards per transition. Does not duplicate Phase 11's onboarding
+    approve/reject/request-changes — those stay solely at `/admin/creator-applications`.
+  - **Admin Payments** (`src/admin-payments/`, new, read-only by design): list/detail/timeline. The
+    timeline is synthesized from existing fields (`createdAt`/`status`/`updatedAt`/
+    `webhookPayloads`), not a new `PaymentStatusHistory` table.
+  - **Admin Refunds** (`src/admin-refunds/`, new): list/detail/approve/reject, layered on top of
+    `OrdersService.createRefund` (Phase 8, frozen) without re-triggering or reversing its
+    synchronous financial action — see ADR-019 point 4 for the full reasoning and its one
+    consequence worth knowing (rejecting a refund whose order-level effect already completed does
+    not undo that effect).
+  - **Settings** (`src/settings/`, new): a 14-key catalog across the 7 requested categories,
+    lazy-default merge against the pre-existing `Setting` model, type-validated writes
+    (`INVALID_SETTING_VALUE`), one audited `SETTINGS_UPDATED` record per save with full
+    before/after maps. **Honest limitation, stated in ADR-019:** these values are stored and
+    audited but not yet wired into other domains' runtime behavior (e.g. changing
+    `commission.payoutMinimumMinor` here does not yet change what `WalletService` enforces) —
+    wiring each setting into its owning domain was out of this phase's charter.
+  - **Audit log reader** (`AuditService.list()`/`findOneOrThrow()`, extending the existing
+    `@Global()` service Phase 11 had only given a narrower `listForEntity` reader): filters by
+    entityType/actorId/action/date-range/search, paginated. Read-only — no mutation route exists.
+- **Every mutation across all six modules calls `AuditService.record()`** — staff CRUD, role/
+  permission changes, creator suspend/unsuspend/block/unblock, refund approve/reject, settings
+  updates all produce a real `AuditLog` row, confirmed during browser verification (below), not
+  just asserted from the code.
+- **Frontend:** all 12 admin pages under `users/`, `roles/`, `creators/`, `payments/`, `refunds/`,
+  `settings/`, `audit-log/` rewritten real-only (no `Mock`/`Real` branch — matching the precedent
+  set for genuinely-new admin-only domains in Phases 10/11), reusing `DataTableShell`/
+  `ConfirmModal`/`Card`/`Badge`/`StatTile`/React Query throughout. New types (`packages/types`) and
+  API-layer functions (`admin-real.ts`) per domain; new `services/admin/staff.ts` and
+  `roleManagement.ts` hook files (named to avoid colliding with `system.ts`'s pre-existing mock
+  `useAdminRoles`).
+- **A real, pre-existing frontend gap exposed (not introduced) by this phase, found and fixed:**
+  `admin-real.ts`'s `mapRoleKeysToAdminRole()` hard-threw `FORBIDDEN` for any staff role key outside
+  the fixed set `{super_admin, admin, manager}`. Before this phase every staff account really did
+  carry one of those three seeded keys, so the gap was latent; this phase's own Roles CRUD makes it
+  possible to create and assign a genuinely custom role for the first time, which would have locked
+  such a staff member out of the admin panel entirely. Fixed by defaulting to `MANAGER` (lowest
+  tier) whenever at least one role is present but none of the three are recognized — `FORBIDDEN` is
+  now reserved for the genuine zero-roles case. This only affects frontend nav visibility; backend
+  authorization (`RequirePermissions`) was never affected. See ADR-019 point 7.
+- **Tests:** 576/576 backend unit tests passing (new specs: `users.service.spec.ts` (12),
+  `roles.service.spec.ts` (11), `admin-creators.service.spec.ts` (12),
+  `admin-payments.service.spec.ts`, `admin-refunds.service.spec.ts`, `settings.service.spec.ts` (7),
+  `common/audit/audit.service.spec.ts` (7)). New `test/admin-operations.e2e-spec.ts` — 27/27 passing
+  over real HTTP and real Postgres, covering RBAC guardrails across all 8 new list routes, full
+  Users lifecycle, Roles CRUD + system-role protection, Creator admin actions, Payments read-only
+  browse/filter/detail/timeline, Refunds approve/reject + status-guard, Settings
+  read/update/persistence/audit, and the general audit-log browser's filters. Backend `tsc --noEmit`
+  clean, `eslint` clean. Frontend `tsc --noEmit` clean.
+- **Real bugs found and fixed during this phase, distinguished from test-authoring mistakes:**
+  1. **Real, pre-existing frontend gap** — `mapRoleKeysToAdminRole()`'s hard lockout for
+     non-seeded role keys, above. Fixed.
+  2. **Not an application bug, a test-fixture leak:** the e2e suite's own cleanup filtered
+     leftover custom-role rows by a substring that didn't account for a hyphen-to-underscore
+     conversion the test itself applied to satisfy the real `CreateRoleDto`'s key-format
+     validation — one leaked `Role` row silently survived every run despite the suite reporting
+     "passed." Found by seeing it still present in the live Roles admin page during browser
+     verification, not by any test failure. Fixed both the leaked row (deleted) and the test's own
+     cleanup filter (now matches both forms).
+  3. **Not an application bug, a test-script mistake:** during Refunds browser verification, a
+     DOM query for the "Reject" button inside a `ConfirmModal` matched the underlying page's own
+     "Tasdiqlash" (Approve) button first, since the modal overlay doesn't remove the page behind it
+     from the DOM — silently approving a refund instead of rejecting it. Confirmed as a
+     test-authoring mistake, not an app bug, because a subsequent genuine reject attempt on the
+     now-`APPROVED` refund correctly returned `409 INVALID_REFUND_TRANSITION` — proving the backend
+     enforced the state machine correctly given what was actually requested. Fixed by scoping the
+     click to the modal container specifically; re-verified successfully on a third refund fixture.
+  4. Four e2e assertion mismatches during initial test authoring (expected `409` where the service
+     correctly throws `400`/`VALIDATION_ERROR`; a generated test role key contained hyphens that
+     failed the real `@Matches` validator) — all test-authoring errors, fixed in the test file
+     itself, not the application.
+- **Browser verification (real backend, real Postgres, logged in as `super@rosti.uz`) — complete,
+  covering the full requested checklist:** Staff — created via the real UI form, edited display
+  name, deactivated, reactivated, assigned a second role, removed a role, all confirmed via network
+  requests and UI state. Creators — suspend/unsuspend/block/unblock all confirmed on a dedicated
+  test creator, including the suspend/block button visibility conditional correctly hiding once
+  `BLOCKED`. Payments — list/search/status+provider filters/detail/timeline all confirmed against a
+  purpose-built Payment/Order/Offer/Product/Customer fixture chain. Refunds — approve and reject
+  both confirmed (across 3 fixtures, see bug #3 above), including the `INVALID_REFUND_TRANSITION`
+  guard firing correctly on a double-decision attempt. Settings — updated "Platforma nomi", confirmed
+  the PATCH succeeded, **confirmed persistence with a fresh page reload** (not just optimistic UI
+  state), then reverted to the original value. Audit log — confirmed every one of the above
+  mutations appears with the correct actor/action/entity, and confirmed one detail page renders a
+  correct before/after diff (`"Rosti"` → `"Rosti Phase12 Verify"`).
+- **Fixtures:** the staff account, the test creator (+ its `CreatorProfile`/`CreatorApplication`,
+  cascade-deleted with the `User` row), the Payment/Order/Offer/Product/Customer chain, all 3
+  Refund rows, and their 15 associated `AuditLog` rows were all deleted via direct-DB scripts after
+  verification; confirmed zero rows remain for any of them. The Settings value was reverted to its
+  original default, confirmed via a final reload.
+- **Not built, per this phase's own explicit exclusions:** Analytics, Dashboards, Charts, Reporting;
+  email verification; additional payment providers; the Affiliate Attribution Engine; marketing
+  broadcasts; performance optimization unrelated to this phase; UI redesign of any existing page. No
+  new notification triggers were added — none of the seven subsystems had an "already appropriate"
+  hook Phase 10's existing event set didn't already cover.
+
+## Phase 13 — Analytics & Business Intelligence Domain (v1) — DONE (2026-07-24)
+
+A design-only pass preceded implementation, per explicit instruction: [ANALYTICS.md](ANALYTICS.md)
+studies the full schema and every relevant service, surfaces concrete gaps (no `createdAt` index on
+the four core tables; `ReferralVisit` only tracks referred traffic; no export library existed), and
+proposes an architecture. That design was reviewed and returned with binding business-definition
+decisions and an explicit v1/deferred split — this phase is what was actually built against those
+decisions. See DECISIONS.md ADR-020 for the full reasoning behind every judgment call below.
+
+- **Migration (reviewed on its own, first):** `@@index([createdAt])` added to `Order`/`Payment`/
+  `Commission`/`Refund` — purely additive, the exact gap the design flagged as this domain's single
+  biggest risk, since every KPI here is a date-range query.
+- **Backend — one new module (`src/analytics/`), read-only against every other domain's tables:**
+  - `lib/time-range.resolver.ts` — the one place `range`/`compare` (9 presets, 5 comparison modes)
+    resolve to concrete half-open `[from, to)` intervals; every sub-service consumes an
+    already-resolved range rather than re-deriving date math.
+  - `lib/analytics-cache.service.ts` — first real Redis consumer in this codebase (every prior use
+    was the health check's own ping); best-effort by construction — a cache failure of any kind
+    (unreachable, timeout, malformed JSON) falls through to a live recompute, never fails the
+    request.
+  - `lib/analytics-sql.util.ts` — the only two raw-SQL call sites in the domain
+    (`creatorRevenueBreakdown`, `dailyOrderTrend`/`refundBreakdownByOffer`), both parameterized via
+    `Prisma.sql`/`Prisma.join`, reserved for the one thing Prisma's `groupBy` structurally can't
+    express: grouping by a column on a different table than the one being aggregated (creator
+    attribution lives on `Attribution`, order value on `Order`). Every other aggregate in this
+    domain uses native `groupBy` — real DB-side aggregation throughout, no fetch-and-reduce, no N+1.
+  - **Executive Analytics** — all 14 requested KPIs (Revenue/GMV/Orders/Paid/Pending/Refunds/Refund
+    Rate/Active Creators/Active Campaigns/Active Products/Creator link konversiyasi/AOV/New &
+    Returning Customers) plus Net Revenue and a daily trend/status breakdown, computed per the
+    approved business definitions exactly (GMV includes `REFUNDED`, Revenue excludes it, AOV divides
+    by GMV not Revenue since Paid Orders' denominator still counts `REFUNDED`). Snapshot metrics
+    (Active Campaigns/Products) never get a `previous` value or `deltaPct` in any compare mode —
+    there's no state-history table to reconstruct a past snapshot from, so none is fabricated.
+  - **Creator / Campaign / Product Analytics** — list (paginated) + detail views each, covering
+    earnings/orders/revenue/conversion/clicks/top-campaigns/top-products/approval-rate/avg-payout/
+    referral-stats (Creator), performance/creator-count/avg-creator-performance/top-creators/trend
+    (Campaign), and revenue/refunds/conversion/AOV/best-sellers-and-slow-movers via one sortable
+    list (Product). Creator's `viewsCount` is an explicit `null`, not omitted — "views" aren't
+    measurable with today's data (ReferralVisit only exists for referred traffic), and the field
+    says so rather than silently hiding the gap.
+  - **Payment / Refund / Customer Analytics** — single-page platform-wide breakdowns: payment method
+    mix/success-rate/pending/failed; refund reasons (raw `Refund.reason` strings ranked by
+    frequency, no taxonomy yet)/rate/approval-rate/average amount; new-vs-returning buyers/LTV/order
+    frequency, via a bounded two-query pattern (period-active customers, then their all-time stats
+    scoped to just that id list — never a full customer-table scan, never N+1).
+  - **CSV export** (`analytics-export.service.ts`) — delegates to the exact same sub-service each
+    on-screen view already calls, never a second computation path. Every export call is audited via
+    the existing, unmodified `AuditService.record()` (`entityType: "AnalyticsExport"`), answerable
+    from the Phase 12 Audit Log viewer with zero changes to that viewer.
+  - RBAC: **zero new permission keys** — `analytics.read`/`analytics.export` were reserved and
+    unused since Phase 6A, the same outcome Phase 8/9 had. Every GET route requires `analytics.read`
+    alone (no per-role data masking, matching this file's MVP philosophy); `/export` additionally
+    requires `analytics.export`.
+- **Frontend — Executive Dashboard (`/admin/analytics`) replaces its Phase 5 mock entirely**, no
+  `Mock`/`Real` branch, matching the Phases 10–12 precedent. 9 new sub-pages (Creator/Campaign/
+  Product list+detail, Payment/Refund/Customer single-page views). Shared components: `StatTile`
+  gained a `deltaFromPct()` helper (packages/ui) rather than a new tile component, since `StatTile`
+  already supported a delta prop; `AnalyticsFilterBar` (packages/ui, new) is the one shared
+  date-range/comparison-mode control every page uses, plus an `extra` slot for page-specific filters
+  (a status filter is wired on Payment and Refund Analytics specifically — the two views where
+  narrowing by status is the primary investigative action). `AnalyticsCharts.tsx` supplies the three
+  new chart types this domain needed (bar, pie — area already existed from Phase 5's
+  `AdminDashboardChart`), matching its existing color/tooltip conventions. The CSV export button is
+  hidden for MANAGER (`hasRole(admin?.role, "ADMIN")`, the same pattern `commissions/page.tsx`
+  already established) — UI convenience only, the real boundary is the backend guard.
+  `/admin/dashboard` (the separate admin home page) was deliberately left untouched — its
+  pending-tasks widget sources from other domains outside this phase's named scope.
+- **A real, acknowledged UI gap, not a hidden one:** entity-filter dropdowns (creator/campaign/
+  product/region selects) are not wired into every page's UI — the backend already accepts and
+  correctly applies all of them (proven by e2e tests passing with `campaignId`/`creatorId` filters),
+  so this is a frontend-only follow-up whenever it's prioritized, not missing backend work.
+- **Tests:** 640/640 backend unit tests passing (58 new: `time-range.resolver.spec.ts` (19),
+  `analytics-cache.service.spec.ts` (6, all forcing a stubbed-client failure to prove best-effort
+  behavior), `csv.util.spec.ts` (8), `executive-analytics.service.spec.ts` (12), `creator-analytics.
+  service.spec.ts` (5), `payment-analytics.service.spec.ts` (5), `refund-analytics.service.spec.ts`
+  (6), `customer-analytics.service.spec.ts` (3)). New `test/analytics.e2e-spec.ts` — 18/18 passing
+  over real HTTP and real Postgres, covering RBAC guardrails, every KPI's exact arithmetic against a
+  hand-computed fixture, compare=previous, custom-range validation, all three drill-down domains'
+  list+detail+404, all three single-page views, and CSV export + its audit trail. Backend
+  `tsc --noEmit` clean, `eslint` clean. Frontend `tsc --noEmit` clean, `eslint` clean (0 errors, only
+  pre-existing warnings).
+- **A real bug found and fixed during test-writing, not during verification:** the e2e suite's first
+  run used a fixed literal date range (`2020-01-01`–`2020-02-01`) so its own fixtures would land in
+  the same, deterministic window every run — but every analytics endpoint caches its response in
+  Redis for up to 300s keyed by `(query + resolved range)`, so re-running the suite a second time
+  within that TTL served the *first* run's stale, already-deleted fixture data back (confirmed by a
+  mismatched suffix in the cached creator's `displayName`). This was a test-design flaw, not an
+  application bug — the cache behaved exactly as intended. Fixed by deriving the fixture window from
+  the run's own `Date.now()` (offset ~20 years into the past, for isolation from other suites' real-
+  `now` fixtures) instead of a hardcoded literal, giving every run a genuinely unique cache key.
+- **Browser verification (real backend, real Postgres, logged in as `super@rosti.uz`) — complete:**
+  created a full fixture chain (Product/Offer/Campaign/Creator/4 customers/8 orders across PAID/
+  REFUNDED/CREATED/PAYMENT_PENDING/10 referral visits/5 payments split across CLICK and
+  CASH_ON_DELIVERY) and confirmed every one of the 10 pages renders real, hand-verifiable numbers —
+  e.g. the fixture creator's revenue tile read exactly 8,500 so'm, matching the 5 seeded orders'
+  sum to the tiyin; the campaign's conversion read exactly 60.0% (6 paid-or-refunded orders / 10
+  visits); the refund rate matched between the Executive Dashboard and the dedicated Refund
+  Analytics page. Verified the status filter on Refund Analytics actually narrows results (selecting
+  REJECTED against one real APPROVED refund correctly returned zero rows) while the canonical Refund
+  Rate/Approval Rate metrics stayed computed against their fixed definitions regardless of the
+  filter — confirmed as intended behavior, not a bug. Verified CSV export downloads real content and
+  writes a real, correctly-shaped `AnalyticsExport` audit row with `before`/`after` visible in the
+  Phase 12 Audit Log viewer unmodified. Verified the export button is hidden for MANAGER and visible
+  for ADMIN/SUPER_ADMIN.
+- **Fixtures:** the full chain above (1 product, 1 offer, 1 campaign, 1 creator + profile +
+  application, 4 customers, 8 orders, 5 payments, 5 commissions, 1 commission rule, 1 refund, 10
+  referral visits, 1 creator-campaign membership) plus the `AnalyticsExport` audit row generated
+  during verification were all deleted via a direct-DB script afterward; confirmed zero rows remain.
+- **Deferred, per the approved scope (documented so they aren't rediscovered as surprises):**
+  `AnalyticsDaily*Stats` rollup tables and the nightly `@Cron` populating job; Excel and PDF export
+  (`format` accepts only `"csv"` today); organic/direct traffic tracking (no generic page-view event
+  model exists); refund-reason taxonomy normalization (raw string grouping only).
+- **Not built, per this phase's own explicit exclusions:** no change to any Order/Payment/Refund/
+  Commission/Payout/Campaign/Attribution/Referral/Onboarding/Notification/Settings business logic —
+  this domain reads those tables, it never writes to them (its one write, the export audit record,
+  goes through the existing, unmodified `AuditService`).
+
+## Phase 14 — Production Hardening & Launch Readiness — AUDIT/HARDENING COMPLETE, NOT LAUNCH-READY (2026-07-28)
+
+Every audit/hardening/documentation task in this phase's own scope is done. **Not the same claim
+as "ready to launch"** — see PRODUCTION_READINESS.md for the four real blockers that remain (Docker
+build verification, Railway/GitHub Environment provisioning, real Click credential activation, real
+production database bootstrap), none of which this phase could resolve from inside this sandbox.
+See PRODUCTION_READINESS.md for the full consolidated checklist and DECISIONS.md's ADR-021 for the
+architectural reasoning behind every fix below.
+
+### Known environment limitations hit during this phase (both external to the code, not defects)
+
+- **Docker builds could not be executed or verified in this development sandbox.** Docker
+  Desktop's CLI is installed, but its virtualization backend (the actual engine — `com.docker.*`/
+  `vpnkit` processes) fails to start here and never comes up even after an explicit launch attempt
+  (confirmed: zero matching processes running afterward, and `docker build`/`docker info` fail
+  with a pipe-connection error). This sandbox almost certainly lacks the nested virtualization
+  support Docker Desktop's backend requires. Both `apps/api/Dockerfile` and `apps/web/Dockerfile`
+  were written and carefully hand-reviewed (multi-stage npm-workspaces-aware builds, verified
+  against this repo's actual on-disk `node_modules` symlink layout), and the web image's
+  `output: "standalone"` Next.js setting was verified independently by running a real
+  `next build` locally and confirming the exact output path (`​.next/standalone/apps/web/server.js`)
+  the Dockerfile's COPY steps assume — but neither image has been through an actual `docker build`.
+  **This must be done for real (in an environment with a working Docker engine, e.g. CI or a
+  developer machine) before either image is trusted for a real deploy.**
+- **The test Postgres database (Railway-hosted, `apps/api/.env.test`) had intermittent
+  connectivity from this sandbox** — real, repeated `pg-pool` connection-timeout errors across
+  several fresh server restarts and over an extended span of session time, confirmed via
+  `/health/ready` reporting `database: {status: "down", message: "Connection terminated due to
+  connection timeout"}` while Redis stayed reachable throughout (isolating the problem to Postgres
+  reachability specifically, not a general network block). Connectivity was intermittent, not
+  permanently absent — it recovered at least once mid-session, which allowed the full backend e2e
+  suite to actually run (see below for the result once that run completes).
+
+### Landed so far (see git history for exact diffs; this list is a running summary, not final)
+
+- Environment/secrets validation module (`env-validation.ts`) with aggregated startup failure;
+  fixed `CLICK_SECRET_KEY`'s previously-unguarded dev-fallback in production.
+- `main.ts` hardening: `trust proxy`, CORS allowlist, explicit body-size limits, Swagger gated out
+  of production by default, graceful shutdown hooks.
+- Route-specific rate limits added: `reset-password`, checkout's three public routes, analytics
+  export.
+- Click `service_id`/`merchant_id` validated on every callback (defense-in-depth alongside the
+  existing MD5 signature check).
+- **Financial integrity:** closed TOCTOU races (read-then-check-then-plain-`update()`) in
+  `CommissionsService` (approve/reject/markPayable), `PayoutsService` (cancel/approve/reject/
+  markProcessing/markPaid/markFailed), and `AdminRefundsService` (approve/reject) — all now use
+  the guarded-`updateMany`-with-count-check pattern already proven in
+  `CommissionsService.lockPayableCommissions`. Made `PaymentsService.handleClickCallback`'s
+  Payment+Order writes atomic (previously two separate un-transacted writes).
+- **Health checks redesigned**: `/health/live` (process only), `/health/ready` (Postgres is the
+  only hard dependency — Redis down degrades, never fails readiness), `/health/status` (deep
+  diagnostic: DB/Redis/disk/scheduled-job heartbeat/Click config presence as booleans/notification
+  provider presence, never secret values). Replaces the previous `@nestjs/terminus`
+  `HealthCheckService.check()` aggregation, which failed readiness the moment *any* indicator —
+  Redis included — went down.
+- **Structured logging**: a global `RequestLoggingInterceptor` (requestId/userId/creatorId/
+  operation/duration/result/status on every request, never the body/query/headers), plus an
+  optional `ErrorReportingPort` (no-op by default, a real webhook-POST adapter when
+  `ERROR_REPORTING_WEBHOOK_URL` is set) wired into `AllExceptionsFilter` for every 5xx.
+- Seed script (`prisma/seed.ts`) now hard-refuses to run when `NODE_ENV=production`.
+- `NotificationSweepService` given a run heartbeat (`lastRunAt`/`lastError`, surfaced via
+  `/health/status`) and a reentrancy guard (skips a tick if the previous one is still running).
+- Frontend: `app/error.tsx`, `app/global-error.tsx`, `app/not-found.tsx` added (none existed
+  before). Wired the Phase 13 analytics filter dropdowns that had a slot (`AnalyticsFilterBar`'s
+  `extra` prop) but nothing plugged into it: real creator/campaign/product dropdowns (backed by
+  the existing admin list endpoints) and a region text input (deliberately not a dropdown — see
+  `AnalyticsEntityFilters.tsx`'s comment on why a fixed region enum would risk silently matching
+  nothing against real free-text address data) across Payment/Refund/Customer/Creator-list/
+  Executive analytics pages.
+- **Load test** (`apps/api/scripts/load-test.ts`, `npm run loadtest --workspace=@rosti/api`):
+  found and fixed two real bugs — `HealthController` and `ClickCallbackController` both silently
+  inherited the global 120-req/60s-per-IP rate limit despite code comments already stating the
+  intent that neither should ever be throttled. Confirmed live: `/health/live` under load went
+  from 2715/2835 requests returning 4xx (rate-limited) to 0/2317 after adding `@SkipThrottle()` to
+  both controllers. The Click one is the more serious of the two — a real payment confirmation
+  callback could have been silently dropped under load.
+- **CI/CD**: `.github/workflows/ci.yml` (typecheck/lint/unit/e2e/build for both apps, real
+  Postgres+Redis service containers) and `.github/workflows/deploy.yml` (manual
+  `workflow_dispatch` only, never on push — migrate → build+push images to GHCR → deploy to
+  Railway → poll `/health/ready` — gated behind a GitHub Environment so required-reviewer approval
+  can be configured). `apps/api/Dockerfile`, `apps/web/Dockerfile`, `apps/api/railway.toml`,
+  `apps/web/railway.toml` added (see the Docker limitation note above for what's unverified).
+- **Full regression run found and fixed a real pre-existing bug**: `test/rbac.e2e-spec.ts` and
+  `test/roles.e2e-spec.ts` both build a minimal `Test.createTestingModule` that predates Phase 12
+  giving `RolesService` an `AuditService` constructor dependency — every full e2e run has silently
+  failed these two files since Phase 12 shipped (`Nest can't resolve dependencies of the
+  RolesService (PrismaService, ?)`, then a cascading `TypeError` in `roles.e2e-spec.ts`'s `afterAll`
+  since `prisma` was never assigned). Fixed by adding `AuditModule` (already `@Global()`) to both
+  suites' imports.
+- **Fix verified across two separate full-suite runs, against the same real Railway test database,
+  neither of which reached a fully clean pass — for environmental reasons, not code reasons.**
+  Run 1 (8 suites failed, 11 passed, 101/300 tests failed): every failure traced individually to
+  `Connection terminated due to connection timeout` (187 occurrences), except the two rbac/roles
+  suites, which failed with the dependency-resolution bug above — confirming that bug was real and
+  reproducible before the fix. Run 2, after the fix (18 suites failed, 1 passed, 251/300 tests
+  failed — a *more* severe run, 522 `Connection terminated` occurrences, the Railway DB visibly
+  struggling harder this time): **`rbac.e2e-spec.ts` and `roles.e2e-spec.ts` both failed this time
+  too, but never with the dependency error — both got past module compilation and failed on a
+  genuine connection timeout inside an actual test body**, the exact same failure mode as every
+  other suite in that run. That's the fix confirmed correct: the one bug this phase could actually
+  fix in this file is fixed; the rest is Railway's test-database reachability from this sandbox,
+  which is outside this phase's ability to fix and is documented as an environment limitation, not
+  papered over as a passing test result that was never actually achieved.
+  `test/redis.e2e-spec.ts` passed cleanly in both runs — isolating the problem to Postgres
+  reachability specifically, consistent with every other Redis-related observation this phase.
+- **Frontend verification, done for real in-browser**: `npm run typecheck`/`lint`/`build` all clean
+  (0 errors; 8 pre-existing warnings unrelated to this phase). Browser-verified: `not-found.tsx`
+  renders on an unknown route; `error.tsx` catches a real thrown error (confirmed via a temporary
+  test route, removed after) and logs it via `console.error` exactly as implemented; the new
+  analytics entity-filter dropdowns render real creator/campaign/product options from the live
+  database (confirmed against the real Railway-hosted test DB while it was reachable) and selecting
+  one fires the expected `?creatorId=...` request to the backend — screenshotted via network-request
+  inspection, not assumed from reading the code.
+- **Documentation**: rewrote the stale pre-implementation `DEPLOYMENT.md`; wrote `ENVIRONMENT.md`,
+  `RUNBOOK.md` (Click go-live checklist, `bootstrap-admin.ts` procedure, daily/weekly/launch-day/
+  first-7-day checklists, incident escalation template), `BACKUP_RESTORE.md`,
+  `PRODUCTION_READINESS.md` (consolidated launch-blocker list); brought `SECURITY.md` from a
+  mostly-unchecked stale state to an accurate, individually-verified one (confirmed each item
+  against real code rather than trusting the old checklist); added `LEGAL.md` (Phase 14 §16 audit —
+  three draft placeholder pages built and linked from the landing page footer's previously-dead
+  "Shartlar · Maxfiylik · Qaytarish siyosati" text; checkout/registration consent-checkbox gaps
+  identified and documented, deliberately not wired in since that's a product/legal decision, not a
+  docs-pass change); `DECISIONS.md` ADR-021 records the phase's architectural decisions.
+- **Production admin bootstrap gap closed**: extracted `seedRolesAndPermissions` out of `seed.ts`
+  into `prisma/lib/seed-roles-permissions.ts` (shared, idempotent) and added
+  `prisma/bootstrap-admin.ts` — the production-safe path to seed the Role/Permission catalog and
+  create exactly one real super_admin account, since `seed.ts`'s new production guard otherwise left
+  no way to bootstrap a fresh production database at all.

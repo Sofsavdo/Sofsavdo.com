@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X, LogOut, FlaskConical } from "lucide-react";
 import { cn } from "@rosti/ui";
+import { BRAND } from "@rosti/config/brand";
 import type { AdminRole } from "@rosti/types";
 import { useAdminSession } from "@/services/adminSession";
 import { hasRole, ROLE_LABELS } from "@/lib/adminRouting";
@@ -51,7 +52,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
     <>
       <div>
         <Link href="/admin/dashboard" className="mb-6 block font-heading text-xl font-bold text-text-primary">
-          Rosti Admin
+          {BRAND.name} Admin
         </Link>
         <nav className="flex flex-col gap-4">
           {visibleGroups.map((group) => (
@@ -115,7 +116,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
       <header className="flex items-center justify-between border-b border-border bg-surface px-pad-mobile py-3 md:hidden">
         <Link href="/admin/dashboard" className="font-heading text-lg font-bold text-text-primary">
-          Rosti Admin
+          {BRAND.name} Admin
         </Link>
         <button type="button" onClick={() => setDrawerOpen(true)} aria-label="Menyuni ochish" className="rounded-input p-2 text-text-primary hover:bg-bg">
           <Menu className="size-5" />

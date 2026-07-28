@@ -1,10 +1,12 @@
 import { Injectable } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import { Prisma, type CampaignApplication, type CampaignApplicationStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { CampaignsService } from "../campaigns/campaigns.service";
 import { ReferralsService } from "../referrals/referrals.service";
 import { DomainException } from "../common/errors/domain-error";
 import { paginate, type PaginatedResult } from "../common/pagination/pagination.dto";
+import { NOTIFICATION_EVENTS } from "../notifications/events";
 import type { CreateApplicationDto } from "./dto/create-application.dto";
 import type { ApplicationQueryDto } from "./dto/application-query.dto";
 
@@ -86,6 +88,7 @@ export class CreatorApplicationsService {
     private prisma: PrismaService,
     private campaigns: CampaignsService,
     private referrals: ReferralsService,
+    private events: EventEmitter2,
   ) {}
 
   private toAdminResponse(app: ApplicationWithRelations): ApplicationAdminResponse {
@@ -271,10 +274,27 @@ export class CreatorApplicationsService {
       // Instant-join campaigns skip SUBMITTED entirely, so this is also this creator's first
       // *approved* application — fire both referral milestone hooks (see referrals.service.ts).
       await this.referrals.onCampaignApplicationApproved(creatorId, id);
+      // emitAsync, not emit — EventEmitter2's plain .emit() is fire-and-forget and does not await
+      // async @OnEvent listeners, so a caller returning immediately after (and a test asserting
+      // the resulting notification right after) races the listener's own DB writes. emitAsync
+      // resolves only once every listener (including NotificationEventsListener's async handler)
+      // has completed, closing that race without giving up the emit-based decoupling itself.
+      await this.events.emitAsync(NOTIFICATION_EVENTS.CAMPAIGN_APPLICATION_APPROVED, {
+        applicationId: id,
+        creatorId,
+        creatorName: existing.creator.displayName,
+        campaignName: existing.campaign.name,
+      });
     }
     // "Applies to a Campaign" (referral spec's business flow step) — the first-ever submission,
     // regardless of whether it required review or was instant-approved.
     await this.referrals.onCampaignApplicationSubmitted(creatorId);
+    await this.events.emitAsync(NOTIFICATION_EVENTS.CAMPAIGN_APPLICATION_SUBMITTED, {
+      applicationId: id,
+      creatorId,
+      creatorName: existing.creator.displayName,
+      campaignName: existing.campaign.name,
+    });
     return this.findMineOrThrow(id, creatorId);
   }
 
@@ -442,7 +462,15 @@ export class CreatorApplicationsService {
       where: { id },
       data: { status: "REJECTED", rejectionReason: reason, rejectedAt: now, reviewedAt: now, reviewedById: actorId },
     });
-    return this.findOneOrThrow(id);
+    const result = await this.findOneOrThrow(id);
+    await this.events.emitAsync(NOTIFICATION_EVENTS.CAMPAIGN_APPLICATION_REJECTED, {
+      applicationId: id,
+      creatorId: result.creator.id,
+      creatorName: result.creator.displayName,
+      campaignName: result.campaign.name,
+      reason,
+    });
+    return result;
   }
 
   async requestChanges(id: string, actorId: string | null, reason: string): Promise<ApplicationAdminResponse> {
@@ -535,6 +563,14 @@ export class CreatorApplicationsService {
     await this.approveCapacitySafe(id, actorId, DECIDE_FROM, "Faqat ko'rib chiqilayotgan arizani tasdiqlash mumkin.");
     const result = await this.findOneOrThrow(id);
     await this.referrals.onCampaignApplicationApproved(result.creatorId, id);
+    // The listener fans this single event out to both the "application approved" and "campaign
+    // joined" notification types — see NotificationEventsListener.onCampaignApplicationApproved.
+    await this.events.emitAsync(NOTIFICATION_EVENTS.CAMPAIGN_APPLICATION_APPROVED, {
+      applicationId: id,
+      creatorId: result.creatorId,
+      creatorName: result.creator.displayName,
+      campaignName: result.campaign.name,
+    });
     return result;
   }
 }

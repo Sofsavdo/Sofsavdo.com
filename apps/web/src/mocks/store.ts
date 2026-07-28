@@ -317,7 +317,7 @@ export async function apiUpdateApplication(
     ...current,
     currentStep: Math.max(current.currentStep, step),
     data: { ...current.data, ...patch },
-    status: current.status === "REVISION_REQUESTED" ? "DRAFT" : current.status,
+    status: current.status === "CHANGES_REQUESTED" ? "DRAFT" : current.status,
   };
   s.applications[userId] = updated;
   save();
@@ -1506,7 +1506,7 @@ export async function apiAdminRequestCreatorRevision(userId: string, reason: str
   const s = load();
   const current = s.applications[userId];
   if (!current) throw new MockApiError("NOT_FOUND", "Ariza topilmadi.");
-  const updated = { ...current, status: "REVISION_REQUESTED" as const, reviewNote: reason, reviewedAt: new Date().toISOString() };
+  const updated = { ...current, status: "CHANGES_REQUESTED" as const, reviewNote: reason, reviewedAt: new Date().toISOString() };
   s.applications[userId] = updated;
   audit(currentAdmin().displayName, "creator_application.revision_requested", "CreatorApplication", userId, reason, current, updated);
   save();

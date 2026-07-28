@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Button } from "@rosti/ui";
+import { BRAND } from "@rosti/config/brand";
 
 // Minimal corporate root page (spec §7 / ARCHITECTURE.md route map): brand, creator-program CTA,
 // login, support. Deliberately not a marketplace/catalog homepage — there is nothing here for a
@@ -8,7 +9,7 @@ export default function HomePage() {
   return (
     <main className="mx-auto flex min-h-screen max-w-page flex-col items-center justify-center gap-8 px-pad-mobile text-center md:px-pad-desktop">
       <div className="space-y-3">
-        <h1 className="font-heading text-4xl font-bold text-text-primary md:text-5xl">Rosti</h1>
+        <h1 className="font-heading text-4xl font-bold text-text-primary md:text-5xl">{BRAND.name}</h1>
         <p className="max-w-md text-balance font-body text-text-secondary">
           Creator hamkorlik dasturi — o&apos;z auditoriyangizni tanlangan kampaniyalarga
           yo&apos;naltiring va daromad oling.

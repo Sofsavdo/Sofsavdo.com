@@ -15,7 +15,11 @@ import type {
   OrderStatus,
   PayoutStatus,
   ProductStatus,
+  RealNotificationCategory,
+  RealNotificationChannel,
+  RealNotificationDeliveryStatus,
   RealOrderStatus,
+  RealPayoutStatus,
   RefundStatus,
 } from "@rosti/types";
 
@@ -25,7 +29,7 @@ export const applicationStatusMeta: Record<CreatorApplicationStatus, { label: st
   DRAFT: { label: "Qoralama", tone: "neutral" },
   SUBMITTED: { label: "Yuborildi", tone: "info" },
   UNDER_REVIEW: { label: "Ko'rib chiqilmoqda", tone: "info" },
-  REVISION_REQUESTED: { label: "Tuzatish talab qilinadi", tone: "warning" },
+  CHANGES_REQUESTED: { label: "Tuzatish talab qilinadi", tone: "warning" },
   APPROVED: { label: "Tasdiqlangan", tone: "success" },
   REJECTED: { label: "Rad etilgan", tone: "error" },
 };
@@ -71,6 +75,19 @@ export const payoutStatusMeta: Record<PayoutStatus, { label: string; tone: Tone 
   PROCESSING: { label: "Jarayonda", tone: "info" },
   PAID: { label: "To'landi", tone: "success" },
   REJECTED: { label: "Rad etildi", tone: "error" },
+};
+
+// Real Wallet/Payout domain (Phase 9) — distinct from payoutStatusMeta above, which stays wired
+// to the legacy mock PayoutStatus shape (no CANCELLED/FAILED, has UNDER_REVIEW). See
+// DECISIONS.md ADR-016.
+export const realPayoutStatusMeta: Record<RealPayoutStatus, { label: string; tone: Tone }> = {
+  REQUESTED: { label: "So'ralgan", tone: "neutral" },
+  APPROVED: { label: "Tasdiqlangan", tone: "info" },
+  PROCESSING: { label: "Jarayonda", tone: "info" },
+  PAID: { label: "To'landi", tone: "success" },
+  REJECTED: { label: "Rad etildi", tone: "error" },
+  CANCELLED: { label: "Bekor qilindi", tone: "neutral" },
+  FAILED: { label: "Amalga oshmadi", tone: "error" },
 };
 
 export const orderStatusMeta: Record<OrderStatus, { label: string; tone: Tone }> = {
@@ -201,4 +218,50 @@ export const referralActivityMeta: Record<
   ACTIVE_NO_EARNINGS: { label: "Faol", tone: "info" },
   EARNING: { label: "Daromad keltirmoqda", tone: "success" },
   DORMANT: { label: "Nofaol", tone: "error" },
+};
+
+// Communication & Notification domain (Phase 10) — one label per Notification.type string.
+// Mirrors apps/api's src/notifications/templates/registry.ts inApp.title copy (kept in sync by
+// hand, same duplication precedent as every other status-label map in this file mirroring its
+// own backend enum).
+export const notificationTypeMeta: Record<string, { label: string; tone: Tone }> = {
+  "campaign_application.submitted": { label: "Ariza yuborildi", tone: "info" },
+  "campaign_application.approved": { label: "Ariza tasdiqlandi", tone: "success" },
+  "campaign_application.rejected": { label: "Ariza rad etildi", tone: "error" },
+  "campaign.joined": { label: "Kampaniyaga qo'shildingiz", tone: "success" },
+  "campaign_application.new": { label: "Yangi creator arizasi", tone: "info" },
+  "order.received": { label: "Yangi sotuv", tone: "success" },
+  "order.delivered": { label: "Buyurtma yetkazildi", tone: "success" },
+  "commission.approved": { label: "Komissiya tasdiqlandi", tone: "success" },
+  "commission.payable": { label: "Komissiya to'lovga tayyor", tone: "success" },
+  "payout.requested": { label: "Payout so'rovi yuborildi", tone: "info" },
+  "payout.approved": { label: "Payout tasdiqlandi", tone: "success" },
+  "payout.rejected": { label: "Payout rad etildi", tone: "error" },
+  "payout.paid": { label: "Payout to'landi", tone: "success" },
+  "payout.requested.admin": { label: "Yangi payout so'rovi", tone: "info" },
+  "payout.failed.admin": { label: "Payout amalga oshmadi", tone: "error" },
+  "payment.failed.admin": { label: "To'lov amalga oshmadi", tone: "error" },
+  "user.registered": { label: "Xush kelibsiz", tone: "success" },
+  "password_reset.requested": { label: "Parolni tiklash", tone: "info" },
+};
+
+export const notificationCategoryMeta: Record<RealNotificationCategory, { label: string }> = {
+  CAMPAIGN_APPLICATION: { label: "Kampaniya arizalari" },
+  ORDER: { label: "Buyurtmalar" },
+  COMMISSION: { label: "Komissiyalar" },
+  PAYOUT: { label: "Payoutlar" },
+  ACCOUNT: { label: "Hisob" },
+  ADMIN_ALERTS: { label: "Admin ogohlantirishlari" },
+};
+
+export const notificationDeliveryStatusMeta: Record<RealNotificationDeliveryStatus, { label: string; tone: Tone }> = {
+  PENDING: { label: "Kutilmoqda", tone: "neutral" },
+  SENT: { label: "Yuborildi", tone: "success" },
+  FAILED: { label: "Amalga oshmadi", tone: "error" },
+};
+
+export const notificationChannelMeta: Record<RealNotificationChannel, { label: string }> = {
+  IN_APP: { label: "Ilova ichida" },
+  TELEGRAM: { label: "Telegram" },
+  EMAIL: { label: "Email" },
 };

@@ -103,6 +103,17 @@ export class ClickPaymentAdapter implements PaymentPort {
       throw new DomainException("INVALID_PAYMENT_SIGNATURE", "Click so'rovida majburiy maydonlar yetishmayapti.");
     }
 
+    // Phase 14 finding: service_id was parsed out of the callback but never actually compared
+    // against our own configured service_id — the signature check alone (below) already requires
+    // knowledge of our secretKey to forge, so this isn't a signature bypass, but it IS the
+    // explicit "merchant/service ID validation" this integration is expected to perform: a
+    // callback claiming a different service_id than ours is not a callback for this merchant
+    // account and must be rejected before any further processing, not merely trusted because the
+    // signature happened to check out.
+    if (this.serviceId && fields.service_id !== this.serviceId) {
+      throw new DomainException("INVALID_PAYMENT_SIGNATURE", "Click service_id mos kelmadi.", { received: fields.service_id });
+    }
+
     const expectedSignature = this.computeSignature(fields);
     if (expectedSignature !== fields.sign_string) {
       throw new DomainException("INVALID_PAYMENT_SIGNATURE", "Click imzosi noto'g'ri.");

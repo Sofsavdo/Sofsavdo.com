@@ -9,8 +9,20 @@ import { formatMoneyMinor } from "@rosti/types";
 import { Alert, Button, Card, CardHeader, CardTitle, SelectField, Skeleton, TextAreaField, TextField } from "@rosti/ui";
 import { useOfferPublic, useCreateOrder, useValidatePromoCode, useTrackVisit } from "@/services/offer";
 import { checkoutSchema, type CheckoutInput } from "@/lib/schemas";
-import { PAYMENT_METHOD_LABELS } from "@/lib/payment-labels";
+import { PaymentMethodSelector } from "./PaymentMethodSelector";
 import { ApiError } from "@/lib/api";
+
+// Duck-typed rather than `instanceof ApiError`: `@/lib/api`'s barrel exports `MockApiError as
+// ApiError` (mock mode has no real HTTP layer, so it was never given a statusCode), so the name
+// `ApiError` in this file doesn't reliably refer to the real HTTP error class with a numeric
+// statusCode — checking for the property directly works regardless of which concrete error class
+// is actually involved. Missing/non-numeric statusCode (mock mode, or a network-level failure
+// that never reached a real HTTP response) is treated the same as a real 5xx — both mean "not a
+// specific validation rejection", which is the actual distinction this needs to make.
+function isTransientCheckoutError(error: unknown): boolean {
+  const statusCode = (error as { statusCode?: unknown } | null)?.statusCode;
+  return typeof statusCode !== "number" || statusCode >= 500;
+}
 
 export function CheckoutPageClient({ offerSlug }: { offerSlug: string }) {
   const searchParams = useSearchParams();
@@ -195,14 +207,7 @@ export function CheckoutPageClient({ offerSlug }: { offerSlug: string }) {
             ) : null}
           </div>
 
-          <SelectField label="To'lov usuli" error={errors.paymentMethod?.message} {...register("paymentMethod")}>
-            <option value="">Tanlang</option>
-            {offer.paymentOptions.map((p) => (
-              <option key={p} value={p}>
-                {PAYMENT_METHOD_LABELS[p] ?? p}
-              </option>
-            ))}
-          </SelectField>
+          <PaymentMethodSelector methodIds={offer.paymentOptions} error={errors.paymentMethod?.message} {...register("paymentMethod")} />
 
           <div className="rounded-input border border-border bg-bg p-4 font-body text-sm">
             <div className="flex justify-between text-text-secondary">
@@ -227,10 +232,29 @@ export function CheckoutPageClient({ offerSlug }: { offerSlug: string }) {
             </div>
           </div>
 
-          {createOrder.isError ? <Alert tone="error">{(createOrder.error as ApiError).message}</Alert> : null}
+          {createOrder.isError ? (
+            <Alert tone="error">
+              {(createOrder.error as ApiError).message}
+              {/* statusCode >= 500 (or missing — a network/timeout failure never reached a real
+                  status) is a transient server-side problem where re-submitting the exact same
+                  data is the correct next action; a 4xx is a real validation/business rejection
+                  (e.g. stock, promo) where retrying unchanged input would just fail again the
+                  same way — the copy should not tell someone to "just try again" in that case.
+                  Either way, the button below is always safe to press again: `idempotencyKey`
+                  is generated once per page load and reused across every submit attempt, so a
+                  retry can never create a second Order for the same checkout. */}
+              {isTransientCheckoutError(createOrder.error) ? (
+                <span className="mt-1 block font-medium">Iltimos, birozdan so&apos;ng qayta urinib ko&apos;ring.</span>
+              ) : null}
+            </Alert>
+          ) : null}
 
           <Button type="submit" size="lg" disabled={createOrder.isPending}>
-            {createOrder.isPending ? "Yuborilmoqda..." : `${offer.ctaLabel} — ${formatMoneyMinor(totalMinor, offer.currency)}`}
+            {createOrder.isPending
+              ? "Yuborilmoqda..."
+              : createOrder.isError
+                ? "Qayta urinish"
+                : `${offer.ctaLabel} — ${formatMoneyMinor(totalMinor, offer.currency)}`}
           </Button>
         </form>
       </Card>

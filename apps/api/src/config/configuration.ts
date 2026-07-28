@@ -48,7 +48,37 @@ export interface AppConfig {
       merchantId: string;
       serviceId: string;
       secretKey: string;
+      // "production" | "test" — operator-declared, validated against NODE_ENV in env-validation.ts
+      // so a real launch can never run with test credentials without it being an explicit,
+      // visible mismatch rather than a silent assumption.
+      env: string;
     };
+  };
+  payouts: {
+    // Below this, a withdrawal request is rejected (BELOW_MINIMUM) — keeps payout batches from
+    // costing more in manual processing effort than the amount transferred.
+    minimumPayoutMinor: number;
+    // Key PayoutMethod.cardNumberEnc is encrypted under (see common/crypto/encryption.util.ts).
+    encryptionKey: string;
+  };
+  notifications: {
+    telegram: {
+      // Empty string means Telegram delivery is unconfigured — TelegramBotAdapter fails loudly
+      // per-send (captured as a FAILED Notification row), never silently no-ops, same convention
+      // as PaymentPort/StoragePort's real-adapter-only philosophy.
+      botToken: string;
+    };
+    email: {
+      smtpHost: string;
+      smtpPort: number;
+      smtpUser: string;
+      smtpPass: string;
+      fromAddress: string;
+    };
+    // How many delivery attempts (initial send + retries) NotificationSweepService.retryFailed
+    // will make before giving up and leaving a Notification permanently FAILED for the admin
+    // failed-queue to surface.
+    maxDeliveryAttempts: number;
   };
 }
 
@@ -101,7 +131,30 @@ export default (): AppConfig => ({
     click: {
       merchantId: process.env.CLICK_MERCHANT_ID ?? "",
       serviceId: process.env.CLICK_SERVICE_ID ?? "",
-      secretKey: process.env.CLICK_SECRET_KEY ?? "dev-click-secret-change-me",
+      // Was `process.env.CLICK_SECRET_KEY ?? "dev-click-secret-change-me"` with no requireEnv
+      // wrapper — a real, confirmed Phase 14 finding: production could start with this exact,
+      // publicly-readable-in-this-repo fallback string as its Click callback signing secret,
+      // meaning anyone could forge a valid "payment succeeded" callback. Now fails fast in
+      // production exactly like the JWT/payout secrets already did.
+      secretKey: requireEnv("CLICK_SECRET_KEY", "dev-click-secret-change-me"),
+      env: process.env.CLICK_ENV ?? "test",
     },
+  },
+  payouts: {
+    minimumPayoutMinor: Number(process.env.PAYOUT_MINIMUM_MINOR ?? 100_000_00),
+    encryptionKey: requireEnv("PAYOUT_ENCRYPTION_KEY", "dev-payout-encryption-key-change-me"),
+  },
+  notifications: {
+    telegram: {
+      botToken: process.env.TELEGRAM_BOT_TOKEN ?? "",
+    },
+    email: {
+      smtpHost: process.env.SMTP_HOST ?? "",
+      smtpPort: Number(process.env.SMTP_PORT ?? 587),
+      smtpUser: process.env.SMTP_USER ?? "",
+      smtpPass: process.env.SMTP_PASS ?? "",
+      fromAddress: process.env.EMAIL_FROM ?? "no-reply@rosti.uz",
+    },
+    maxDeliveryAttempts: Number(process.env.NOTIFICATION_MAX_DELIVERY_ATTEMPTS ?? 3),
   },
 });

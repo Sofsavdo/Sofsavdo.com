@@ -2,14 +2,16 @@
 //
 // NEXT_PUBLIC_API_MODE=real|mock (default mock) switches auth + the Product domain to the real
 // NestJS backend (see admin-real.ts) — this is a build-time constant Next.js inlines, so the
-// unused branch is tree-shaken, not a runtime toggle. Every other domain (offers, campaigns,
-// creators, content, orders, payouts, analytics, ...) still points at the mock store regardless
-// of this flag, because their backend modules don't exist yet — per the Phase 6B vertical-slice
-// plan in PROJECT_STATUS.md, each domain's frontend wiring lands together with its own backend
-// slice, not all at once.
+// unused branch is tree-shaken, not a runtime toggle. Some domains (offers, campaigns, content,
+// orders, ...) still point at the mock store regardless of this flag, because their backend
+// modules don't exist yet — per the Phase 6B vertical-slice plan in PROJECT_STATUS.md, each
+// domain's frontend wiring lands together with its own backend slice, not all at once. Others
+// (Users/Roles/Creators/Payments/Refunds/Settings/Audit — Phase 12; Analytics — Phase 13) are
+// wired real-only below, with no mock branch at all, since their backend now fully exists.
 import type {
   AdminRole,
   AdminUser,
+  AnalyticsFilters,
   Campaign,
   CampaignApplicationAdminView,
   LandingPage,
@@ -234,6 +236,123 @@ export const updateRealOrderStatus = (id: string, status: import("@rosti/types")
 export const updateRealOrderNotes = (id: string, notes: string) => realAdmin.updateOrderNotesReal(id, notes);
 export const createRealOrderRefund = (id: string, amountMinor: number, reason: string) => realAdmin.createOrderRefund(id, amountMinor, reason);
 
+// ---- Wallet, Commission Settlement & Payout domain (Phase 9) — real backend only, same
+// no-mock-counterpart precedent as Order management above. Renamed at this boundary
+// (getCommissionSettlementList/approveCommission/...) to avoid colliding with the legacy
+// mock-only getCommissions/manualAdjustCommission/getPayouts/approvePayout/rejectPayout/
+// markPayoutPaid re-exported further down. ----
+export type { AdminPayoutQuery, CommissionSettlementQuery } from "./admin-real";
+export const getCommissionSettlementList = (query?: realAdmin.CommissionSettlementQuery) =>
+  USE_REAL_API ? realAdmin.getCommissionSettlementList(query) : Promise.resolve({ items: [], page: 1, pageSize: 20, total: 0, totalPages: 1 });
+export const getCommissionSettlementDetail = (id: string) => realAdmin.getCommissionSettlementDetail(id);
+export const approveCommission = (id: string) => realAdmin.approveCommission(id);
+export const rejectCommission = (id: string, reason: string) => realAdmin.rejectCommission(id, reason);
+export const markCommissionPayable = (id: string) => realAdmin.markCommissionPayable(id);
+
+export const getAdminPayoutList = (query?: realAdmin.AdminPayoutQuery) =>
+  USE_REAL_API ? realAdmin.getAdminPayoutList(query) : Promise.resolve({ items: [], page: 1, pageSize: 20, total: 0, totalPages: 1 });
+export const getAdminPayoutDetail = (id: string) => realAdmin.getAdminPayoutDetail(id);
+export const approveAdminPayout = (id: string) => realAdmin.approveAdminPayout(id);
+export const rejectAdminPayout = (id: string, reason: string) => realAdmin.rejectAdminPayout(id, reason);
+export const markAdminPayoutProcessing = (id: string) => realAdmin.markAdminPayoutProcessing(id);
+export const markAdminPayoutPaid = (id: string) => realAdmin.markAdminPayoutPaid(id);
+export const markAdminPayoutFailed = (id: string, reason: string) => realAdmin.markAdminPayoutFailed(id, reason);
+
+// ---- Communication & Notification domain (Phase 10) — real backend only, no mock counterpart
+// (see @rosti/types' RealNotification comment). ----
+export type { AdminNotificationQuery } from "./admin-real";
+export const getAdminNotificationList = (query?: realAdmin.AdminNotificationQuery) =>
+  USE_REAL_API ? realAdmin.getAdminNotificationList(query) : Promise.resolve({ items: [], page: 1, pageSize: 20, total: 0, totalPages: 1 });
+export const getAdminFailedNotificationList = (query?: Omit<realAdmin.AdminNotificationQuery, "status">) =>
+  USE_REAL_API ? realAdmin.getAdminFailedNotificationList(query) : Promise.resolve({ items: [], page: 1, pageSize: 20, total: 0, totalPages: 1 });
+export const retryAdminNotification = (id: string) => realAdmin.retryAdminNotification(id);
+
+// ---- Creator Onboarding & Admin Review domain (Phase 11) — real backend only, same
+// no-mock-counterpart precedent as Content review/Order management above. Distinct from the
+// legacy mock-only getCreators/approveCreatorApplication/rejectCreatorApplication/
+// requestCreatorRevision re-exported further down (which stay untouched — this is a genuinely new
+// review surface, not a replacement). ----
+export type { OnboardingQuery } from "./admin-real";
+export const getOnboardingApplicationList = (query?: realAdmin.OnboardingQuery) =>
+  USE_REAL_API ? realAdmin.getOnboardingApplicationList(query) : Promise.resolve({ items: [], page: 1, pageSize: 20, total: 0, totalPages: 1 });
+export const getOnboardingApplicationDetail = (id: string) => realAdmin.getOnboardingApplicationDetail(id);
+export const getOnboardingAuditTrail = (id: string) => realAdmin.getOnboardingAuditTrail(id);
+export const startReviewOnboardingApplication = (id: string) => realAdmin.startReviewOnboardingApplication(id);
+export const approveOnboardingApplication = (id: string) => realAdmin.approveOnboardingApplication(id);
+export const rejectOnboardingApplication = (id: string, reason: string) => realAdmin.rejectOnboardingApplication(id, reason);
+export const requestChangesOnboardingApplication = (id: string, reason: string) => realAdmin.requestChangesOnboardingApplication(id, reason);
+
+// ---- Admin Operations domain (Phase 12) — real backend only, no mock counterpart. These pages
+// replace their mock predecessors entirely (no Real/Mock branch) — same "real-only by design"
+// precedent as admin/notifications (Phase 10): the mock store's fixed 3-value AdminRole and
+// trivial getUsers/getRoles/getSettings/getAuditLog/getCreators/getPayments/getRefunds (left
+// untouched below, now simply unused by any page) cannot represent this phase's real, dynamic
+// Role/Permission model or richer creator/payment/refund/settings/audit surfaces without
+// building parallel mock CRUD this phase's own scope excludes ("No mock mode additions"). See
+// DECISIONS.md ADR-019. ----
+
+export type { UserQuery, CreateStaffUserInput } from "./admin-real";
+export const getStaffUserList = (query?: realAdmin.UserQuery) => realAdmin.getStaffUserList(query);
+export const getStaffUserDetail = (id: string) => realAdmin.getStaffUserDetail(id);
+export const createStaffUser = (input: realAdmin.CreateStaffUserInput) => realAdmin.createStaffUser(input);
+export const updateStaffUser = (id: string, input: Partial<Pick<realAdmin.CreateStaffUserInput, "displayName" | "email" | "phone">>) => realAdmin.updateStaffUser(id, input);
+export const activateStaffUser = (id: string) => realAdmin.activateStaffUser(id);
+export const deactivateStaffUser = (id: string) => realAdmin.deactivateStaffUser(id);
+export const resetStaffUserPassword = (id: string, newPassword: string) => realAdmin.resetStaffUserPassword(id, newPassword);
+export const assignStaffUserRole = (id: string, roleId: string) => realAdmin.assignStaffUserRole(id, roleId);
+export const removeStaffUserRole = (id: string, roleId: string) => realAdmin.removeStaffUserRole(id, roleId);
+
+export const getRealRoleList = () => realAdmin.getRealRoleList();
+export const getRealRoleDetail = (id: string) => realAdmin.getRealRoleDetail(id);
+export const getAllPermissionKeys = () => realAdmin.getAllPermissionKeys();
+export const createRealRole = (input: { key: string; name: string; description?: string }) => realAdmin.createRealRole(input);
+export const updateRealRole = (id: string, input: { name?: string; description?: string }) => realAdmin.updateRealRole(id, input);
+export const assignRolePermission = (id: string, permissionKey: string) => realAdmin.assignRolePermission(id, permissionKey);
+export const removeRolePermission = (id: string, permissionKey: string) => realAdmin.removeRolePermission(id, permissionKey);
+
+export type { RealCreatorQuery } from "./admin-real";
+export const getRealCreatorList = (query?: realAdmin.RealCreatorQuery) => realAdmin.getRealCreatorList(query);
+export const getRealCreatorDetail = (id: string) => realAdmin.getRealCreatorDetail(id);
+export const getRealCreatorCampaignHistory = (id: string) => realAdmin.getRealCreatorCampaignHistory(id);
+export const getRealCreatorEarningsSummary = (id: string) => realAdmin.getRealCreatorEarningsSummary(id);
+export const getRealCreatorPayoutSummary = (id: string) => realAdmin.getRealCreatorPayoutSummary(id);
+export const getRealCreatorReferralSummary = (id: string) => realAdmin.getRealCreatorReferralSummary(id);
+export const suspendRealCreator = (id: string, reason: string) => realAdmin.suspendRealCreator(id, reason);
+export const unsuspendRealCreator = (id: string) => realAdmin.unsuspendRealCreator(id);
+export const blockRealCreator = (id: string, reason: string) => realAdmin.blockRealCreator(id, reason);
+export const unblockRealCreator = (id: string) => realAdmin.unblockRealCreator(id);
+
+export type { RealPaymentQuery } from "./admin-real";
+export const getRealPaymentList = (query?: realAdmin.RealPaymentQuery) => realAdmin.getRealPaymentList(query);
+export const getRealPaymentDetail = (id: string) => realAdmin.getRealPaymentDetail(id);
+export const getRealPaymentTimeline = (id: string) => realAdmin.getRealPaymentTimeline(id);
+
+export type { RealRefundQuery } from "./admin-real";
+export const getRealRefundList = (query?: realAdmin.RealRefundQuery) => realAdmin.getRealRefundList(query);
+export const getRealRefundDetail = (id: string) => realAdmin.getRealRefundDetail(id);
+export const approveRealRefund = (id: string) => realAdmin.approveRealRefund(id);
+export const rejectRealRefund = (id: string, reason: string) => realAdmin.rejectRealRefund(id, reason);
+
+export const getRealSettings = () => realAdmin.getRealSettings();
+export const updateRealSettings = (values: Record<string, string | number | boolean>) => realAdmin.updateRealSettings(values);
+
+export type { RealAuditQuery } from "./admin-real";
+export const getRealAuditLogList = (query?: realAdmin.RealAuditQuery) => realAdmin.getRealAuditLogList(query);
+export const getRealAuditLogDetail = (id: string) => realAdmin.getRealAuditLogDetail(id);
+
+// ---- Analytics & Business Intelligence (Phase 13) — real backend only, no mock counterpart. ----
+export const getRealExecutiveAnalytics = (filters: AnalyticsFilters) => realAdmin.getRealExecutiveAnalytics(filters);
+export const getRealCreatorAnalyticsList = (filters: AnalyticsFilters) => realAdmin.getRealCreatorAnalyticsList(filters);
+export const getRealCreatorAnalyticsDetail = (id: string, filters: AnalyticsFilters) => realAdmin.getRealCreatorAnalyticsDetail(id, filters);
+export const getRealCampaignAnalyticsList = (filters: AnalyticsFilters) => realAdmin.getRealCampaignAnalyticsList(filters);
+export const getRealCampaignAnalyticsDetail = (id: string, filters: AnalyticsFilters) => realAdmin.getRealCampaignAnalyticsDetail(id, filters);
+export const getRealProductAnalyticsList = (filters: AnalyticsFilters) => realAdmin.getRealProductAnalyticsList(filters);
+export const getRealProductAnalyticsDetail = (id: string, filters: AnalyticsFilters) => realAdmin.getRealProductAnalyticsDetail(id, filters);
+export const getRealPaymentAnalytics = (filters: AnalyticsFilters) => realAdmin.getRealPaymentAnalytics(filters);
+export const getRealRefundAnalytics = (filters: AnalyticsFilters) => realAdmin.getRealRefundAnalytics(filters);
+export const getRealCustomerAnalytics = (filters: AnalyticsFilters) => realAdmin.getRealCustomerAnalytics(filters);
+export const exportRealAnalyticsCsv = (view: string, filters: AnalyticsFilters) => realAdmin.exportRealAnalyticsCsv(view, filters);
+
 export {
   apiAdminGetDashboard as getDashboard,
 
@@ -279,9 +398,6 @@ export {
   apiAdminRejectPayout as rejectPayout,
   apiAdminMarkPayoutPaid as markPayoutPaid,
 
-  apiAdminGetAnalytics as getAnalytics,
-  apiAdminExportAnalyticsCsv as exportAnalyticsCsv,
-
   apiAdminGetUsers as getUsers,
   apiAdminGetRoles as getRoles,
   apiAdminGetSettings as getSettings,
@@ -291,4 +407,4 @@ export {
   MockApiError as ApiError,
 } from "../../mocks/store";
 
-export type { CreateOfferInput, CreateLandingInput, CreateCampaignInput, AnalyticsFilters, PlatformSettings } from "../../mocks/store";
+export type { CreateOfferInput, CreateLandingInput, CreateCampaignInput, PlatformSettings } from "../../mocks/store";

@@ -564,7 +564,7 @@ export const CREATORS: Record<string, CreatorUser> = {
     avatarInitials: "DR",
     application: {
       id: "app_dilnoza",
-      status: "REVISION_REQUESTED",
+      status: "CHANGES_REQUESTED",
       currentStep: 7,
       data: {
         fullName: "Dilnoza Rashidova",

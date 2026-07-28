@@ -2,12 +2,14 @@ import { Injectable } from "@nestjs/common";
 import * as argon2 from "argon2";
 import { JwtService } from "@nestjs/jwt";
 import { ConfigService } from "@nestjs/config";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import { PrismaService } from "../prisma/prisma.service";
 import { TokenService } from "./token.service";
 import { RolesService } from "../roles/roles.service";
 import { ReferralsService } from "../referrals/referrals.service";
 import { DomainException } from "../common/errors/domain-error";
 import { AppLogger } from "../common/logging/app-logger.service";
+import { NOTIFICATION_EVENTS } from "../notifications/events";
 import type { RegisterDto } from "./dto/register.dto";
 import type { LoginDto } from "./dto/login.dto";
 
@@ -38,6 +40,7 @@ export class AuthService {
     private jwt: JwtService,
     private config: ConfigService,
     private logger: AppLogger,
+    private events: EventEmitter2,
   ) {
     this.logger.setContext(AuthService.name);
   }
@@ -92,6 +95,10 @@ export class AuthService {
       return user.id;
     });
 
+    // emitAsync, not emit — see creator-applications.service.ts's identical comment. Without this,
+    // a caller (or a test) checking for the resulting welcome notification/email immediately after
+    // register() returns can race NotificationEventsListener's own async DB writes.
+    await this.events.emitAsync(NOTIFICATION_EVENTS.USER_REGISTERED, { userId, displayName: dto.displayName });
     return this.issueSession(userId);
   }
 
@@ -104,6 +111,11 @@ export class AuthService {
     });
     if (!user) throw new DomainException("INVALID_CREDENTIALS", "Email/parol noto'g'ri.");
     if (user.status === "SUSPENDED") throw new DomainException("FORBIDDEN", "Hisobingiz vaqtincha bloklangan.");
+    // BLOCKED (Phase 12, Admin Operations) — a more severe, permanent-until-admin-reverses status
+    // than SUSPENDED, so it gets its own message rather than reusing SUSPENDED's "vaqtincha"
+    // (temporary) wording. Same FORBIDDEN code/status as SUSPENDED — the frontend doesn't need to
+    // distinguish them, both just mean "you cannot log in right now."
+    if (user.status === "BLOCKED") throw new DomainException("FORBIDDEN", "Hisobingiz bloklangan.");
     if (user.status === "DELETED") throw new DomainException("INVALID_CREDENTIALS", "Email/parol noto'g'ri.");
 
     const valid = await argon2.verify(user.passwordHash, dto.password);
@@ -145,9 +157,12 @@ export class AuthService {
   }
 
   // Always returns success regardless of whether the email exists — prevents account
-  // enumeration via response-shape/timing. Reset "delivery" is a log line in development, exactly
-  // like the mock payment/notification adapters used elsewhere until a real provider is wired
-  // (Phase 6, §25's "Email/Telegram provider credential bo'lmasa logging/mock adapter ishlat").
+  // enumeration via response-shape/timing. Reset delivery goes through the real Phase 10 email
+  // channel now (see NotificationsService.dispatchPasswordReset, which bypasses preference-gating
+  // entirely — a password reset is security-critical and explicitly user-initiated). The log line
+  // below predates Phase 10 and stays as a local-dev fallback for when SMTP isn't configured at
+  // all (see Phase 6 §25's "Email/Telegram provider credential bo'lmasa logging/mock adapter
+  // ishlat", the precedent this domain's whole never-fake-success philosophy is built on).
   //
   // CRITICAL fix (6A→6B architecture audit): this used to log the raw reset token
   // unconditionally. A password-reset token is a bearer credential — anyone who can read
@@ -166,6 +181,8 @@ export class AuthService {
     } else {
       this.logger.log(`Password reset requested for ${email} — dev token: ${token}`);
     }
+    const resetUrl = `${this.config.get<string>("webAppUrl")}/creator/forgot-password?token=${token}`;
+    await this.events.emitAsync(NOTIFICATION_EVENTS.PASSWORD_RESET_REQUESTED, { userId: user.id, resetUrl });
   }
 
   async resetPassword(token: string, newPassword: string): Promise<void> {
