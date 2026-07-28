@@ -21,14 +21,20 @@ import * as mockApi from "../../mocks/store";
 import * as publicRealApi from "./public-real";
 import * as creatorRealApi from "./creator-real";
 import * as checkoutRealApi from "./checkout-real";
+import type { OfferSeoMeta } from "./public-real";
 
 const USE_REAL_API = process.env.NEXT_PUBLIC_API_MODE === "real";
 
-export const getOfferPublic = (
+const EMPTY_SEO: OfferSeoMeta = { keywords: [] };
+
+export const getOfferPublic = async (
   slug: string,
   refCode?: string,
-): Promise<{ offer: Offer; productType: ProductType; deliveryRegions: DeliveryRegionPublic[]; sections: LandingSectionAdmin[]; referral?: ReferralContext } | null> =>
-  USE_REAL_API ? publicRealApi.getOfferPublic(slug, refCode) : mockApi.apiGetOfferPublic(slug, refCode);
+): Promise<{ offer: Offer; productType: ProductType; deliveryRegions: DeliveryRegionPublic[]; sections: LandingSectionAdmin[]; seo: OfferSeoMeta; referral?: ReferralContext } | null> => {
+  if (USE_REAL_API) return publicRealApi.getOfferPublic(slug, refCode);
+  const result = await mockApi.apiGetOfferPublic(slug, refCode);
+  return result ? { ...result, seo: EMPTY_SEO } : null;
+};
 
 export const getOfferQuote = (slug: string, regionCode?: string): Promise<OfferQuote> =>
   USE_REAL_API ? publicRealApi.getOfferQuote(slug, regionCode) : mockApi.apiGetOfferQuote(slug);

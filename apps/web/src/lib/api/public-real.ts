@@ -77,10 +77,17 @@ function mapBackendPublicOffer(o: BackendPublicOffer): Offer {
 // "Support future referral tracking without redesign" in PROJECT_STATUS.md); the public endpoint
 // already returns everything a future `POST /referrals/track` call would need to correlate
 // against, so no reshaping will be needed when that lands.
+export interface OfferSeoMeta {
+  title?: string;
+  description?: string;
+  keywords: string[];
+  ogImageUrl?: string;
+}
+
 export async function getOfferPublic(
   slug: string,
   _refCode?: string,
-): Promise<{ offer: Offer; productType: ProductType; deliveryRegions: DeliveryRegionPublic[]; sections: LandingSectionAdmin[] } | null> {
+): Promise<{ offer: Offer; productType: ProductType; deliveryRegions: DeliveryRegionPublic[]; sections: LandingSectionAdmin[]; seo: OfferSeoMeta } | null> {
   try {
     const res = await apiRequest<BackendPublicLanding>(`/offers/${slug}/public`);
     return {
@@ -88,6 +95,12 @@ export async function getOfferPublic(
       productType: res.productType,
       deliveryRegions: res.deliveryRegions,
       sections: res.sections,
+      seo: {
+        title: res.landing.seoTitle ?? undefined,
+        description: res.landing.seoDescription ?? undefined,
+        keywords: res.landing.seoKeywords,
+        ogImageUrl: res.landing.ogImageUrl ?? undefined,
+      },
     };
   } catch (err) {
     if (err instanceof ApiError && err.statusCode === 404) return null;

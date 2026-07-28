@@ -1,7 +1,7 @@
 import type { AdminOfferVariant, LandingSectionAdmin, Offer, ReferralContext } from "@rosti/types";
 import { formatMoneyMinor } from "@rosti/types";
 import { Button, cn } from "@rosti/ui";
-import { Check, Gift, Quote, ShieldCheck, Star, Truck, Wallet } from "lucide-react";
+import { Check, Gift, ImageIcon, PlayCircle, Quote, ShieldCheck, Star, Truck, Wallet } from "lucide-react";
 
 // Every offer landing is built from these standalone, full-width sections — never the
 // creator/admin shell (see DESIGN_SYSTEM.md "landing vs dashboard"). None of them link to any
@@ -53,8 +53,9 @@ export function Hero({
             {offer.ctaLabel}
           </Button>
         </div>
-        <div className="flex aspect-square items-center justify-center rounded-media bg-gradient-to-br from-accent/15 to-bg">
-          <span className="font-heading text-lg text-text-muted">{offer.name}</span>
+        <div className="flex aspect-square flex-col items-center justify-center gap-3 rounded-media bg-gradient-to-br from-accent/15 to-bg">
+          <ImageIcon className="size-10 text-accent/40" strokeWidth={1.5} />
+          <span className="max-w-[70%] text-center font-heading text-lg text-text-muted">{offer.name}</span>
         </div>
       </div>
     </section>
@@ -141,8 +142,9 @@ export function CreatorVideoSection({ caption }: { caption?: string }) {
     <section className="bg-surface px-pad-mobile py-8 md:px-pad-desktop">
       <div className="mx-auto max-w-page">
         <h2 className="font-heading text-2xl font-bold text-text-primary">Creator videosi</h2>
-        <div className="mt-4 flex aspect-video max-w-md items-center justify-center rounded-media bg-gradient-to-br from-dark to-text-secondary font-body text-sm text-white/70">
-          Video (namuna)
+        <div className="mt-4 flex aspect-video max-w-md flex-col items-center justify-center gap-2 rounded-media bg-gradient-to-br from-dark to-text-secondary">
+          <PlayCircle className="size-10 text-white/70" strokeWidth={1.5} />
+          <span className="font-body text-sm text-white/70">Video tez orada</span>
         </div>
         {caption ? <p className="mt-2 max-w-md font-body text-sm text-text-secondary">{caption}</p> : null}
       </div>
@@ -159,9 +161,10 @@ export function Gallery({ images }: { images: string[] }) {
           {images.map((img) => (
             <div
               key={img}
-              className="flex aspect-square items-center justify-center rounded-card bg-gradient-to-br from-border to-bg font-body text-xs text-text-muted"
+              className="flex aspect-square flex-col items-center justify-center gap-1.5 rounded-card bg-gradient-to-br from-border to-bg"
             >
-              {img}
+              <ImageIcon className="size-6 text-text-muted" strokeWidth={1.5} />
+              <span className="max-w-[85%] truncate font-body text-xs text-text-muted">{img}</span>
             </div>
           ))}
         </div>

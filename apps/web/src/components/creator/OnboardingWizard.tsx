@@ -339,11 +339,11 @@ export function OnboardingWizard({
 
         {stepError ? <Alert tone="error">{stepError}</Alert> : null}
 
-        <div className="flex items-center justify-between border-t border-border pt-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
           <Button type="button" variant="ghost" onClick={goBack} disabled={step === 1}>
             Orqaga
           </Button>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button type="button" variant="outline" onClick={onSaveDraft} disabled={updateApplication.isPending}>
               {updateApplication.isPending ? "Saqlanmoqda..." : "Qoralama sifatida saqlash"}
             </Button>
