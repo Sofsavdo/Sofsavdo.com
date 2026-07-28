@@ -41,9 +41,9 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <h1 className="font-heading text-2xl font-bold text-text-primary">{product.name}</h1>
-          <StatusBadge tone={productStatusMeta[product.status].tone} label={productStatusMeta[product.status].label} />
+        <div className="flex min-w-0 flex-wrap items-center gap-3">
+          <h1 className="min-w-0 break-words font-heading text-2xl font-bold text-text-primary">{product.name}</h1>
+          <span className="shrink-0"><StatusBadge tone={productStatusMeta[product.status].tone} label={productStatusMeta[product.status].label} /></span>
         </div>
         {product.status !== "ARCHIVED" ? (
           <Button variant="outline" size="sm" onClick={() => setConfirmArchive(true)}>

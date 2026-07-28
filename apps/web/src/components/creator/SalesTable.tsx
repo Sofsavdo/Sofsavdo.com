@@ -1,6 +1,6 @@
 import type { Sale } from "@rosti/types";
 import { formatMoneyMinor } from "@rosti/types";
-import { Badge, EmptyState } from "@rosti/ui";
+import { Badge, EmptyState, MobileDataCard } from "@rosti/ui";
 import { orderStatusMeta } from "@/lib/status";
 
 export function SalesTable({ sales, limit }: { sales: Sale[]; limit?: number }) {
@@ -11,7 +11,23 @@ export function SalesTable({ sales, limit }: { sales: Sale[]; limit?: number }) 
   }
 
   return (
-    <div className="overflow-x-auto rounded-card border border-border">
+    <>
+      <div className="space-y-3 md:hidden">
+        {rows.map((sale) => (
+          <MobileDataCard
+            key={sale.id}
+            title={sale.campaignName}
+            meta={<Badge tone={orderStatusMeta[sale.orderStatus].tone}>{orderStatusMeta[sale.orderStatus].label}</Badge>}
+            fields={[
+              { label: "Sana", value: new Date(sale.createdAt).toLocaleDateString("uz-UZ") },
+              { label: "Mijoz", value: sale.customerMasked },
+              { label: "Manba", value: sale.attributionSource === "PROMO_CODE" ? "Promo kod" : "Referral link" },
+              { label: "Komissiya", value: formatMoneyMinor(sale.commissionMinor), emphasis: true },
+            ]}
+          />
+        ))}
+      </div>
+      <div className="hidden overflow-x-auto rounded-card border border-border md:block">
       <table className="w-full text-left font-body text-sm">
         <thead className="bg-bg text-text-secondary">
           <tr>
@@ -48,6 +64,7 @@ export function SalesTable({ sales, limit }: { sales: Sale[]; limit?: number }) 
           ))}
         </tbody>
       </table>
-    </div>
+      </div>
+    </>
   );
 }

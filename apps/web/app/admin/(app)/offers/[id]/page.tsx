@@ -62,11 +62,11 @@ export default function OfferDetailPage({ params }: { params: Promise<{ id: stri
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <h1 className="font-heading text-2xl font-bold text-text-primary">{offer.name}</h1>
-          <StatusBadge tone={offerStatusMeta[offer.status].tone} label={offerStatusMeta[offer.status].label} />
+        <div className="flex min-w-0 flex-wrap items-center gap-3">
+          <h1 className="min-w-0 break-words font-heading text-2xl font-bold text-text-primary">{offer.name}</h1>
+          <span className="shrink-0"><StatusBadge tone={offerStatusMeta[offer.status].tone} label={offerStatusMeta[offer.status].label} /></span>
           {offer.availability ? (
-            <StatusBadge tone={offerAvailabilityMeta[offer.availability].tone} label={offerAvailabilityMeta[offer.availability].label} />
+            <span className="shrink-0"><StatusBadge tone={offerAvailabilityMeta[offer.availability].tone} label={offerAvailabilityMeta[offer.availability].label} /></span>
           ) : null}
         </div>
         <div className="flex items-center gap-2">

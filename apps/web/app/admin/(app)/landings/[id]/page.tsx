@@ -123,9 +123,9 @@ export default function LandingBuilderPage({ params }: { params: Promise<{ id: s
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <h1 className="font-heading text-2xl font-bold text-text-primary">Landing builder — {offer.name}</h1>
-          <StatusBadge tone={landingStatusMeta[landing.status].tone} label={landingStatusMeta[landing.status].label} />
+        <div className="flex min-w-0 flex-wrap items-center gap-3">
+          <h1 className="min-w-0 break-words font-heading text-2xl font-bold text-text-primary">Landing builder — {offer.name}</h1>
+          <span className="shrink-0"><StatusBadge tone={landingStatusMeta[landing.status].tone} label={landingStatusMeta[landing.status].label} /></span>
         </div>
         <div className="flex items-center gap-2">
           {nextActions.includes("publish") ? (

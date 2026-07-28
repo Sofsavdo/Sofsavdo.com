@@ -75,11 +75,11 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <h1 className="font-heading text-2xl font-bold text-text-primary">{campaign.name}</h1>
-          <StatusBadge tone={campaignStatusMeta[campaign.status].tone} label={campaignStatusMeta[campaign.status].label} />
+        <div className="flex min-w-0 flex-wrap items-center gap-3">
+          <h1 className="min-w-0 break-words font-heading text-2xl font-bold text-text-primary">{campaign.name}</h1>
+          <span className="shrink-0"><StatusBadge tone={campaignStatusMeta[campaign.status].tone} label={campaignStatusMeta[campaign.status].label} /></span>
           {campaign.availability ? (
-            <StatusBadge tone={campaignAvailabilityMeta[campaign.availability].tone} label={campaignAvailabilityMeta[campaign.availability].label} />
+            <span className="shrink-0"><StatusBadge tone={campaignAvailabilityMeta[campaign.availability].tone} label={campaignAvailabilityMeta[campaign.availability].label} /></span>
           ) : null}
         </div>
         <div className="flex items-center gap-2">
