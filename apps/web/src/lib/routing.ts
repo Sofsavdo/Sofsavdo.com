@@ -1,4 +1,4 @@
-import type { CreatorApplicationStatus } from "@rosti/types";
+import type { CreatorApplicationStatus } from "@sofsavdo/types";
 
 // Single source of truth for "where does a creator land after auth" and "can they reach the
 // approved-only catalog". Used by both the (auth) pages (post-login/register redirect) and the

@@ -1,9 +1,9 @@
 "use client";
 
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import type { RealDailyTrendPoint } from "@rosti/types";
-import { formatMoneyMinor } from "@rosti/types";
-import { ChartCard } from "@rosti/ui";
+import type { RealDailyTrendPoint } from "@sofsavdo/types";
+import { formatMoneyMinor } from "@sofsavdo/types";
+import { ChartCard } from "@sofsavdo/ui";
 
 // Same color/tooltip conventions as AdminDashboardChart (Phase 5) — new chart types for this
 // domain (bar, pie), same visual language, so these read as native to the app rather than bolted

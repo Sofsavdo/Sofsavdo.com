@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Button, Card, CardHeader, CardTitle, TextField, Alert } from "@rosti/ui";
+import { Button, Card, CardHeader, CardTitle, TextField, Alert } from "@sofsavdo/ui";
 import { useSession } from "@/services/session";
 import { registerSchema, type RegisterInput } from "@/lib/schemas";
 import { postAuthRoute } from "@/lib/routing";

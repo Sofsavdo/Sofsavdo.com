@@ -1,8 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
-import type { CampaignMediaItem, CampaignMediaRole } from "@rosti/types";
-import { Alert, Badge, Button, Card, CardHeader, CardTitle } from "@rosti/ui";
+import type { CampaignMediaItem, CampaignMediaRole } from "@sofsavdo/types";
+import { Alert, Badge, Button, Card, CardHeader, CardTitle } from "@sofsavdo/ui";
 import { ArrowDown, ArrowUp, Image as ImageIcon, Star, Trash2, Upload, Video } from "lucide-react";
 import {
   useCampaignMedia,

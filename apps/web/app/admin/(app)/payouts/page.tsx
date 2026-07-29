@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import type { PayoutStatus, RealPayoutStatus } from "@rosti/types";
-import { formatMoneyMinor } from "@rosti/types";
-import { Button, ConfirmModal, DataTableShell, MobileDataCard, StatusBadge, TextField } from "@rosti/ui";
+import type { PayoutStatus, RealPayoutStatus } from "@sofsavdo/types";
+import { formatMoneyMinor } from "@sofsavdo/types";
+import { Button, ConfirmModal, DataTableShell, MobileDataCard, StatusBadge, TextField } from "@sofsavdo/ui";
 import {
   useAdminPayoutList,
   useAdminPayouts,

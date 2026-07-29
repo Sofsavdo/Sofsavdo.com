@@ -1,22 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { formatMoneyMinor } from "@rosti/types";
-import { Badge, Button, Card, CardHeader, CardTitle, EmptyState, Skeleton, StatTile } from "@rosti/ui";
+import { formatMoneyMinor } from "@sofsavdo/types";
+import { Alert, Badge, Button, Card, CardHeader, CardTitle, EmptyState, Skeleton, StatTile } from "@sofsavdo/ui";
 import { useDashboardStats } from "@/services/dashboard";
 import { useMyCampaigns, useCampaigns } from "@/services/campaigns";
-import { useSales, usePayouts } from "@/services/finance";
-import { useContent } from "@/services/content";
-import { creatorCampaignStatusMeta, payoutStatusMeta } from "@/lib/status";
+import { useSales, usePayoutsMine } from "@/services/finance";
+import { useMyContents } from "@/services/content";
+import { creatorCampaignStatusMeta, realPayoutStatusMeta } from "@/lib/status";
 import { DashboardChart } from "@/components/creator/DashboardChart";
 import { SalesTable } from "@/components/creator/SalesTable";
+import { ActivityTicker } from "@/components/creator/ActivityTicker";
 
 export default function DashboardPage() {
   const stats = useDashboardStats();
   const myCampaigns = useMyCampaigns();
   const sales = useSales();
-  const content = useContent();
-  const payouts = usePayouts();
+  const content = useMyContents();
+  const payouts = usePayoutsMine();
   const allCampaigns = useCampaigns();
 
   const isLoading = stats.isLoading || myCampaigns.isLoading;
@@ -37,15 +38,16 @@ export default function DashboardPage() {
 
   const d = stats.data;
   const activeCampaigns = (myCampaigns.data ?? []).filter((cc) => cc.status === "ACTIVE");
+  const payoutItems = payouts.data?.items ?? [];
   const requiredActions = [
     ...(content.data ?? [])
-      .filter((c) => c.status === "DRAFT" || c.status === "REVISION_REQUESTED")
+      .filter((c) => c.status === "DRAFT" || c.status === "CHANGES_REQUESTED")
       .map((c) => ({
         key: `content_${c.id}`,
         text:
-          c.status === "REVISION_REQUESTED"
-            ? `"${c.campaignName}" uchun kontentga tuzatish talab qilingan`
-            : `"${c.campaignName}" uchun kontent yuklashingiz kerak`,
+          c.status === "CHANGES_REQUESTED"
+            ? `"${c.campaign.name}" uchun kontentga tuzatish talab qilingan`
+            : `"${c.campaign.name}" uchun kontent yuklashingiz kerak`,
         href: "/creator/content",
       })),
     ...(myCampaigns.data ?? [])
@@ -55,21 +57,37 @@ export default function DashboardPage() {
         text: `"${cc.campaign.name}" kampaniyasi uchun kontent talab qilinadi`,
         href: "/creator/content",
       })),
-    ...(payouts.data ?? [])
-      .filter((p) => p.status === "UNDER_REVIEW")
+    ...payoutItems
+      .filter((p) => p.status === "REQUESTED" || p.status === "PROCESSING")
       .map((p) => ({
         key: `payout_${p.id}`,
         text: `${formatMoneyMinor(p.amountMinor)} miqdoridagi payout so'rovingiz ko'rib chiqilmoqda`,
         href: "/creator/payouts",
       })),
   ];
-  const latestPayout = (payouts.data ?? [])[0];
+  const latestPayout = payoutItems[0];
   const joinedCampaignIds = new Set((myCampaigns.data ?? []).map((cc) => cc.campaignId));
   const recommended = (allCampaigns.data ?? []).filter((c) => !joinedCampaignIds.has(c.id)).slice(0, 3);
 
   return (
     <div className="space-y-6">
       <h1 className="font-heading text-2xl font-bold text-text-primary">Dashboard</h1>
+
+      <ActivityTicker />
+
+      {/* Phase Q — a proactive nudge, not a surprise: the creator sees exactly why a payout
+          request would be blocked (PayoutsService.requestPayout) before they even try, with a
+          direct link to the one thing that resolves it. Premium-tier creators never see this,
+          regardless of bio status — see DECISIONS.md ADR-034. */}
+      {d.compliance.tier === "STANDARD" && d.compliance.bioComplianceStatus === "NON_COMPLIANT" ? (
+        <Alert tone="warning">
+          Bio&apos;ingizda sofsavdo.com havolasi topilmadi — bu talab bajarilmaguncha pul yechish imkonsiz.{" "}
+          <Link href="/creator/profile" className="underline">
+            Ijtimoiy tarmoq profilingizni tekshiring
+          </Link>{" "}
+          yoki Premium tarif imkoniyatlari haqida qo&apos;llab-quvvatlash xizmatiga murojaat qiling.
+        </Alert>
+      ) : null}
 
       {/* Hero balance card — the single highest-stakes number on this page (the creator's own
           money) previously sat as one equally-weighted tile among eight in a flat grid, with no
@@ -80,7 +98,7 @@ export default function DashboardPage() {
         <div>
           <p className="font-body text-sm text-text-secondary">Mavjud balans</p>
           <p className="mt-1 font-numeric text-3xl font-bold tabular-nums text-text-primary md:text-4xl">
-            {formatMoneyMinor(d.availableBalanceMinor)}
+            {formatMoneyMinor(d.wallet.availableMinor)}
           </p>
         </div>
         <Button asChild size="lg">
@@ -92,9 +110,9 @@ export default function DashboardPage() {
         <p className="mb-2 font-body text-xs font-semibold uppercase tracking-wide text-text-muted">Bugun</p>
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           <StatTile label="Click" value={d.today.clicks} />
-          <StatTile label="Sotuv" value={d.today.orders} />
-          <StatTile label="Daromad" value={formatMoneyMinor(d.today.revenueMinor)} />
-          <StatTile label="Conversion" value={`${(d.conversionRate * 100).toFixed(1)}%`} />
+          <StatTile label="Sotuv" value={d.today.ordersCount} />
+          <StatTile label="Savdo" value={formatMoneyMinor(d.today.salesMinor)} />
+          <StatTile label="Conversion" value={`${(d.today.conversionRate * 100).toFixed(1)}%`} />
         </div>
       </div>
 
@@ -103,25 +121,55 @@ export default function DashboardPage() {
         <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
           <StatTile label="Savdo" value={formatMoneyMinor(d.monthToDate.salesMinor)} />
           <StatTile label="Komissiya" value={formatMoneyMinor(d.monthToDate.commissionMinor)} />
-          <StatTile label="EPC (click boshiga)" value={formatMoneyMinor(d.epcMinor)} className="col-span-2 md:col-span-1" />
+          <StatTile label="Sotuvlar soni" value={d.monthToDate.ordersCount} />
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      {/* Own referral funnel (Phase O) — the same honest 3-stage shape (Click → Order → Paid
+          order) the admin dashboard shows platform-wide, scoped to this creator's own
+          ReferralVisit/Attribution rows. No "landing view"/"checkout start" — this schema can't
+          track either, see AdminDashboardService's own comment. */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Mening varonkam (shu oy)</CardTitle>
+        </CardHeader>
+        <ul className="space-y-2 font-body text-sm">
+          {[
+            { label: "Click", value: d.funnel.clicks },
+            { label: "Buyurtma", value: d.funnel.orders },
+            { label: "To'langan buyurtma", value: d.funnel.paidOrders },
+          ].map((step) => (
+            <li key={step.label} className="flex items-center justify-between rounded-input border border-border px-3 py-2">
+              <span className="text-text-secondary">{step.label}</span>
+              <span className="font-numeric font-semibold tabular-nums text-text-primary">{step.value.toLocaleString("uz-UZ")}</span>
+            </li>
+          ))}
+          <li className="flex items-center justify-between px-3 pt-1">
+            <span className="text-text-muted">Konversiya</span>
+            <span className="font-numeric font-semibold tabular-nums text-text-primary">{(d.funnel.conversionRate * 100).toFixed(1)}%</span>
+          </li>
+        </ul>
+      </Card>
+
+      {/* Lifetime — new (Phase J closes a real gap: the old dashboard never showed an all-time
+          total at all). The single biggest "look how far you've come" number for a motivation
+          system, so it gets its own visually distinct row rather than another flat grid tile. */}
+      <div>
+        <p className="mb-2 font-body text-xs font-semibold uppercase tracking-wide text-text-muted">Umr bo&apos;yicha</p>
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+          <StatTile label="Jami savdo" value={formatMoneyMinor(d.lifetime.salesMinor)} />
+          <StatTile label="Jami komissiya" value={formatMoneyMinor(d.lifetime.commissionMinor)} />
+          <StatTile label="Jami sotuvlar" value={d.lifetime.ordersCount} />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>Kutilayotgan komissiya</CardTitle>
           </CardHeader>
           <p className="font-numeric text-2xl font-semibold tabular-nums text-text-primary">
-            {formatMoneyMinor(d.pendingCommissionMinor)}
-          </p>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Tasdiqlangan komissiya</CardTitle>
-          </CardHeader>
-          <p className="font-numeric text-2xl font-semibold tabular-nums text-text-primary">
-            {formatMoneyMinor(d.approvedCommissionMinor)}
+            {formatMoneyMinor(d.wallet.pendingMinor)}
           </p>
         </Card>
         <Card>
@@ -133,8 +181,8 @@ export default function DashboardPage() {
               <span className="break-words font-numeric text-lg font-semibold tabular-nums">
                 {formatMoneyMinor(latestPayout.amountMinor)}
               </span>
-              <Badge tone={payoutStatusMeta[latestPayout.status].tone}>
-                {payoutStatusMeta[latestPayout.status].label}
+              <Badge tone={realPayoutStatusMeta[latestPayout.status].tone}>
+                {realPayoutStatusMeta[latestPayout.status].label}
               </Badge>
             </div>
           ) : (
@@ -143,7 +191,7 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      <DashboardChart series7d={d.series7d} series30d={d.series30d} series90d={d.series90d} />
+      <DashboardChart dailyRevenue30d={d.dailyRevenue30d} />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Card>

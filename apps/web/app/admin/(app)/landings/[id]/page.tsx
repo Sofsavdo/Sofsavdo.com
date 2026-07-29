@@ -2,7 +2,7 @@
 
 import { use, useState } from "react";
 import Link from "next/link";
-import { Alert, Badge, Button, Card, CardHeader, CardTitle, ConfirmModal, Skeleton, StatusBadge, TextAreaField, TextField, cn } from "@rosti/ui";
+import { Alert, Badge, Button, Card, CardHeader, CardTitle, ConfirmModal, Skeleton, StatusBadge, TextAreaField, TextField, cn } from "@sofsavdo/ui";
 import { Archive, ChevronDown, ChevronUp, Eye, EyeOff, ExternalLink, Monitor, Plus, Send, Smartphone, Trash2, Undo2 } from "lucide-react";
 import {
   useAddLandingSection,
@@ -22,7 +22,7 @@ import {
 import { SectionEditor } from "@/components/admin/SectionEditor";
 import { ALL_SECTION_TYPES, SECTION_TYPE_LABELS } from "@/components/admin/sectionTypeConfig";
 import { landingStatusMeta } from "@/lib/status";
-import type { LandingSectionType } from "@rosti/types";
+import type { LandingSectionType } from "@sofsavdo/types";
 
 // Mirrors LandingsService's ALLOWED_TRANSITIONS on the backend — a UX convenience only, the
 // server re-checks every transition regardless (see landings.service.ts).

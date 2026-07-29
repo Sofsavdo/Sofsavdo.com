@@ -47,7 +47,7 @@ export class AnalyticsExportService {
       after: { view: query.view, format: query.format, range: query.range, from: query.from, to: query.to, compare: query.compare, rowCount: rows.length },
     });
 
-    return { filename: `rosti-analytics-${query.view}-${new Date().toISOString().slice(0, 10)}.csv`, content };
+    return { filename: `sofsavdo-analytics-${query.view}-${new Date().toISOString().slice(0, 10)}.csv`, content };
   }
 
   private async buildRows(query: AnalyticsExportQueryDto): Promise<Record<string, unknown>[]> {

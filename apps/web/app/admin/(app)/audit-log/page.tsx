@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { DataTableShell, MobileDataCard } from "@rosti/ui";
+import { DataTableShell, MobileDataCard } from "@sofsavdo/ui";
 import { useRealAuditLogList } from "@/services/admin/system";
 
 export default function AdminAuditLogPage() {

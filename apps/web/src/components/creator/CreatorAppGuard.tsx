@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Skeleton } from "@rosti/ui";
+import { Skeleton } from "@sofsavdo/ui";
 import { useSession } from "@/services/session";
 import { canAccessApprovedOnlyRoutes } from "@/lib/routing";
 import { CreatorShell } from "./CreatorShell";

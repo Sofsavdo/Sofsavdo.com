@@ -1,6 +1,6 @@
 # API contract
 
-Full interactive contract will be served at `api.rosti.uz/docs` (Swagger/OpenAPI, generated from
+Full interactive contract will be served at `api.sofsavdo.com/docs` (Swagger/OpenAPI, generated from
 NestJS decorators — this file is the human-readable index kept in sync with it, not a
 replacement for it). Every mutating endpoint requires a JSON body validated by a Zod-derived DTO
 shared from `packages/types`; every list endpoint is paginated (`?page=&pageSize=`, max 100).

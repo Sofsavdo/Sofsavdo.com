@@ -24,8 +24,10 @@ import {
   Gift,
   SlidersHorizontal,
   Bell,
+  Home,
+  Trophy,
 } from "lucide-react";
-import type { AdminRole } from "@rosti/types";
+import type { AdminRole } from "@sofsavdo/types";
 
 export interface AdminNavItem {
   href: string;
@@ -47,6 +49,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
       { href: "/admin/products", label: "Products", icon: Package },
       { href: "/admin/offers", label: "Offers", icon: Tag },
       { href: "/admin/landings", label: "Landing sahifalar", icon: LayoutTemplate },
+      { href: "/admin/homepage", label: "Homepage CMS", icon: Home },
     ],
   },
   {
@@ -54,6 +57,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
     items: [
       { href: "/admin/campaigns", label: "Campaigns", icon: Megaphone },
       { href: "/admin/campaign-applications", label: "Kampaniya arizalari", icon: ClipboardList },
+      { href: "/admin/competitions", label: "Musobaqalar", icon: Trophy },
     ],
   },
   {

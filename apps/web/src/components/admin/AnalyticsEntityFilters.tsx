@@ -1,6 +1,6 @@
 "use client";
 
-import { SelectField, TextField } from "@rosti/ui";
+import { SelectField, TextField } from "@sofsavdo/ui";
 import { useAdminCampaigns } from "@/services/admin/campaigns";
 import { useAdminProducts } from "@/services/admin/catalog";
 import { useRealCreatorList } from "@/services/admin/creators";

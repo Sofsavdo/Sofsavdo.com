@@ -41,20 +41,20 @@ describe("Campaigns (e2e)", () => {
       where: { key: { in: ["campaign.read", "campaign.write", "campaign.publish", "campaign.pause", "campaign.complete", "campaign.archive"] } },
     });
     await prisma.rolePermission.createMany({ data: perms.map((p) => ({ roleId: role.id, permissionId: p.id })), skipDuplicates: true });
-    const adminUser = await prisma.user.create({ data: { email: `admin-${suffix}@rosti.uz`, passwordHash: "x" } });
+    const adminUser = await prisma.user.create({ data: { email: `admin-${suffix}@sofsavdo.com`, passwordHash: "x" } });
     await prisma.userRole.create({ data: { userId: adminUser.id, roleId: role.id } });
     adminAccessToken = tokens.signAccessToken(adminUser.id);
 
     const readOnlyRole = await prisma.role.create({ data: { key: `readonly-${suffix}`, name: "Read only" } });
     const readPerm = await prisma.permission.findFirst({ where: { key: "campaign.read" } });
     if (readPerm) await prisma.rolePermission.create({ data: { roleId: readOnlyRole.id, permissionId: readPerm.id } });
-    const staffNoPermsUser = await prisma.user.create({ data: { email: `staffnp-${suffix}@rosti.uz`, passwordHash: "x" } });
+    const staffNoPermsUser = await prisma.user.create({ data: { email: `staffnp-${suffix}@sofsavdo.com`, passwordHash: "x" } });
     await prisma.userRole.create({ data: { userId: staffNoPermsUser.id, roleId: readOnlyRole.id } });
     staffNoPermsToken = tokens.signAccessToken(staffNoPermsUser.id);
 
     const creatorUser = await prisma.user.create({
       data: {
-        email: `creator-${suffix}@rosti.uz`,
+        email: `creator-${suffix}@sofsavdo.com`,
         passwordHash: "x",
         creatorProfile: {
           create: {

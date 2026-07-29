@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { OrderStatus, RealOrderStatus } from "@rosti/types";
+import type { OrderStatus, RealOrderStatus } from "@sofsavdo/types";
 import * as api from "@/lib/api/admin";
 import type { OrderListQuery } from "@/lib/api/admin";
 

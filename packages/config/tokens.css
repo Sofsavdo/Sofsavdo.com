@@ -3,7 +3,7 @@
  * Tailwind v4 (CSS-first config): importing this file registers every `--color-*`, `--font-*`,
  * `--radius-*`, and `--spacing-*` variable as real utilities (bg-accent, font-heading,
  * rounded-card, p-pad-desktop, ...). Consumed from apps/web/app/globals.css via:
- *   @import "@rosti/config/tokens.css";
+ *   @import "@sofsavdo/config/tokens.css";
  */
 @theme {
   --color-bg: #f7f7f5;

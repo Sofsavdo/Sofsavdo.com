@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import type { RealNotificationChannel, RealNotificationDeliveryStatus } from "@rosti/types";
-import { Badge, Button, DataTableShell, MobileDataCard } from "@rosti/ui";
+import type { RealNotificationChannel, RealNotificationDeliveryStatus } from "@sofsavdo/types";
+import { Badge, Button, DataTableShell, MobileDataCard } from "@sofsavdo/ui";
 import { useAdminFailedNotificationList, useAdminNotificationList, useRetryAdminNotification } from "@/services/admin/notifications";
 import { notificationChannelMeta, notificationDeliveryStatusMeta, notificationTypeMeta } from "@/lib/status";
 

@@ -4,7 +4,7 @@ import { PrismaService } from "../prisma/prisma.service";
 
 describe("PromoCodesService", () => {
   let service: PromoCodesService;
-  let prisma: { offer: { findUnique: jest.Mock }; promoCode: { findUnique: jest.Mock } };
+  let prisma: { offer: { findUnique: jest.Mock }; promoCode: { findUnique: jest.Mock; findMany: jest.Mock } };
   let tx: { promoCode: { findUnique: jest.Mock; update: jest.Mock }; promoCodeUsage: { count: jest.Mock; create: jest.Mock } };
 
   const basePromo = {
@@ -25,7 +25,7 @@ describe("PromoCodesService", () => {
   };
 
   beforeEach(async () => {
-    prisma = { offer: { findUnique: jest.fn() }, promoCode: { findUnique: jest.fn() } };
+    prisma = { offer: { findUnique: jest.fn() }, promoCode: { findUnique: jest.fn(), findMany: jest.fn() } };
     tx = { promoCode: { findUnique: jest.fn(), update: jest.fn() }, promoCodeUsage: { count: jest.fn(), create: jest.fn() } };
     const moduleRef = await Test.createTestingModule({
       providers: [PromoCodesService, { provide: PrismaService, useValue: prisma }],
@@ -111,6 +111,27 @@ describe("PromoCodesService", () => {
       await service.commitUsage(tx as never, "promo1", "order1", "customer1");
       expect(tx.promoCode.update).toHaveBeenCalledWith({ where: { id: "promo1" }, data: { usageCount: { increment: 1 } } });
       expect(tx.promoCodeUsage.create).toHaveBeenCalledWith({ data: { promoCodeId: "promo1", orderId: "order1", customerId: "customer1" } });
+    });
+  });
+
+  describe("listAdmin", () => {
+    it("maps the real, already-maintained usageCount column — no separate aggregation query", async () => {
+      prisma.promoCode.findMany.mockResolvedValue([
+        { ...basePromo, usageCount: 7, usageLimit: 10, creator: { displayName: "Malika" }, campaign: { name: "Yoz kampaniyasi" } },
+      ]);
+      const result = await service.listAdmin();
+      expect(result).toEqual([
+        {
+          code: "MALIKA10",
+          creatorName: "Malika",
+          campaignName: "Yoz kampaniyasi",
+          discountType: "PERCENTAGE",
+          discountValue: 1000,
+          usageCount: 7,
+          usageLimit: 10,
+          isActive: true,
+        },
+      ]);
     });
   });
 });

@@ -95,6 +95,19 @@ export class PayoutsService {
     if (dto.amountMinor < this.minimumPayoutMinor) {
       throw new DomainException("BELOW_MINIMUM", "So'ralgan miqdor minimal chegaradan kam.", { minimumPayoutMinor: this.minimumPayoutMinor });
     }
+    // Phase Q — the soft enforcement mechanism for the bio-compliance policy (DECISIONS.md
+    // ADR-034): a STANDARD-tier creator an admin has manually marked NON_COMPLIANT can't withdraw
+    // until either their bio is re-checked as compliant, or they're granted Premium. PENDING
+    // (never reviewed) is never blocked — an admin review backlog must never become the creator's
+    // problem. This is deliberately not account suspension; every other creator-facing feature
+    // stays fully usable.
+    const profile = await this.prisma.creatorProfile.findUniqueOrThrow({ where: { id: creatorId }, select: { bioComplianceStatus: true, tier: true } });
+    if (profile.tier === "STANDARD" && profile.bioComplianceStatus === "NON_COMPLIANT") {
+      throw new DomainException(
+        "BIO_COMPLIANCE_REQUIRED",
+        "Pul yechish uchun avval ijtimoiy tarmoq bio'ingizga sofsavdo.com havolasini qo'shing yoki Premium tarifga o'ting.",
+      );
+    }
     const method = await this.prisma.payoutMethod.findUnique({ where: { id: dto.payoutMethodId } });
     if (!method || method.creatorId !== creatorId) throw new DomainException("PAYOUT_METHOD_NOT_FOUND", "To'lov usuli topilmadi.");
     if (!method.isActive) throw new DomainException("PAYOUT_METHOD_INACTIVE", "Bu to'lov usuli faol emas.");

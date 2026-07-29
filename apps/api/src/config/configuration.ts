@@ -10,14 +10,34 @@ export interface AppConfig {
     accessTtl: string;
     refreshTtl: string;
   };
+  auth: {
+    // Per-account brute-force lockout (Phase A, production-hardening pass) — a sibling mitigation
+    // to the per-IP ThrottlerGuard limits on /auth/login (see SECURITY.md), which alone doesn't
+    // slow a distributed attempt spread across many IPs against one account.
+    maxFailedLoginAttempts: number;
+    lockoutDurationMinutes: number;
+  };
   storage: {
-    // Only "local" exists today. A production provider (S3/R2/GCS) plugs in as a new adapter
-    // behind the same StoragePort — campaign/media domain code never sees the driver name.
+    // "local" (LocalDiskStorage, dev/test default) or "s3" (S3Storage — also covers R2/GCS via
+    // their S3-compatible endpoints) — see storage.module.ts. Campaign/media domain code never
+    // sees this value; it only ever depends on STORAGE_PORT.
     driver: string;
     localDir: string;
     // Base URL the local adapter's stored objects are served from (main.ts mounts the static
-    // handler). A cloud adapter would return its own CDN/signed URLs instead.
+    // handler). Unused when driver is "s3" — see storage.s3.publicBaseUrl instead.
     publicBaseUrl: string;
+    s3: {
+      bucket: string;
+      region: string;
+      accessKeyId: string;
+      secretAccessKey: string;
+      // Set for R2/GCS/MinIO (their own S3-compatible endpoint); left empty for real AWS S3.
+      endpoint?: string;
+      // R2/MinIO require path-style requests (bucket.region.amazonaws.com won't resolve for
+      // them); real AWS S3 works either way but virtual-hosted-style is its default.
+      forcePathStyle: boolean;
+      publicBaseUrl?: string;
+    };
   };
   media: {
     maxImageBytes: number;
@@ -61,6 +81,13 @@ export interface AppConfig {
     // Key PayoutMethod.cardNumberEnc is encrypted under (see common/crypto/encryption.util.ts).
     encryptionKey: string;
   };
+  productAi: {
+    // Empty string means the AI Product Creation Engine is unconfigured — ProductAiService fails
+    // loudly per-call (AI_NOT_CONFIGURED, 503) rather than silently no-opping or crashing at boot,
+    // same convention as Telegram/SMTP below. See DECISIONS.md ADR-028.
+    anthropicApiKey: string;
+    model: string;
+  };
   notifications: {
     telegram: {
       // Empty string means Telegram delivery is unconfigured — TelegramBotAdapter fails loudly
@@ -97,7 +124,7 @@ export default (): AppConfig => ({
   nodeEnv: process.env.NODE_ENV ?? "development",
   port: process.env.PORT ? Number(process.env.PORT) : 4000,
   webAppUrl: process.env.WEB_APP_URL ?? "http://localhost:3000",
-  databaseUrl: requireEnv("DATABASE_URL", "postgresql://rosti:rosti@localhost:5432/rosti"),
+  databaseUrl: requireEnv("DATABASE_URL", "postgresql://sofsavdo:sofsavdo@localhost:5432/sofsavdo"),
   redisUrl: process.env.REDIS_URL ?? "redis://localhost:6379",
   jwt: {
     accessSecret: requireEnv("JWT_ACCESS_SECRET", "dev-access-secret-change-me"),
@@ -105,10 +132,27 @@ export default (): AppConfig => ({
     accessTtl: process.env.JWT_ACCESS_TTL ?? "15m",
     refreshTtl: process.env.JWT_REFRESH_TTL ?? "30d",
   },
+  auth: {
+    maxFailedLoginAttempts: Number(process.env.AUTH_MAX_FAILED_LOGIN_ATTEMPTS ?? 5),
+    lockoutDurationMinutes: Number(process.env.AUTH_LOCKOUT_DURATION_MINUTES ?? 15),
+  },
   storage: {
     driver: process.env.STORAGE_DRIVER ?? "local",
     localDir: process.env.STORAGE_LOCAL_DIR ?? "uploads",
     publicBaseUrl: process.env.STORAGE_PUBLIC_BASE_URL ?? `http://localhost:${process.env.PORT ?? 4000}/media`,
+    // Names match the "Object storage (S3-compatible / Cloudflare R2)" section already present in
+    // .env.example (added ahead of this adapter actually existing) — STORAGE_REGION/
+    // STORAGE_FORCE_PATH_STYLE are the two new ones this adapter needed beyond what was already
+    // there.
+    s3: {
+      bucket: process.env.STORAGE_BUCKET ?? "",
+      region: process.env.STORAGE_REGION ?? "auto",
+      accessKeyId: process.env.STORAGE_ACCESS_KEY_ID ?? "",
+      secretAccessKey: process.env.STORAGE_SECRET_ACCESS_KEY ?? "",
+      endpoint: process.env.STORAGE_ENDPOINT || undefined,
+      forcePathStyle: process.env.STORAGE_FORCE_PATH_STYLE === "true",
+      publicBaseUrl: process.env.STORAGE_PUBLIC_BASE_URL || undefined,
+    },
   },
   media: {
     maxImageBytes: Number(process.env.MEDIA_MAX_IMAGE_BYTES ?? 5 * 1024 * 1024),
@@ -144,6 +188,10 @@ export default (): AppConfig => ({
     minimumPayoutMinor: Number(process.env.PAYOUT_MINIMUM_MINOR ?? 100_000_00),
     encryptionKey: requireEnv("PAYOUT_ENCRYPTION_KEY", "dev-payout-encryption-key-change-me"),
   },
+  productAi: {
+    anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? "",
+    model: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5",
+  },
   notifications: {
     telegram: {
       botToken: process.env.TELEGRAM_BOT_TOKEN ?? "",
@@ -153,7 +201,7 @@ export default (): AppConfig => ({
       smtpPort: Number(process.env.SMTP_PORT ?? 587),
       smtpUser: process.env.SMTP_USER ?? "",
       smtpPass: process.env.SMTP_PASS ?? "",
-      fromAddress: process.env.EMAIL_FROM ?? "no-reply@rosti.uz",
+      fromAddress: process.env.EMAIL_FROM ?? "no-reply@sofsavdo.com",
     },
     maxDeliveryAttempts: Number(process.env.NOTIFICATION_MAX_DELIVERY_ATTEMPTS ?? 3),
   },

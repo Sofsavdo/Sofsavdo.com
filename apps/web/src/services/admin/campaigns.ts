@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { Campaign } from "@rosti/types";
+import type { Campaign } from "@sofsavdo/types";
 import * as api from "@/lib/api/admin";
 import type { CreateCampaignInput } from "@/lib/api/admin";
 

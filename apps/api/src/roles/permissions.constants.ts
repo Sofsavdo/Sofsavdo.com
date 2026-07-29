@@ -34,6 +34,12 @@ export const PERMISSIONS = [
   "creator.review",
   "creator.suspend",
   "creator.block",
+  // Phase Q — bio-compliance spot-check (an admin manually confirming/denying that a creator's
+  // social bio contains the required sofsavdo.com mention) and Premium tier grant (the exemption
+  // for creators who decline). Distinct from creator.suspend/creator.block (account-status verbs)
+  // — these are business-policy decisions about a creator's standing, not account moderation.
+  "creator.compliance",
+  "creator.tier",
   "content.read",
   "content.review",
   // Content review decisions (Phase 7A) — mirrors the application.* 4-verb split
@@ -107,6 +113,18 @@ export const PERMISSIONS = [
   "role.manage",
   "refund.read",
   "refund.manage",
+  // Homepage CMS (Sofsavdo architecture review) — same read/write split as landing.*, but with no
+  // publish/archive verbs: the homepage has no draft/published/archived workflow, it's always
+  // live, and each section's own isActive flag (edited via .write) is the only visibility switch.
+  "homepage.read",
+  "homepage.write",
+  // Creator Motivation System — Competitions (Phase L). Same two-tier split as campaign.* minus a
+  // `.pause` verb (CompetitionStatus has no PAUSED state — see schema.prisma's own comment).
+  "competition.read",
+  "competition.write",
+  "competition.publish",
+  "competition.complete",
+  "competition.archive",
 ] as const;
 
 export type PermissionKey = (typeof PERMISSIONS)[number];
@@ -137,6 +155,8 @@ const MANAGER_PERMISSIONS: PermissionKey[] = [
   "onboarding.read",
   "onboarding.review",
   "refund.read",
+  "homepage.read",
+  "competition.read",
 ];
 
 const ADMIN_PERMISSIONS: PermissionKey[] = [
@@ -160,6 +180,8 @@ const ADMIN_PERMISSIONS: PermissionKey[] = [
   "application.reject",
   "application.revise",
   "creator.suspend",
+  "creator.compliance",
+  "creator.tier",
   "content.approve",
   "content.reject",
   "content.revise",
@@ -176,6 +198,11 @@ const ADMIN_PERMISSIONS: PermissionKey[] = [
   "onboarding.reject",
   "onboarding.revise",
   "refund.manage",
+  "homepage.write",
+  "competition.write",
+  "competition.publish",
+  "competition.complete",
+  "competition.archive",
 ];
 
 const SUPER_ADMIN_PERMISSIONS: PermissionKey[] = [

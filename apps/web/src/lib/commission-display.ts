@@ -1,5 +1,5 @@
-import type { Campaign } from "@rosti/types";
-import { formatMoneyMinor, formatPercent } from "@rosti/types";
+import type { Campaign } from "@sofsavdo/types";
+import { formatMoneyMinor, formatPercent } from "@sofsavdo/types";
 
 // Unambiguous per-mode display — "15% per qualified sale" or "150,000 UZS per qualified sale",
 // never both at once (see DECISIONS.md ADR-013's PERCENTAGE|FIXED_AMOUNT mutual exclusivity).

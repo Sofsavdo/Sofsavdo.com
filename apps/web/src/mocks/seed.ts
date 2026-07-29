@@ -8,7 +8,7 @@ import type {
   Payout,
   PayoutMethod,
   Sale,
-} from "@rosti/types";
+} from "@sofsavdo/types";
 
 // Realistic Uzbek seed data for the Phase 3 mock service layer. Every demo account below can be
 // used to log in (see lib/api/auth.ts) and exercises a different CreatorApplicationStatus so the
@@ -257,8 +257,8 @@ export const MALIKA_CREATOR_CAMPAIGNS: CreatorCampaign[] = [
     joinedAt: daysAgo(21),
     referralLink: {
       code: "malika-serum",
-      fullUrl: "https://rosti.uz/o/glowup-serum?ref=malika-serum",
-      shortUrl: "https://rosti.uz/r/malika-serum",
+      fullUrl: "https://sofsavdo.com/o/glowup-serum?ref=malika-serum",
+      shortUrl: "https://sofsavdo.com/r/malika-serum",
       clicks: 842,
       createdAt: daysAgo(21),
     },
@@ -272,8 +272,8 @@ export const MALIKA_CREATOR_CAMPAIGNS: CreatorCampaign[] = [
     joinedAt: daysAgo(9),
     referralLink: {
       code: "malika-english",
-      fullUrl: "https://rosti.uz/o/ingliz-tili-boshlangich?ref=malika-english",
-      shortUrl: "https://rosti.uz/r/malika-english",
+      fullUrl: "https://sofsavdo.com/o/ingliz-tili-boshlangich?ref=malika-english",
+      shortUrl: "https://sofsavdo.com/r/malika-english",
       clicks: 210,
       createdAt: daysAgo(9),
     },
@@ -352,7 +352,7 @@ export const MALIKA_CONTENT: CreatorContent[] = [
     creatorCampaignId: "cc_active_serum",
     campaignName: "GlowUp Vitamin C Serum",
     status: "PUBLISHED",
-    caption: "30 kunda terim butunlay o'zgardi! Promo kod: MALIKA10 😍 #GlowUp #RostiCreator",
+    caption: "30 kunda terim butunlay o'zgardi! Promo kod: MALIKA10 😍 #GlowUp #SofsavdoCreator",
     platform: "INSTAGRAM",
     publishedUrl: "https://instagram.com/reel/example1",
     draftFileNames: ["serum_reels_final.mp4"],

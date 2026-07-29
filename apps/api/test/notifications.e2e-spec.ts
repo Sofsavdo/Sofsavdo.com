@@ -31,7 +31,7 @@ describe("Notifications (e2e)", () => {
   async function makeCreator(label: string) {
     const user = await prisma.user.create({
       data: {
-        email: `notif-creator-${label}-${suffix}@rosti.uz`,
+        email: `notif-creator-${label}-${suffix}@sofsavdo.com`,
         passwordHash: "x",
         creatorProfile: {
           create: {
@@ -83,12 +83,12 @@ describe("Notifications (e2e)", () => {
       where: { key: { in: ["application.review", "application.approve", "application.reject", "notification.read", "notification.manage"] } },
     });
     await prisma.rolePermission.createMany({ data: adminPerms.map((p) => ({ roleId: adminRole.id, permissionId: p.id })), skipDuplicates: true });
-    const adminUser = await prisma.user.create({ data: { email: `notif-admin-${suffix}@rosti.uz`, passwordHash: "x" } });
+    const adminUser = await prisma.user.create({ data: { email: `notif-admin-${suffix}@sofsavdo.com`, passwordHash: "x" } });
     await prisma.userRole.create({ data: { userId: adminUser.id, roleId: adminRole.id } });
     adminAccessToken = tokens.signAccessToken(adminUser.id);
 
     const noPermsRole = await prisma.role.create({ data: { key: `notif-noperm-${suffix}`, name: "No perms" } });
-    const noPermsUser = await prisma.user.create({ data: { email: `notif-noperm-${suffix}@rosti.uz`, passwordHash: "x" } });
+    const noPermsUser = await prisma.user.create({ data: { email: `notif-noperm-${suffix}@sofsavdo.com`, passwordHash: "x" } });
     await prisma.userRole.create({ data: { userId: noPermsUser.id, roleId: noPermsRole.id } });
     noPermsStaffToken = tokens.signAccessToken(noPermsUser.id);
 
@@ -308,7 +308,7 @@ describe("Notifications (e2e)", () => {
       async () => {
         const registerRes = await request(app.getHttpServer())
           .post("/auth/register")
-          .send({ email: `notif-welcome-${suffix}@rosti.uz`, password: "Str0ngPass!1", displayName: "Welcome Test" })
+          .send({ email: `notif-welcome-${suffix}@sofsavdo.com`, password: "Str0ngPass!1", displayName: "Welcome Test" })
           .expect(201);
         void registerRes;
 

@@ -1,6 +1,6 @@
-import type { AdminOfferVariant, LandingSectionAdmin, Offer, ReferralContext } from "@rosti/types";
-import { formatMoneyMinor } from "@rosti/types";
-import { Button, cn } from "@rosti/ui";
+import type { AdminOfferVariant, LandingSectionAdmin, Offer, ReferralContext } from "@sofsavdo/types";
+import { formatMoneyMinor } from "@sofsavdo/types";
+import { Button, cn } from "@sofsavdo/ui";
 import { Check, Gift, ImageIcon, PlayCircle, Quote, ShieldCheck, Star, Truck, Wallet } from "lucide-react";
 
 // Every offer landing is built from these standalone, full-width sections — never the

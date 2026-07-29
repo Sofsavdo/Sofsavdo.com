@@ -1,8 +1,8 @@
 "use client";
 
-import { formatMoneyMinor } from "@rosti/types";
-import { Alert, Badge, Card, CardHeader, CardTitle, CopyButton, EmptyState, Skeleton, StatTile } from "@rosti/ui";
-import { BRAND } from "@rosti/config/brand";
+import { formatMoneyMinor } from "@sofsavdo/types";
+import { Alert, Badge, Card, CardHeader, CardTitle, CopyButton, EmptyState, Skeleton, StatTile } from "@sofsavdo/ui";
+import { BRAND } from "@sofsavdo/config/brand";
 import { useMyReferralRewards, useMyReferrals, useReferralCode, useReferralSummary } from "@/services/referrals";
 import { referralActivityMeta } from "@/lib/status";
 

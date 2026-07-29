@@ -4,7 +4,7 @@ import { PaymentsService } from "./payments.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { OrdersService } from "../orders/orders.service";
 import { AuditService } from "../common/audit/audit.service";
-import { PAYMENT_PORT } from "./payment.port";
+import { PAYMENT_PORT_REGISTRY } from "./payment.port";
 
 describe("PaymentsService", () => {
   let service: PaymentsService;
@@ -12,6 +12,7 @@ describe("PaymentsService", () => {
   let orders: { transitionStatus: jest.Mock; markPaid: jest.Mock; markPaymentFailed: jest.Mock };
   let audit: { record: jest.Mock };
   let paymentPort: { createPayment: jest.Mock; verifyCallback: jest.Mock; buildCallbackReply: jest.Mock };
+  let codPort: { createPayment: jest.Mock; verifyCallback: jest.Mock; buildCallbackReply: jest.Mock };
 
   const order = { id: "order1", status: "CREATED", totalMinor: 150_000_00, currency: "UZS", publicToken: "public1" };
 
@@ -20,6 +21,7 @@ describe("PaymentsService", () => {
     orders = { transitionStatus: jest.fn(), markPaid: jest.fn(), markPaymentFailed: jest.fn() };
     audit = { record: jest.fn() };
     paymentPort = { createPayment: jest.fn().mockResolvedValue({ redirectUrl: "https://my.click.uz/services/pay?x=1" }), verifyCallback: jest.fn(), buildCallbackReply: jest.fn() };
+    codPort = { createPayment: jest.fn().mockResolvedValue({ redirectUrl: "http://localhost:3000/order-success/public1" }), verifyCallback: jest.fn(), buildCallbackReply: jest.fn() };
 
     const moduleRef = await Test.createTestingModule({
       providers: [
@@ -28,7 +30,13 @@ describe("PaymentsService", () => {
         { provide: ConfigService, useValue: { get: () => "http://localhost:3000" } },
         { provide: OrdersService, useValue: orders },
         { provide: AuditService, useValue: audit },
-        { provide: PAYMENT_PORT, useValue: paymentPort },
+        {
+          provide: PAYMENT_PORT_REGISTRY,
+          useValue: new Map([
+            ["CLICK", paymentPort],
+            ["CASH_ON_DELIVERY", codPort],
+          ]),
+        },
       ],
     }).compile();
     service = moduleRef.get(PaymentsService);
@@ -50,7 +58,18 @@ describe("PaymentsService", () => {
       prisma.payment.create.mockResolvedValue({ id: "payment2" });
       const result = await service.initiatePayment("order1", "MANUAL");
       expect(paymentPort.createPayment).not.toHaveBeenCalled();
+      expect(codPort.createPayment).not.toHaveBeenCalled();
       expect(result.redirectUrl).toBeNull();
+    });
+
+    it("Phase F: routes CASH_ON_DELIVERY through the registry exactly like CLICK, proving it's a real second provider, not a special case", async () => {
+      prisma.payment.findUnique.mockResolvedValue(null);
+      prisma.payment.create.mockResolvedValue({ id: "payment3" });
+      const result = await service.initiatePayment("order1", "CASH_ON_DELIVERY");
+      expect(prisma.payment.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ provider: "CASH_ON_DELIVERY" }) }));
+      expect(codPort.createPayment).toHaveBeenCalledWith(expect.objectContaining({ paymentId: "payment3" }));
+      expect(paymentPort.createPayment).not.toHaveBeenCalled();
+      expect(result.redirectUrl).toBe("http://localhost:3000/order-success/public1");
     });
 
     it("reuses an existing Payment row instead of creating a second one on retry", async () => {

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { QRCodeSVG } from "qrcode.react";
-import { Badge, Card, CardHeader, CardTitle, CopyButton, EmptyState, Skeleton } from "@rosti/ui";
+import { Badge, Card, CardHeader, CardTitle, CopyButton, EmptyState, Skeleton } from "@sofsavdo/ui";
 import { Share2 } from "lucide-react";
 import { useMyCampaigns } from "@/services/campaigns";
 

@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import type { Campaign, CommissionType, DiscountType, SocialPlatform } from "@rosti/types";
-import { Alert, Button, Card, CardHeader, CardTitle, SelectField, TextAreaField, TextField } from "@rosti/ui";
+import type { Campaign, CommissionType, DiscountType, SocialPlatform } from "@sofsavdo/types";
+import { Alert, Button, Card, CardHeader, CardTitle, SelectField, TextAreaField, TextField } from "@sofsavdo/ui";
 import { campaignSchema, type CampaignInput } from "@/lib/schemas-admin";
 import { useAdminOffers } from "@/services/admin/catalog";
 import { useCreateCampaign, useUpdateCampaign } from "@/services/admin/campaigns";
@@ -14,7 +14,15 @@ import { ApiError } from "@/lib/api/admin";
 const PLATFORMS: SocialPlatform[] = ["INSTAGRAM", "TIKTOK", "YOUTUBE", "TELEGRAM"];
 const COMMISSION_TYPES: CommissionType[] = ["PERCENTAGE", "FIXED_AMOUNT"];
 
-export function CampaignForm({ existing, defaultOfferId }: { existing?: Campaign; defaultOfferId?: string }) {
+export function CampaignForm({
+  existing,
+  defaultOfferId,
+  onCreated,
+}: {
+  existing?: Campaign;
+  defaultOfferId?: string;
+  onCreated?: (created: Campaign) => void;
+}) {
   const router = useRouter();
   const offersQuery = useAdminOffers();
   const createCampaign = useCreateCampaign();
@@ -120,7 +128,8 @@ export function CampaignForm({ existing, defaultOfferId }: { existing?: Campaign
       router.push(`/admin/campaigns/${existing.id}`);
     } else {
       const created = await createCampaign.mutateAsync(payload);
-      router.push(`/admin/campaigns/${created.id}`);
+      if (onCreated) onCreated(created);
+      else router.push(`/admin/campaigns/${created.id}`);
     }
   }
 

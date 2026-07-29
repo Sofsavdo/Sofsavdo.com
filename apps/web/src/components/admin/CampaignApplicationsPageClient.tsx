@@ -3,8 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import type { CampaignApplicationStatus } from "@rosti/types";
-import { Alert, Button, DataTableShell, StatusBadge } from "@rosti/ui";
+import type { CampaignApplicationStatus } from "@sofsavdo/types";
+import { Alert, Button, DataTableShell, StatusBadge } from "@sofsavdo/ui";
 import { useCampaignApplicationList } from "@/services/admin/campaign-applications";
 import { campaignApplicationStatusMeta } from "@/lib/status";
 import { platformLabel } from "@/lib/commission-display";

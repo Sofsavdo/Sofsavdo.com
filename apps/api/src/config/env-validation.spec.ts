@@ -7,8 +7,8 @@ function baseProdEnv(overrides: Partial<NodeJS.ProcessEnv> = {}): NodeJS.Process
     JWT_ACCESS_SECRET: "real-access-secret",
     JWT_REFRESH_SECRET: "real-refresh-secret",
     PAYOUT_ENCRYPTION_KEY: "real-payout-key",
-    WEB_APP_URL: "https://rosti.uz",
-    API_URL: "https://api.rosti.uz",
+    WEB_APP_URL: "https://sofsavdo.com",
+    API_URL: "https://api.sofsavdo.com",
     CLICK_MERCHANT_ID: "12345",
     CLICK_SERVICE_ID: "67890",
     CLICK_SECRET_KEY: "real-click-secret",
@@ -59,10 +59,32 @@ describe("validateEnv", () => {
   });
 
   it("rejects a non-https WEB_APP_URL in production", () => {
-    expect(() => validateEnv(baseProdEnv({ WEB_APP_URL: "http://rosti.uz" }))).toThrow(/https/);
+    expect(() => validateEnv(baseProdEnv({ WEB_APP_URL: "http://sofsavdo.com" }))).toThrow(/https/);
   });
 
   it("rejects a malformed URL value", () => {
     expect(() => validateEnv(baseProdEnv({ DATABASE_URL: "not-a-url" }))).toThrow(/not a valid URL/);
+  });
+
+  it("passes with STORAGE_DRIVER unset or local, even with no storage credentials configured", () => {
+    expect(() => validateEnv(baseProdEnv())).not.toThrow();
+    expect(() => validateEnv(baseProdEnv({ STORAGE_DRIVER: "local" }))).not.toThrow();
+  });
+
+  it("rejects STORAGE_DRIVER=s3 with no bucket/credentials configured", () => {
+    expect(() => validateEnv(baseProdEnv({ STORAGE_DRIVER: "s3" }))).toThrow(/STORAGE_DRIVER=s3 but missing required environment variable/);
+  });
+
+  it("passes STORAGE_DRIVER=s3 once bucket/credentials are all set", () => {
+    expect(() =>
+      validateEnv(
+        baseProdEnv({
+          STORAGE_DRIVER: "s3",
+          STORAGE_BUCKET: "my-bucket",
+          STORAGE_ACCESS_KEY_ID: "key",
+          STORAGE_SECRET_ACCESS_KEY: "secret",
+        }),
+      ),
+    ).not.toThrow();
   });
 });

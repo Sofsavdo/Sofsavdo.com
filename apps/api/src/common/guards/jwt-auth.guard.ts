@@ -1,7 +1,8 @@
-import { ExecutionContext, Injectable } from "@nestjs/common";
+import { ExecutionContext, Injectable, UnauthorizedException } from "@nestjs/common";
 import { AuthGuard } from "@nestjs/passport";
 import { Reflector } from "@nestjs/core";
 import { IS_PUBLIC_KEY } from "../decorators/public.decorator";
+import { IS_OPTIONAL_AUTH_KEY } from "../decorators/optional-auth.decorator";
 import type { PermissionKey } from "../../roles/permissions.constants";
 
 export interface AuthenticatedUser {
@@ -29,5 +30,17 @@ export class JwtAuthGuard extends AuthGuard("jwt") {
     ]);
     if (isPublic) return true;
     return super.canActivate(context);
+  }
+
+  // Overridden only to support @OptionalAuth() (see that decorator's comment) — every other route
+  // keeps the default passport behavior below (reject on missing/invalid token) unchanged.
+  handleRequest<TUser = AuthenticatedUser>(err: unknown, user: TUser | false, info: unknown, context: ExecutionContext): TUser {
+    const isOptionalAuth = this.reflector.getAllAndOverride<boolean>(IS_OPTIONAL_AUTH_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (isOptionalAuth) return (user || undefined) as TUser;
+    if (err || !user) throw err instanceof Error ? err : new UnauthorizedException();
+    return user;
   }
 }

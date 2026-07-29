@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import type { CommissionStatus } from "@rosti/types";
-import { formatMoneyMinor } from "@rosti/types";
-import { Button, ConfirmModal, DataTableShell, MobileDataCard, StatusBadge, TextField } from "@rosti/ui";
+import type { CommissionStatus } from "@sofsavdo/types";
+import { formatMoneyMinor } from "@sofsavdo/types";
+import { Button, ConfirmModal, DataTableShell, MobileDataCard, StatusBadge, TextField } from "@sofsavdo/ui";
 import { useAdminSession } from "@/services/adminSession";
 import { hasRole } from "@/lib/adminRouting";
 import { useAdminCommissions, useApproveCommission, useCommissionSettlementList, useManualAdjustCommission, useMarkCommissionPayable, useRejectCommission } from "@/services/admin/finance";
@@ -12,7 +12,7 @@ import { formatCommissionValue } from "@/lib/commission-display";
 import { ApiError } from "@/lib/api/admin";
 
 const USE_REAL_API = process.env.NEXT_PUBLIC_API_MODE === "real";
-const STATUSES: CommissionStatus[] = ["PENDING", "APPROVED", "PAYABLE", "PAID", "REJECTED", "REFUNDED"];
+const STATUSES: CommissionStatus[] = ["PENDING", "APPROVED", "PAYABLE", "PAID", "DONATED", "REJECTED", "REFUNDED"];
 
 function RealAdminCommissionsPage() {
   const { user: admin } = useAdminSession();

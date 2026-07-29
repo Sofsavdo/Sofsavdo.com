@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { formatMoneyMinor } from "@rosti/types";
-import { Badge, Button, ConfirmModal, DataTableShell, MobileDataCard } from "@rosti/ui";
+import { formatMoneyMinor } from "@sofsavdo/types";
+import { Badge, Button, ConfirmModal, DataTableShell, MobileDataCard } from "@sofsavdo/ui";
 import { useAdminReferralLinks, useDeactivateReferralLink } from "@/services/admin/marketing";
 
 export default function AdminReferralLinksPage() {

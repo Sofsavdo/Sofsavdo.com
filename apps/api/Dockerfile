@@ -1,13 +1,13 @@
 # Build context MUST be the monorepo root (see docker-compose.yml / CI workflow), not this
-# directory — @rosti/api has no workspace-internal dependencies, but it's still an npm-workspaces
+# directory — @sofsavdo/api has no workspace-internal dependencies, but it's still an npm-workspaces
 # package: npm needs the root package.json/package-lock.json to resolve and install it correctly.
 
 FROM node:22-alpine AS deps
 WORKDIR /app
 # Only manifests in this layer so `npm ci` is cached across builds that don't touch dependencies.
-# Every workspace's package.json must be present, not just @rosti/api's — package-lock.json
+# Every workspace's package.json must be present, not just @sofsavdo/api's — package-lock.json
 # describes the whole monorepo, and `npm ci` needs to find each workspace it references on disk
-# to validate against it, even though only @rosti/api's dependencies actually end up used here.
+# to validate against it, even though only @sofsavdo/api's dependencies actually end up used here.
 COPY package.json package-lock.json ./
 COPY apps/api/package.json ./apps/api/package.json
 COPY apps/web/package.json ./apps/web/package.json
@@ -27,8 +27,8 @@ COPY package.json package-lock.json ./
 # `generate` never connects to this — prisma.config.ts only needs a syntactically valid URL to
 # load without throwing; no real database exists at build time.
 ENV DATABASE_URL="postgresql://build:build@localhost:5432/build"
-RUN npm run prisma:generate --workspace=@rosti/api
-RUN npm run build --workspace=@rosti/api
+RUN npm run prisma:generate --workspace=@sofsavdo/api
+RUN npm run build --workspace=@sofsavdo/api
 
 FROM node:22-alpine AS prod-deps
 WORKDIR /app
@@ -44,7 +44,7 @@ RUN npm ci --omit=dev
 FROM node:22-alpine AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
-RUN addgroup -S rosti && adduser -S rosti -G rosti
+RUN addgroup -S sofsavdo && adduser -S sofsavdo -G sofsavdo
 COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=prod-deps /app/apps/api/node_modules ./apps/api/node_modules
 COPY --from=build /app/apps/api/dist ./apps/api/dist
@@ -56,7 +56,7 @@ COPY apps/api/package.json ./apps/api/package.json
 COPY apps/api/prisma/schema.prisma ./apps/api/prisma/schema.prisma
 COPY apps/api/prisma/migrations ./apps/api/prisma/migrations
 COPY apps/api/prisma.config.ts ./apps/api/prisma.config.ts
-USER rosti
+USER sofsavdo
 WORKDIR /app/apps/api
 EXPOSE 4000
 # Does NOT run `prisma migrate deploy` here — migrations are a separate, explicit CI/CD step (see

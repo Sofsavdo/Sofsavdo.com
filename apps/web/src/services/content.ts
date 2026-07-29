@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { SocialPlatform } from "@rosti/types";
+import type { SocialPlatform } from "@sofsavdo/types";
 import * as api from "../lib/api";
 import { useSession } from "./session";
 

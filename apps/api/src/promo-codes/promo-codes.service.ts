@@ -11,9 +11,40 @@ export interface PromoCodeValidationResponse {
   discountMinor: number;
 }
 
+// The `/admin/promo-codes` page's real backend — previously a bare mock re-export with zero
+// USE_REAL_API gating at all (see DECISIONS.md ADR-031). `usageCount` is already maintained
+// directly on the row by redeem() below, so this needs no separate aggregation query.
+export interface AdminPromoCodeResponse {
+  code: string;
+  creatorName: string;
+  campaignName: string;
+  discountType: PromoCode["discountType"];
+  discountValue: number;
+  usageCount: number;
+  usageLimit: number | null;
+  isActive: boolean;
+}
+
 @Injectable()
 export class PromoCodesService {
   constructor(private prisma: PrismaService) {}
+
+  async listAdmin(): Promise<AdminPromoCodeResponse[]> {
+    const rows = await this.prisma.promoCode.findMany({
+      orderBy: { createdAt: "desc" },
+      include: { creator: { select: { displayName: true } }, campaign: { select: { name: true } } },
+    });
+    return rows.map((p) => ({
+      code: p.code,
+      creatorName: p.creator.displayName,
+      campaignName: p.campaign.name,
+      discountType: p.discountType,
+      discountValue: p.discountValue,
+      usageCount: p.usageCount,
+      usageLimit: p.usageLimit,
+      isActive: p.isActive,
+    }));
+  }
 
   private computeDiscountMinor(promo: Pick<PromoCode, "discountType" | "discountValue">, baseAmountMinor: number): number {
     if (promo.discountType === "PERCENTAGE") return applyBasisPoints(baseAmountMinor, promo.discountValue);

@@ -2,10 +2,10 @@
 
 import { useMemo, useState } from "react";
 import { RoleGuard } from "@/components/admin/RoleGuard";
-import { Alert, Button, Card, CardHeader, CardTitle, Skeleton, TextField } from "@rosti/ui";
+import { Alert, Button, Card, CardHeader, CardTitle, Skeleton, TextField } from "@sofsavdo/ui";
 import { useRealSettings, useUpdateRealSettings } from "@/services/admin/system";
 import { ApiError } from "@/lib/api/admin";
-import type { RealSettingItem, SettingCategory } from "@rosti/types";
+import type { RealSettingItem, SettingCategory } from "@sofsavdo/types";
 
 const CATEGORY_LABELS: Record<SettingCategory, string> = {
   general: "Umumiy",

@@ -8,6 +8,9 @@ import { TrackVisitDto } from "./dto/track-visit.dto";
 import { ValidatePromoDto } from "./dto/validate-promo.dto";
 import { CreateCheckoutDto } from "../orders/dto/create-checkout.dto";
 import { Public } from "../common/decorators/public.decorator";
+import { OptionalAuth } from "../common/decorators/optional-auth.decorator";
+import { CurrentUser } from "../common/decorators/current-user.decorator";
+import type { AuthenticatedUser } from "../common/guards/jwt-auth.guard";
 
 function hashIp(ip: string): string {
   return createHash("sha256").update(ip).digest("hex");
@@ -40,11 +43,14 @@ export class PublicCheckoutController {
     return this.checkout.validatePromo(slug, dto);
   }
 
+  // @OptionalAuth(), not @Public() — a guest checkout must keep working with no token at all, but
+  // a logged-in buyer's order should link to their account automatically, with no separate
+  // "claim this order" step afterward. See OrdersService.upsertCustomer for the actual merge rule.
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
-  @Public()
+  @OptionalAuth()
   @Post(":slug/checkout")
-  createCheckout(@Param("slug") slug: string, @Body() dto: CreateCheckoutDto) {
-    return this.checkout.checkout(slug, dto);
+  createCheckout(@Param("slug") slug: string, @Body() dto: CreateCheckoutDto, @CurrentUser() user?: AuthenticatedUser) {
+    return this.checkout.checkout(slug, dto, user?.userId);
   }
 }
 

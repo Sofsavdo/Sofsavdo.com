@@ -1,7 +1,7 @@
 "use client";
 
-import type { RealNotificationCategory } from "@rosti/types";
-import { Alert, Card, Skeleton } from "@rosti/ui";
+import type { RealNotificationCategory } from "@sofsavdo/types";
+import { Alert, Card, Skeleton } from "@sofsavdo/ui";
 import { useNotificationPreferences, useUpdateNotificationPreference } from "@/services/notifications";
 import { notificationCategoryMeta } from "@/lib/status";
 

@@ -6,7 +6,7 @@ import { IsObject } from "class-validator";
 // and the catalog is the single source of truth for that shape already (same passthrough-then-
 // validate-in-service pattern as onboarding's UpdateOnboardingDto.formData).
 export class UpdateSettingsDto {
-  @ApiPropertyOptional({ description: "Partial map of setting key -> new value, e.g. { \"general.platformName\": \"Rosti\" }" })
+  @ApiPropertyOptional({ description: "Partial map of setting key -> new value, e.g. { \"general.platformName\": \"Sofsavdo\" }" })
   @IsObject()
   values!: Record<string, unknown>;
 }

@@ -1,6 +1,6 @@
 # Environment Variables
 
-Full reference for every environment variable Rosti reads. See
+Full reference for every environment variable Sofsavdo reads. See
 [`.env.example`](.env.example) for the actual file to copy; see
 `apps/api/src/config/env-validation.ts` for the code that enforces the "required in production"
 rules below — this document and that file must stay in sync (that file is the enforcement,

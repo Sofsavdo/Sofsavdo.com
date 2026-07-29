@@ -1,8 +1,13 @@
 // Provider-independent payment boundary (Phase 8) — same convention as StoragePort/STORAGE_PORT.
 // Domain code (CheckoutService, PaymentsService) depends only on this port, never on a concrete
-// provider. Adding Payme/Uzum Nasiya later means adding one adapter class and changing the
-// PaymentsModule binding — no domain-layer changes.
-export const PAYMENT_PORT = Symbol("PAYMENT_PORT");
+// provider.
+//
+// Phase F: `PAYMENT_PORT_REGISTRY` (a `Map<PaymentProviderType, PaymentPort>`) replaces the
+// original single `PAYMENT_PORT` binding — Click and Cash-on-Delivery now genuinely coexist per
+// order, so "the one payment port" stopped being an accurate model the moment a second real
+// provider existed. Adding Payme/Uzum Nasiya later means adding one adapter class and one line in
+// PaymentsModule's registry factory — still no domain-layer changes.
+export const PAYMENT_PORT_REGISTRY = Symbol("PAYMENT_PORT_REGISTRY");
 
 export interface CreatePaymentRequest {
   /** Our Payment.id — passed through to the provider as their merchant transaction reference. */

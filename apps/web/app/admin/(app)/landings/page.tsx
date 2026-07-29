@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { LayoutTemplate } from "lucide-react";
-import { DataTableShell, StatusBadge } from "@rosti/ui";
+import { DataTableShell, StatusBadge } from "@sofsavdo/ui";
 import { useAdminOffers } from "@/services/admin/catalog";
 import { offerStatusMeta } from "@/lib/status";
 

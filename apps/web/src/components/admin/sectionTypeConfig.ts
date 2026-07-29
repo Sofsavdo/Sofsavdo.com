@@ -1,4 +1,4 @@
-import type { LandingSectionType } from "@rosti/types";
+import type { LandingSectionType } from "@sofsavdo/types";
 
 export type SectionContentShape = "none" | "text" | "items" | "steps" | "reviews" | "faq" | "images" | "caption";
 

@@ -54,6 +54,7 @@ export interface VersionResponse {
   notes: string | null;
   hashtags: string[];
   metadata: Prisma.JsonValue;
+  postUrl: string | null;
   attachmentSnapshot: Prisma.JsonValue;
   submittedAt: Date;
 }
@@ -81,6 +82,7 @@ export interface ContentCreatorResponse {
   notes: string | null;
   hashtags: string[];
   metadata: Prisma.JsonValue;
+  postUrl: string | null;
   currentVersionNumber: number;
   rejectionReason: string | null;
   changesRequestedReason: string | null;
@@ -153,6 +155,7 @@ export class ContentService {
       notes: v.notes,
       hashtags: v.hashtags,
       metadata: v.metadata,
+      postUrl: v.postUrl,
       attachmentSnapshot: v.attachmentSnapshot,
       submittedAt: v.submittedAt,
     };
@@ -168,6 +171,7 @@ export class ContentService {
       notes: c.notes,
       hashtags: c.hashtags,
       metadata: c.metadata,
+      postUrl: c.postUrl,
       currentVersionNumber: c.currentVersionNumber,
       rejectionReason: c.rejectionReason,
       changesRequestedReason: c.changesRequestedReason,
@@ -286,7 +290,7 @@ export class ContentService {
     if (!EDIT_FROM.includes(existing.status)) {
       throw new DomainException("INVALID_CONTENT_TRANSITION", "Bu holatdagi contentni tahrirlab bo'lmaydi.", { from: existing.status });
     }
-    const before = { caption: existing.caption, notes: existing.notes, hashtags: existing.hashtags, metadata: existing.metadata };
+    const before = { caption: existing.caption, notes: existing.notes, hashtags: existing.hashtags, metadata: existing.metadata, postUrl: existing.postUrl };
     await this.prisma.content.update({
       where: { id },
       data: {
@@ -294,6 +298,7 @@ export class ContentService {
         notes: dto.notes,
         hashtags: dto.hashtags,
         metadata: dto.metadata as Prisma.InputJsonValue | undefined,
+        postUrl: dto.postUrl,
       },
     });
     await this.audit.record({ actorId: userId, action: "EDITED", entityType: "Content", entityId: id, before, after: dto });
@@ -393,6 +398,14 @@ export class ContentService {
     if (requiredAttachmentCount === 0) {
       throw new DomainException("ATTACHMENT_REQUIRED", "Kamida bitta fayl biriktirilishi kerak.");
     }
+    // Phase P — a screenshot alone isn't verifiable (old or borrowed screenshots are trivial to
+    // fake); the live link is what lets an admin actually click through and confirm the post is
+    // real, same as Perfluence-style contractual verification. The screenshot stays required too
+    // (see above) as the permanent evidence archive independent of the link's future fate — see
+    // DECISIONS.md ADR-033.
+    if (!content.postUrl) {
+      throw new DomainException("POST_URL_REQUIRED", "Post havolasini kiritish shart.");
+    }
   }
 
   private async createVersionAndSubmit(content: ContentWithRelations, userId: string, auditAction: "SUBMITTED" | "RESUBMITTED"): Promise<void> {
@@ -415,6 +428,7 @@ export class ContentService {
           notes: content.notes,
           hashtags: content.hashtags,
           metadata: content.metadata as Prisma.InputJsonValue | undefined,
+          postUrl: content.postUrl,
           attachmentSnapshot,
           submittedById: userId,
         },

@@ -37,6 +37,17 @@ import { AdminRefundsModule } from "./admin-refunds/admin-refunds.module";
 import { SettingsModule } from "./settings/settings.module";
 import { AdminAuditModule } from "./admin-audit/admin-audit.module";
 import { AnalyticsModule } from "./analytics/analytics.module";
+import { SavedProductsModule } from "./saved-products/saved-products.module";
+import { BuyerAddressesModule } from "./buyer-addresses/buyer-addresses.module";
+import { HomepageModule } from "./homepage/homepage.module";
+import { ProductAiModule } from "./product-ai/product-ai.module";
+import { CreatorDashboardModule } from "./creator-dashboard/creator-dashboard.module";
+import { CreatorLeaderboardModule } from "./creator-leaderboard/creator-leaderboard.module";
+import { CompetitionsModule } from "./competitions/competitions.module";
+import { AdminDashboardModule } from "./admin-dashboard/admin-dashboard.module";
+import { AdminReferralLinksModule } from "./admin-referral-links/admin-referral-links.module";
+import { ActivityTickerModule } from "./activity-ticker/activity-ticker.module";
+import { CreatorFundModule } from "./creator-fund/creator-fund.module";
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "./common/guards/permissions.guard";
 import { RequestLoggingInterceptor } from "./common/interceptors/request-logging.interceptor";
@@ -86,6 +97,17 @@ import configuration from "./config/configuration";
     SettingsModule,
     AdminAuditModule,
     AnalyticsModule,
+    SavedProductsModule,
+    BuyerAddressesModule,
+    HomepageModule,
+    ProductAiModule,
+    CreatorDashboardModule,
+    CreatorLeaderboardModule,
+    CompetitionsModule,
+    AdminDashboardModule,
+    AdminReferralLinksModule,
+    ActivityTickerModule,
+    CreatorFundModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

@@ -3,15 +3,15 @@ import type {
   LandingSectionAdmin,
   Offer,
   Product,
-} from "@rosti/types";
+} from "@sofsavdo/types";
 
 const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString();
 const daysFromNow = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString();
 
 export const ADMIN_USERS: Record<string, AdminUser> = {
-  "manager@rosti.uz": { id: "admin_manager", email: "manager@rosti.uz", displayName: "Ozoda Mirzayeva", role: "MANAGER" },
-  "admin@rosti.uz": { id: "admin_admin", email: "admin@rosti.uz", displayName: "Sherzod Nabiyev", role: "ADMIN" },
-  "super@rosti.uz": { id: "admin_super", email: "super@rosti.uz", displayName: "Kamron Tursunov", role: "SUPER_ADMIN" },
+  "manager@sofsavdo.com": { id: "admin_manager", email: "manager@sofsavdo.com", displayName: "Ozoda Mirzayeva", role: "MANAGER" },
+  "admin@sofsavdo.com": { id: "admin_admin", email: "admin@sofsavdo.com", displayName: "Sherzod Nabiyev", role: "ADMIN" },
+  "super@sofsavdo.com": { id: "admin_super", email: "super@sofsavdo.com", displayName: "Kamron Tursunov", role: "SUPER_ADMIN" },
 };
 
 export const PRODUCTS: Product[] = [

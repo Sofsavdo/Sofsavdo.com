@@ -51,7 +51,7 @@ describe("Analytics (e2e)", () => {
       const perms = await prisma.permission.findMany({ where: { key: { in: permissionKeys } } });
       await prisma.rolePermission.createMany({ data: perms.map((p) => ({ roleId: role.id, permissionId: p.id })), skipDuplicates: true });
     }
-    const user = await prisma.user.create({ data: { email: `analytics-${label}-${suffix}@rosti.uz`, passwordHash: "x" } });
+    const user = await prisma.user.create({ data: { email: `analytics-${label}-${suffix}@sofsavdo.com`, passwordHash: "x" } });
     await prisma.userRole.create({ data: { userId: user.id, roleId: role.id } });
     return { userId: user.id, accessToken: tokens.signAccessToken(user.id) };
   }
@@ -98,7 +98,7 @@ describe("Analytics (e2e)", () => {
     campaignId = campaign.id;
     const creatorUser = await prisma.user.create({
       data: {
-        email: `analytics-creator-${suffix}@rosti.uz`,
+        email: `analytics-creator-${suffix}@sofsavdo.com`,
         passwordHash: "x",
         creatorProfile: { create: { displayName: `Analytics Creator ${suffix}`, contentNiches: [], referralCode: `analytics-${suffix}`.slice(0, 60), applications: { create: { status: "APPROVED", formData: {} } } } },
       },

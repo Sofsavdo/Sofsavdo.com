@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { formatMoneyMinor } from "@rosti/types";
-import { AnalyticsFilterBar, DataTableShell, MobileDataCard } from "@rosti/ui";
+import { formatMoneyMinor } from "@sofsavdo/types";
+import { AnalyticsFilterBar, DataTableShell, MobileDataCard } from "@sofsavdo/ui";
 import { useAnalyticsFilters } from "@/lib/useAnalyticsFilters";
 import { useCreatorAnalyticsList } from "@/services/admin/analytics";
 import { CampaignFilterSelect } from "@/components/admin/AnalyticsEntityFilters";

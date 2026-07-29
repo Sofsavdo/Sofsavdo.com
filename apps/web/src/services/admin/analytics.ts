@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery } from "@tanstack/react-query";
-import type { AnalyticsFilters } from "@rosti/types";
+import type { AnalyticsFilters } from "@sofsavdo/types";
 import * as api from "@/lib/api/admin";
 
 export function useExecutiveAnalytics(filters: AnalyticsFilters) {

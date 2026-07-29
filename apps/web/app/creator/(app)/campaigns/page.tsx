@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Alert, Button, EmptyState, SelectField, Skeleton, TextField } from "@rosti/ui";
-import type { CommissionType, SocialPlatform } from "@rosti/types";
+import { Alert, Button, EmptyState, SelectField, Skeleton, TextField } from "@sofsavdo/ui";
+import type { CommissionType, SocialPlatform } from "@sofsavdo/types";
 import { useCampaigns } from "@/services/campaigns";
 import { CampaignCard } from "@/components/creator/CampaignCard";
 

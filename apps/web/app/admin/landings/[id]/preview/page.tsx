@@ -2,7 +2,7 @@
 
 import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Alert, Skeleton } from "@rosti/ui";
+import { Alert, Skeleton } from "@sofsavdo/ui";
 import { useAdminSession } from "@/services/adminSession";
 import { usePreviewLanding } from "@/services/admin/catalog";
 import { LandingSectionRenderer } from "@/components/offer/sections";

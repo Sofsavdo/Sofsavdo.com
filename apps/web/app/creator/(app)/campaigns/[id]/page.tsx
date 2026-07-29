@@ -2,8 +2,8 @@
 
 import { use, useState } from "react";
 import Link from "next/link";
-import { formatMoneyMinor, type Campaign, type CampaignApplicationCreatorView, type SocialPlatform } from "@rosti/types";
-import { Alert, Badge, Button, Card, CardHeader, CardTitle, Skeleton } from "@rosti/ui";
+import { formatMoneyMinor, type Campaign, type CampaignApplicationCreatorView, type SocialPlatform } from "@sofsavdo/types";
+import { Alert, Badge, Button, Card, CardHeader, CardTitle, Skeleton } from "@sofsavdo/ui";
 import { ArrowLeft, Award, CheckCircle2, FileText, Image as ImageIcon, Video } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {

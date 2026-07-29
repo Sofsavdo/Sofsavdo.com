@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { LandingPage, LandingSectionType, Offer, Product } from "@rosti/types";
+import type { LandingPage, LandingSectionType, Offer, Product } from "@sofsavdo/types";
 import * as api from "@/lib/api/admin";
 import type { CreateLandingInput, CreateOfferInput } from "@/lib/api/admin";
 
@@ -161,7 +161,8 @@ export function useAdminLandingSections(offerId: string) {
 export function useAddLandingSection() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ offerId, type }: { offerId: string; type: LandingSectionType }) => api.addLandingSection(offerId, type),
+    mutationFn: ({ offerId, type, content }: { offerId: string; type: LandingSectionType; content?: Record<string, unknown> }) =>
+      api.addLandingSection(offerId, type, content),
     onSuccess: (_d, vars) => qc.invalidateQueries({ queryKey: ["admin-landing-sections", vars.offerId] }),
   });
 }

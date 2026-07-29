@@ -1,10 +1,10 @@
 import type { ReactNode } from "react";
 import { SelectField, TextField } from "./Field";
 
-// Duplicated as narrow local literal unions rather than importing @rosti/types — packages/ui has
+// Duplicated as narrow local literal unions rather than importing @sofsavdo/types — packages/ui has
 // no dependency on that package today (every other shared component is type-agnostic), and these
 // two unions are small and stable enough that keeping them here doesn't create real drift risk;
-// apps/web's own `AnalyticsRangePreset`/`AnalyticsCompareMode` (from @rosti/types, mirroring the
+// apps/web's own `AnalyticsRangePreset`/`AnalyticsCompareMode` (from @sofsavdo/types, mirroring the
 // backend's time-range.resolver.ts) must stay assignable to these.
 export type AnalyticsRangePreset = "today" | "yesterday" | "this_week" | "last_week" | "this_month" | "last_month" | "quarter" | "year" | "custom";
 export type AnalyticsCompareMode = "none" | "previous" | "wow" | "mom" | "yoy";

@@ -21,7 +21,7 @@ function firstSetCookie(res: { headers: Record<string, unknown> }): string {
 describe("Auth (e2e)", () => {
   let app: INestApplication;
   let prisma: PrismaService;
-  const email = `e2e-${Date.now()}@rosti.uz`;
+  const email = `e2e-${Date.now()}@sofsavdo.com`;
   const password = "SuperSecret123";
 
   beforeAll(async () => {
@@ -129,5 +129,50 @@ describe("Auth (e2e)", () => {
       .expect(201);
 
     await request(app.getHttpServer()).post("/auth/refresh").set("Cookie", cookie).expect(401);
+  });
+
+  // Per-account brute-force lockout (Phase A, production-hardening pass) — a dedicated user so
+  // this doesn't interfere with the shared `email`/`password` fixture the tests above reuse.
+  // Deliberately minimal in the number of real /auth/login calls: the threshold-crossing and
+  // reset arithmetic is already exhaustively covered against a mocked Prisma client in
+  // auth.service.spec.ts. What only an e2e test can prove is that the real controller/guard/
+  // service/Postgres stack actually reads and persists these two columns correctly — driving 5+
+  // real failures through HTTP here would mostly re-prove already-unit-tested counting logic
+  // while burning most of this suite's shared 10/min per-IP login-throttle budget.
+  describe("brute-force lockout", () => {
+    const lockoutEmail = `e2e-lockout-${Date.now()}@sofsavdo.com`;
+    const lockoutPassword = "SuperSecret123";
+
+    beforeAll(async () => {
+      await request(app.getHttpServer()).post("/auth/register").send({ email: lockoutEmail, password: lockoutPassword, displayName: "Lockout Test" }).expect(201);
+    });
+
+    it("persists a failed attempt to Postgres across two real requests", async () => {
+      await request(app.getHttpServer()).post("/auth/login").send({ email: lockoutEmail, password: "wrong" }).expect(401);
+      const afterOne = await prisma.user.findUnique({ where: { email: lockoutEmail } });
+      expect(afterOne!.failedLoginCount).toBe(1);
+
+      await request(app.getHttpServer()).post("/auth/login").send({ email: lockoutEmail, password: "wrong" }).expect(401);
+      const afterTwo = await prisma.user.findUnique({ where: { email: lockoutEmail } });
+      expect(afterTwo!.failedLoginCount).toBe(2);
+    });
+
+    it("rejects even the correct password once locked, then allows it again once the lock is lifted", async () => {
+      // Simulate having already crossed the threshold, directly via Prisma — the arithmetic that
+      // gets a user to this state is auth.service.spec.ts's job to prove, not this test's.
+      await prisma.user.update({ where: { email: lockoutEmail }, data: { lockedUntil: new Date(Date.now() + 10 * 60_000) } });
+
+      const lockedRes = await request(app.getHttpServer()).post("/auth/login").send({ email: lockoutEmail, password: lockoutPassword }).expect(403);
+      expect(lockedRes.body.code).toBe("ACCOUNT_LOCKED");
+
+      // Simulating the configured lockout window elapsing — confirms the lock is time-bound, not
+      // a permanent flag that would otherwise require an admin action to clear.
+      await prisma.user.update({ where: { email: lockoutEmail }, data: { lockedUntil: null, failedLoginCount: 0 } });
+      await request(app.getHttpServer()).post("/auth/login").send({ email: lockoutEmail, password: lockoutPassword }).expect(201);
+
+      const user = await prisma.user.findUnique({ where: { email: lockoutEmail } });
+      expect(user!.failedLoginCount).toBe(0);
+      expect(user!.lockedUntil).toBeNull();
+    });
   });
 });

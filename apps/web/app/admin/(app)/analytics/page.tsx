@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { formatMoneyMinor } from "@rosti/types";
-import type { RealExecutiveMetrics } from "@rosti/types";
-import { AnalyticsFilterBar, Button, Card, CardHeader, CardTitle, Skeleton, StatTile, deltaFromPct } from "@rosti/ui";
+import { formatMoneyMinor } from "@sofsavdo/types";
+import type { RealExecutiveMetrics } from "@sofsavdo/types";
+import { AnalyticsFilterBar, Button, Card, CardHeader, CardTitle, Skeleton, StatTile, deltaFromPct } from "@sofsavdo/ui";
 import { Download } from "lucide-react";
 import { useAnalyticsFilters } from "@/lib/useAnalyticsFilters";
 import { useExecutiveAnalytics, useCreatorAnalyticsList, useCampaignAnalyticsList, useProductAnalyticsList, usePaymentAnalytics, useExportAnalyticsCsv } from "@/services/admin/analytics";
@@ -84,7 +84,7 @@ export default function AdminAnalyticsPage() {
             variant="outline"
             onClick={async () => {
               const csv = await exportCsv.mutateAsync({ view: "executive", filters });
-              downloadCsv(csv, `rosti-analytics-executive-${new Date().toISOString().slice(0, 10)}.csv`);
+              downloadCsv(csv, `sofsavdo-analytics-executive-${new Date().toISOString().slice(0, 10)}.csv`);
             }}
             disabled={exportCsv.isPending}
           >

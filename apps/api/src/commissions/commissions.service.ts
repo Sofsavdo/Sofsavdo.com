@@ -1,11 +1,17 @@
 import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import type { Commission, CommissionStatus, Prisma } from "@prisma/client";
+import type { AttributionSource, Commission, CommissionStatus, OrderStatus, Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditService } from "../common/audit/audit.service";
 import { DomainException } from "../common/errors/domain-error";
 import { paginate, type PaginatedResult } from "../common/pagination/pagination.dto";
+import { maskCustomerContact } from "../common/masking/pii-mask.util";
 import type { CommissionQueryDto } from "./dto/commission-query.dto";
+
+// Bounds /creator/sales — a read-only summary view, never paginated in the UI today (see
+// SalesTable.tsx). Capped rather than unbounded so a long-tenured creator's history can't turn
+// this into an unbounded response; real pagination is Phase G's job if this cap ever binds.
+const CREATOR_SALES_LIMIT = 200;
 
 const COMMISSION_INCLUDE = {
   order: { select: { id: true, publicToken: true } },
@@ -35,12 +41,47 @@ export interface AdminCommissionResponse {
   createdAt: Date;
 }
 
+// /creator/sales' response shape — deliberately mirrors the frontend's legacy mock `Sale` type
+// field-for-field (see apps/web/packages/types' Sale interface) so lib/api/creator-real.ts's
+// mapping stays a thin, obvious transcription rather than a redesign of what the page expects.
+export interface CreatorSaleResponse {
+  id: string;
+  orderPublicToken: string;
+  createdAt: Date;
+  campaignName: string;
+  offerName: string;
+  customerMasked: string;
+  amountMinor: number;
+  discountMinor: number;
+  commissionBaseMinor: number;
+  commissionMinor: number;
+  orderStatus: OrderStatus;
+  attributionSource: AttributionSource;
+}
+
+// The `/creator/commissions` page's shape — filterable by real Commission.status client-side,
+// distinct from CreatorSaleResponse above (which exposes Order.status, not Commission.status).
+export interface CreatorCommissionResponse {
+  id: string;
+  orderPublicToken: string;
+  campaignName: string;
+  commissionType: string;
+  baseAmountMinor: number;
+  amountMinor: number;
+  currency: string;
+  status: CommissionStatus;
+  createdAt: Date;
+}
+
 export interface WalletBalance {
   pendingMinor: number;
   availableMinor: number;
   lockedMinor: number;
   paidMinor: number;
   reversedMinor: number;
+  // Phase N (Creator Fund) — lifetime total this creator has voluntarily contributed away, kept
+  // out of paidMinor so "paid to me" and "donated by me" are never conflated on the wallet view.
+  donatedMinor: number;
   currency: string;
   minimumPayoutMinor: number;
 }
@@ -249,9 +290,88 @@ export class CommissionsService {
       lockedMinor: lockedAgg._sum.amountMinor ?? 0,
       paidMinor: sum("PAID"),
       reversedMinor: sum("REJECTED") + sum("REFUNDED"),
+      donatedMinor: sum("DONATED"),
       currency: "UZS",
       minimumPayoutMinor: this.minimumPayoutMinor,
     };
+  }
+
+  // The creator-facing counterpart of admin's list() above, but shaped around "one row per sale"
+  // rather than "one row per ledger entry" — a creator wants to recognize *which purchase* earned
+  // them what, not read a raw accounting log. Reuses the same creatorId-scoped Commission table as
+  // the source of truth (so a sale only ever appears here once it has produced a real Commission
+  // row, exactly the same "did this actually get attributed and snapshotted" guarantee every other
+  // creator-facing money view in this codebase already relies on) rather than querying Order
+  // directly, which would require re-deriving attribution/commission logic a second time.
+  async listMySales(creatorId: string): Promise<CreatorSaleResponse[]> {
+    const rows = await this.prisma.commission.findMany({
+      where: { creatorId },
+      orderBy: { createdAt: "desc" },
+      take: CREATOR_SALES_LIMIT,
+      include: {
+        order: {
+          select: {
+            publicToken: true,
+            status: true,
+            createdAt: true,
+            subtotalMinor: true,
+            discountMinor: true,
+            customer: { select: { fullName: true, phone: true } },
+            offer: { select: { name: true } },
+            attribution: { select: { source: true } },
+          },
+        },
+        commissionRule: { select: { campaign: { select: { name: true } } } },
+      },
+    });
+    return rows.map((c) => ({
+      id: c.id,
+      orderPublicToken: c.order.publicToken,
+      createdAt: c.order.createdAt,
+      campaignName: c.commissionRule.campaign.name,
+      offerName: c.order.offer.name,
+      customerMasked: maskCustomerContact(c.order.customer.fullName, c.order.customer.phone),
+      amountMinor: c.order.subtotalMinor,
+      discountMinor: c.order.discountMinor,
+      commissionBaseMinor: c.baseAmountMinor,
+      commissionMinor: c.amountMinor,
+      orderStatus: c.order.status,
+      // A Commission only ever gets created for an order that was successfully attributed to this
+      // creator (see ATTRIBUTION.md/ARCHITECTURE.md's checkout flow) — order.attribution should
+      // always be present here. The fallback exists only so a data anomaly surfaces as a
+      // plausible-looking row instead of a 500, since this is a read-only summary view.
+      attributionSource: c.order.attribution?.source ?? "REFERRAL_VISIT",
+    }));
+  }
+
+  // The `/creator/commissions` page's real backend — one row per Commission, filterable by the
+  // real CommissionStatus (PENDING/APPROVED/REJECTED/REFUNDED/PAYABLE/PAID), distinct from both
+  // listMySales above (one row per sale, keyed to Order fields like offerName/customerMasked/
+  // orderStatus — an Order status, not a Commission status) and listMyLedger below (one row per
+  // accounting entry, not per Commission). This was a real gap: the frontend called a bare mock
+  // re-export here with zero USE_REAL_API gating at all — see DECISIONS.md ADR-031.
+  async listMyCommissions(creatorId: string): Promise<CreatorCommissionResponse[]> {
+    await this.reconcileRefundedOrders({ creatorId });
+    const rows = await this.prisma.commission.findMany({
+      where: { creatorId },
+      orderBy: { createdAt: "desc" },
+      take: CREATOR_SALES_LIMIT,
+      include: {
+        order: { select: { publicToken: true } },
+        commissionRule: { select: { commissionType: true, campaign: { select: { name: true } } } },
+      },
+    });
+    return rows.map((c) => ({
+      id: c.id,
+      orderPublicToken: c.order.publicToken,
+      campaignName: c.commissionRule.campaign.name,
+      commissionType: c.commissionRule.commissionType,
+      baseAmountMinor: c.baseAmountMinor,
+      amountMinor: c.amountMinor,
+      currency: c.currency,
+      status: c.status,
+      createdAt: c.createdAt,
+    }));
   }
 
   async listMyLedger(creatorId: string, query: CommissionQueryDto): Promise<PaginatedResult<{ id: string; type: string; amountMinor: number; reason: string | null; createdAt: Date; commission: { id: string; orderPublicToken: string } }>> {
@@ -324,5 +444,46 @@ export class CommissionsService {
   // PAYABLE (available again), no ledger entry (nothing was ever paid out).
   async releaseLockedCommissions(tx: Prisma.TransactionClient, payoutId: string): Promise<void> {
     await tx.commission.updateMany({ where: { payoutId }, data: { payoutId: null } });
+  }
+
+  // ---- Used by CreatorFundService (kept as an internal, tx-scoped helper — same ownership
+  // convention as lockPayableCommissions/settleLockedCommissions above) ----
+
+  // Unlike a Payout — locked now, settled later once an admin confirms the external transfer
+  // actually happened — a Creator Fund contribution is an internal balance-to-balance transfer
+  // with no external step to wait for, so this locks AND settles the selected commissions in one
+  // pass: oldest-first PAYABLE/unlocked commissions (same selection order as
+  // lockPayableCommissions), moved straight to DONATED with a DONATION ledger entry each. Throws
+  // INSUFFICIENT_BALANCE (rolling back the whole transaction, including the
+  // CreatorFundContribution row the caller already created) if the creator's available balance
+  // can't cover it, and re-checks inside the caller's transaction so two concurrent contributions
+  // (or a contribution racing a payout request) can't both claim the same funds.
+  async contributeToFund(tx: Prisma.TransactionClient, creatorId: string, amountMinor: number, fundContributionId: string): Promise<void> {
+    const candidates = await tx.commission.findMany({
+      where: { creatorId, status: "PAYABLE", payoutId: null, fundContributionId: null },
+      orderBy: { createdAt: "asc" },
+      select: { id: true, amountMinor: true },
+    });
+    const selected: { id: string; amountMinor: number }[] = [];
+    let accumulated = 0;
+    for (const c of candidates) {
+      if (accumulated >= amountMinor) break;
+      selected.push(c);
+      accumulated += c.amountMinor;
+    }
+    if (accumulated < amountMinor) {
+      throw new DomainException("INSUFFICIENT_BALANCE", "So'ralgan miqdor mavjud balansdan oshib ketdi.");
+    }
+    const now = new Date();
+    const result = await tx.commission.updateMany({
+      where: { id: { in: selected.map((s) => s.id) }, payoutId: null, fundContributionId: null },
+      data: { status: "DONATED", donatedAt: now, fundContributionId },
+    });
+    if (result.count !== selected.length) {
+      throw new DomainException("INSUFFICIENT_BALANCE", "Balans o'zgardi, iltimos qayta urinib ko'ring.");
+    }
+    for (const c of selected) {
+      await tx.commissionLedger.create({ data: { commissionId: c.id, type: "DONATION", amountMinor: -c.amountMinor, reason: `Creator Fund contribution ${fundContributionId}` } });
+    }
   }
 }

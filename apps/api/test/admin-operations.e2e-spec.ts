@@ -2,6 +2,7 @@ import { INestApplication, ValidationPipe } from "@nestjs/common";
 import { Test, TestingModule } from "@nestjs/testing";
 import request from "supertest";
 import cookieParser from "cookie-parser";
+import { BRAND } from "../src/config/brand";
 import { AppModule } from "../src/app.module";
 import { AllExceptionsFilter } from "../src/common/filters/all-exceptions.filter";
 import { correlationIdMiddleware } from "../src/common/middleware/correlation-id.middleware";
@@ -30,7 +31,7 @@ describe("Admin Operations (e2e)", () => {
       const perms = await prisma.permission.findMany({ where: { key: { in: permissionKeys } } });
       await prisma.rolePermission.createMany({ data: perms.map((p) => ({ roleId: role.id, permissionId: p.id })), skipDuplicates: true });
     }
-    const user = await prisma.user.create({ data: { email: `adminops-${label}-${suffix}@rosti.uz`, passwordHash: "x" } });
+    const user = await prisma.user.create({ data: { email: `adminops-${label}-${suffix}@sofsavdo.com`, passwordHash: "x" } });
     await prisma.userRole.create({ data: { userId: user.id, roleId: role.id } });
     return { userId: user.id, roleId: role.id, accessToken: tokens.signAccessToken(user.id) };
   }
@@ -38,7 +39,7 @@ describe("Admin Operations (e2e)", () => {
   async function makeCreator(label: string, status: "ACTIVE" | "SUSPENDED" | "BLOCKED" = "ACTIVE") {
     const user = await prisma.user.create({
       data: {
-        email: `adminops-creator-${label}-${suffix}@rosti.uz`,
+        email: `adminops-creator-${label}-${suffix}@sofsavdo.com`,
         passwordHash: "x",
         status,
         creatorProfile: {
@@ -144,7 +145,7 @@ describe("Admin Operations (e2e)", () => {
       const res = await request(app.getHttpServer())
         .post("/admin/users")
         .set("Authorization", `Bearer ${superAdminToken}`)
-        .send({ email: `adminops-newstaff-${suffix}@rosti.uz`, password: "password123", displayName: "New Staff", roleIds: [managerRole.id] })
+        .send({ email: `adminops-newstaff-${suffix}@sofsavdo.com`, password: "password123", displayName: "New Staff", roleIds: [managerRole.id] })
         .expect(201);
       expect(res.body.displayName).toBe("New Staff");
       expect(res.body.roles.some((r: { key: string }) => r.key === "manager")).toBe(true);
@@ -296,7 +297,7 @@ describe("Admin Operations (e2e)", () => {
 
       const loginBlocked = await request(app.getHttpServer())
         .post("/auth/login")
-        .send({ email: `adminops-creator-suspend-flow-${suffix}@rosti.uz`, password: "x" })
+        .send({ email: `adminops-creator-suspend-flow-${suffix}@sofsavdo.com`, password: "x" })
         .expect(403);
       expect(loginBlocked.body.code).toBe("FORBIDDEN");
 
@@ -487,7 +488,7 @@ describe("Admin Operations (e2e)", () => {
       await request(app.getHttpServer())
         .patch("/admin/settings")
         .set("Authorization", `Bearer ${superAdminToken}`)
-        .send({ values: { "general.platformName": "Rosti" } })
+        .send({ values: { "general.platformName": BRAND.name } })
         .expect(200);
     });
   });

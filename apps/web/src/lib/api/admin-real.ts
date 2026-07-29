@@ -5,8 +5,11 @@
 // throws (loudly, not silently falling back to mock behavior) until its own Phase 6B domain slice
 // lands, per the vertical-slice migration order in PROJECT_STATUS.md.
 import type {
+  AdminPromoCode,
+  AdminReferralLink,
   AdminRole,
   AdminUser,
+  AdminVisitor,
   AnalyticsFilters,
   Campaign,
   CampaignApplicationAdminView,
@@ -41,6 +44,8 @@ import type {
   RealCampaignHistoryItem,
   RealCreatorAdminDetail,
   RealCreatorAdminListItem,
+  BioComplianceStatus,
+  CreatorTier,
   RealCreatorAnalyticsDetail,
   RealCreatorAnalyticsListItem,
   RealCustomerAnalytics,
@@ -61,7 +66,7 @@ import type {
   RealStaffUser,
   RealUserStatus,
   SettingCategory,
-} from "@rosti/types";
+} from "@sofsavdo/types";
 import type { ReferralSummary } from "./creator-real";
 import { apiRequest, getAccessToken, setAccessToken, ApiError } from "./http-client";
 import type { CreateCampaignInput, CreateLandingInput, CreateOfferInput } from "../../mocks/store";
@@ -352,8 +357,8 @@ export async function getLandingSections(offerId: string): Promise<LandingSectio
   return apiRequest<LandingSectionAdmin[]>(`/admin/offers/${offerId}/landing-sections`);
 }
 
-export async function addLandingSection(offerId: string, type: LandingSectionType): Promise<LandingSectionAdmin> {
-  return apiRequest<LandingSectionAdmin>(`/admin/offers/${offerId}/landing-sections`, { method: "POST", body: { type } });
+export async function addLandingSection(offerId: string, type: LandingSectionType, content?: Record<string, unknown>): Promise<LandingSectionAdmin> {
+  return apiRequest<LandingSectionAdmin>(`/admin/offers/${offerId}/landing-sections`, { method: "POST", body: { type, content } });
 }
 
 export async function updateLandingSection(
@@ -379,6 +384,300 @@ export async function reorderLandingSections(offerId: string, orderedIds: string
     method: "POST",
     body: { orderedIds },
   });
+}
+
+// ---- Homepage CMS (Phase H) ----
+// Flat, unlike Landing sections — no offerId path segment, since a homepage section has no parent
+// (see DECISIONS.md ADR-027). Backend's HomepageSectionResponse happens to share field names 1:1
+// with HomepageSectionAdmin below, same as Landing's own no-adapter-needed note above.
+
+export type HomepageSectionType =
+  | "HERO"
+  | "WHY_SOFSAVDO"
+  | "FEATURED_PRODUCTS"
+  | "BANNER"
+  | "CREATOR_PROGRAM_BLURB"
+  | "BENEFITS"
+  | "FAQ"
+  | "SUPPORT"
+  | "CUSTOM_RICH_TEXT"
+  | "CATEGORY_GRID";
+
+export interface HomepageSectionAdmin {
+  id: string;
+  type: HomepageSectionType;
+  sortOrder: number;
+  isActive: boolean;
+  content: Record<string, unknown>;
+  startsAt: string | null;
+  expiresAt: string | null;
+}
+
+export async function getHomepageSectionsAdmin(): Promise<HomepageSectionAdmin[]> {
+  return apiRequest<HomepageSectionAdmin[]>("/admin/homepage-sections");
+}
+
+export async function addHomepageSection(type: HomepageSectionType): Promise<HomepageSectionAdmin> {
+  return apiRequest<HomepageSectionAdmin>("/admin/homepage-sections", { method: "POST", body: { type } });
+}
+
+export async function updateHomepageSection(
+  id: string,
+  patch: Partial<Pick<HomepageSectionAdmin, "content" | "isActive" | "startsAt" | "expiresAt">>,
+): Promise<HomepageSectionAdmin> {
+  return apiRequest<HomepageSectionAdmin>(`/admin/homepage-sections/${id}`, { method: "PATCH", body: patch });
+}
+
+export async function toggleHomepageSection(id: string, nextIsActive: boolean): Promise<HomepageSectionAdmin> {
+  return updateHomepageSection(id, { isActive: nextIsActive });
+}
+
+export async function removeHomepageSection(id: string): Promise<void> {
+  await apiRequest<void>(`/admin/homepage-sections/${id}`, { method: "DELETE" });
+}
+
+export async function reorderHomepageSections(orderedIds: string[]): Promise<HomepageSectionAdmin[]> {
+  return apiRequest<HomepageSectionAdmin[]>("/admin/homepage-sections/reorder", { method: "POST", body: { orderedIds } });
+}
+
+// ---- AI Product Creation Engine (Phase I) ----
+// Shape returned by ProductAiPort.generateDraft (apps/api/src/product-ai/product-ai.port.ts) —
+// always a draft to review/edit, never auto-saved. See DECISIONS.md ADR-028.
+
+export interface ProductAiDraft {
+  title: string;
+  shortDescription: string;
+  description: string;
+  features: string[];
+  benefits: string[];
+  specs: Record<string, string>;
+  usageInstructions: string;
+  ctaLabel: string;
+  marketingCopy: string;
+  seoTitle: string;
+  seoDescription: string;
+  seoKeywords: string[];
+  faq: { question: string; answer: string }[];
+  highlights: string[];
+  tags: string[];
+}
+
+export interface GenerateProductDraftInput {
+  imageUrls?: string[];
+  productName?: string;
+  shortDescription?: string;
+}
+
+export async function generateProductDraft(input: GenerateProductDraftInput): Promise<ProductAiDraft> {
+  return apiRequest<ProductAiDraft>("/admin/product-ai/draft", { method: "POST", body: input });
+}
+
+// ---- Competitions (Phase L) — real backend only, no mock counterpart (brand-new surface). Field
+// names match CompetitionResponse (apps/api/src/competitions/competitions.service.ts) 1:1.
+
+export type CompetitionStatus = "DRAFT" | "ACTIVE" | "COMPLETED" | "ARCHIVED";
+export type CompetitionAvailability = "SCHEDULED" | "LIVE" | "EXPIRED" | "INACTIVE";
+
+export interface CompetitionAdmin {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  prizeDescription: string | null;
+  startAt: string;
+  endAt: string;
+  status: CompetitionStatus;
+  availability: CompetitionAvailability;
+  archivedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateCompetitionInput {
+  name: string;
+  slug: string;
+  description?: string;
+  prizeDescription?: string;
+  startAt: string;
+  endAt: string;
+}
+
+export async function getCompetitions(): Promise<{ items: CompetitionAdmin[] }> {
+  return apiRequest<{ items: CompetitionAdmin[] }>("/admin/competitions");
+}
+
+export async function getCompetition(id: string): Promise<CompetitionAdmin> {
+  return apiRequest<CompetitionAdmin>(`/admin/competitions/${id}`);
+}
+
+export async function createCompetition(input: CreateCompetitionInput): Promise<CompetitionAdmin> {
+  return apiRequest<CompetitionAdmin>("/admin/competitions", { method: "POST", body: input });
+}
+
+export async function updateCompetition(id: string, patch: Partial<CreateCompetitionInput>): Promise<CompetitionAdmin> {
+  return apiRequest<CompetitionAdmin>(`/admin/competitions/${id}`, { method: "PATCH", body: patch });
+}
+
+export async function publishCompetition(id: string): Promise<CompetitionAdmin> {
+  return apiRequest<CompetitionAdmin>(`/admin/competitions/${id}/publish`, { method: "POST" });
+}
+
+export async function completeCompetition(id: string): Promise<CompetitionAdmin> {
+  return apiRequest<CompetitionAdmin>(`/admin/competitions/${id}/complete`, { method: "POST" });
+}
+
+export async function archiveCompetition(id: string): Promise<CompetitionAdmin> {
+  return apiRequest<CompetitionAdmin>(`/admin/competitions/${id}/archive`, { method: "POST" });
+}
+
+// ---- Admin executive dashboard (Phase M) — real backend only, replacing a previously 100%-
+// mocked page with zero USE_REAL_API gating at all (see DECISIONS.md ADR-031). Field names match
+// AdminDashboardResponse (apps/api/src/admin-dashboard/admin-dashboard.service.ts) 1:1.
+
+export interface AdminDashboardFunnel {
+  clicks: number;
+  orders: number;
+  paidOrders: number;
+}
+
+export interface AdminDashboardTask {
+  text: string;
+  href: string;
+}
+
+export interface AdminDashboardTopEntry {
+  name: string;
+  revenueMinor: number;
+}
+
+export interface AdminDashboardTrendPoint {
+  day: string;
+  ordersCount: number;
+  revenueMinor: number;
+}
+
+export interface AdminDashboardResponse {
+  todayRevenueMinor: number;
+  monthlyRevenueMinor: number;
+  netRevenueMinor: number;
+  paidOrders: number;
+  conversionRate: number;
+  averageOrderValueMinor: number;
+  refundRate: number;
+  activeCampaignsCount: number;
+  creatorRevenueMinor: number;
+  directRevenueMinor: number;
+  commissionLiabilityMinor: number;
+  pendingPayoutsMinor: number;
+  trend: AdminDashboardTrendPoint[];
+  funnel: AdminDashboardFunnel;
+  tasks: AdminDashboardTask[];
+  topOffers: AdminDashboardTopEntry[];
+  topCreators: AdminDashboardTopEntry[];
+}
+
+export async function getDashboard(): Promise<AdminDashboardResponse> {
+  return apiRequest<AdminDashboardResponse>("/admin/dashboard");
+}
+
+// ---- Referral links / promo codes / visitors (Phase M) — real backend only, replacing bare mock
+// re-exports with zero USE_REAL_API gating at all (see DECISIONS.md ADR-031). Reshaped at this
+// boundary to the pre-existing shared AdminReferralLink/AdminPromoCode/AdminVisitor types
+// (@sofsavdo/types) the pages already expect, same convention as every other admin-real.ts
+// function in this file.
+
+interface BackendAdminReferralLink {
+  code: string;
+  creatorId: string;
+  creatorName: string;
+  campaignId: string;
+  campaignName: string;
+  offerName: string;
+  clicks: number;
+  orders: number;
+  revenueMinor: number;
+  status: "ACTIVE" | "PAUSED" | "EXPIRED";
+}
+
+function mapReferralLink(l: BackendAdminReferralLink): AdminReferralLink {
+  // fullUrl/createdAt are declared on the shared type but never actually rendered by the
+  // referral-links page (confirmed by reading it) — left as harmless placeholders rather than
+  // spending effort computing a real value nothing displays.
+  return { ...l, fullUrl: "", createdAt: new Date().toISOString() };
+}
+
+export async function getReferralLinks(): Promise<AdminReferralLink[]> {
+  const items = await apiRequest<BackendAdminReferralLink[]>("/admin/referral-links");
+  return items.map(mapReferralLink);
+}
+
+export async function deactivateReferralLink(code: string): Promise<AdminReferralLink> {
+  const updated = await apiRequest<Pick<BackendAdminReferralLink, "code" | "creatorName" | "campaignName" | "offerName" | "status">>(
+    `/admin/referral-links/${code}/deactivate`,
+    { method: "POST" },
+  );
+  return mapReferralLink({ ...updated, creatorId: "", campaignId: "", clicks: 0, orders: 0, revenueMinor: 0 });
+}
+
+interface BackendAdminPromoCode {
+  code: string;
+  creatorName: string;
+  campaignName: string;
+  discountType: "PERCENTAGE" | "FIXED_AMOUNT";
+  discountValue: number;
+  usageCount: number;
+  usageLimit: number | null;
+  isActive: boolean;
+}
+
+export async function getPromoCodes(): Promise<AdminPromoCode[]> {
+  const items = await apiRequest<BackendAdminPromoCode[]>("/admin/promo-codes");
+  // creatorId/campaignId aren't in the real response (the page never uses them, only the names)
+  // — left blank rather than fabricated.
+  return items.map((p) => ({ ...p, creatorId: "", campaignId: "", usageLimit: p.usageLimit ?? undefined }));
+}
+
+interface BackendAdminVisitor {
+  id: string;
+  visitorId: string;
+  offerName: string;
+  campaignName: string | null;
+  creatorName: string | null;
+  source: "PROMO_CODE" | "REFERRAL_VISIT" | "MANUAL" | null;
+  landingPage: string;
+  createdAt: string;
+  expiresAt: string;
+  attributedOrderToken: string | null;
+  fraudRiskFlags: string[];
+}
+
+export async function getVisitors(): Promise<AdminVisitor[]> {
+  const items = await apiRequest<BackendAdminVisitor[]>("/admin/visitors");
+  return items.map((v) => ({
+    id: v.id,
+    visitorId: v.visitorId,
+    offerName: v.offerName,
+    campaignName: v.campaignName ?? undefined,
+    creatorName: v.creatorName ?? undefined,
+    // The shared AdminVisitor type has no "not yet attributed"/"MANUAL" case — null (no
+    // Attribution exists yet) maps to "DIRECT" (the closest fit: not tied to a tracked channel),
+    // and the rare MANUAL (admin-corrected) case maps to "REFERRAL_VISIT".
+    source: v.source === "PROMO_CODE" ? "PROMO_CODE" : v.source === null ? "DIRECT" : "REFERRAL_VISIT",
+    landingPage: v.landingPage,
+    createdAt: v.createdAt,
+    expiresAt: v.expiresAt,
+    attributedOrderToken: v.attributedOrderToken ?? undefined,
+    fraudRiskFlags: v.fraudRiskFlags,
+  }));
+}
+
+// No real backend implements manual attribution override yet (a genuine, pre-existing, already-
+// disclosed gap — see PRODUCTION_READINESS.md's "Manual attribution override" line and
+// DECISIONS.md ADR-031). Rejecting loudly here is deliberate: this touches real commission
+// reassignment, so a Super Admin must never see a false "success" for an action that silently did
+// nothing on the real backend.
+export async function overrideAttribution(): Promise<never> {
+  throw new ApiError("NOT_IMPLEMENTED", "Attribution'ni qo'lda o'zgartirish hali ishlab chiqilmagan.", 501);
 }
 
 // ---- Campaigns ----
@@ -981,6 +1280,7 @@ interface BackendContentVersionAdmin {
   notes: string | null;
   hashtags: string[];
   metadata: unknown;
+  postUrl: string | null;
   submittedAt: string;
 }
 
@@ -1002,6 +1302,7 @@ interface BackendContentAdmin {
   notes: string | null;
   hashtags: string[];
   metadata: unknown;
+  postUrl: string | null;
   currentVersionNumber: number;
   rejectionReason: string | null;
   changesRequestedReason: string | null;
@@ -1048,6 +1349,7 @@ function mapAdminContent(c: BackendContentAdmin): ContentAdminView {
     notes: c.notes ?? undefined,
     hashtags: c.hashtags,
     metadata: (c.metadata as Record<string, unknown> | null) ?? undefined,
+    postUrl: c.postUrl ?? undefined,
     currentVersionNumber: c.currentVersionNumber,
     rejectionReason: c.rejectionReason ?? undefined,
     changesRequestedReason: c.changesRequestedReason ?? undefined,
@@ -1076,6 +1378,7 @@ function mapAdminContent(c: BackendContentAdmin): ContentAdminView {
       notes: v.notes ?? undefined,
       hashtags: v.hashtags,
       metadata: (v.metadata as Record<string, unknown> | null) ?? undefined,
+      postUrl: v.postUrl ?? undefined,
       submittedAt: v.submittedAt,
     })),
     comments: c.comments.map(mapAdminContentComment),
@@ -1296,7 +1599,7 @@ export async function markAdminPayoutFailed(id: string, reason: string): Promise
 }
 
 // ---- Communication & Notification domain (Phase 10) — real backend only, no mock counterpart
-// (see @rosti/types' RealNotification comment). ----
+// (see @sofsavdo/types' RealNotification comment). ----
 
 export interface AdminNotificationQuery {
   page?: number;
@@ -1568,6 +1871,17 @@ export async function blockRealCreator(id: string, reason: string): Promise<Real
 
 export async function unblockRealCreator(id: string): Promise<RealCreatorAdminDetail> {
   return apiRequest<RealCreatorAdminDetail>(`/admin/creators/${id}/unblock`, { method: "POST" });
+}
+
+// Phase Q — a manual admin spot-check (no automated bio-scraping — see DECISIONS.md ADR-034), not
+// an account-status transition, so this is a plain PATCH rather than the suspend/block-style
+// POST + reason convention above.
+export async function setCreatorBioCompliance(id: string, status: BioComplianceStatus): Promise<RealCreatorAdminDetail> {
+  return apiRequest<RealCreatorAdminDetail>(`/admin/creators/${id}/bio-compliance`, { method: "PATCH", body: { status } });
+}
+
+export async function setCreatorTier(id: string, tier: CreatorTier): Promise<RealCreatorAdminDetail> {
+  return apiRequest<RealCreatorAdminDetail>(`/admin/creators/${id}/tier`, { method: "PATCH", body: { tier } });
 }
 
 // -- Payments (read-only) --

@@ -4,7 +4,7 @@
 // real branch at all until now). Distinct function names avoid colliding with the legacy mock-only
 // apiGetBalance/apiGetCommissions/apiGetPayoutMethods/apiAddPayoutMethod/apiGetPayouts/
 // apiRequestPayout re-exported from mocks/store.ts.
-import type { RealPayout, RealPayoutMethod, RealWalletBalance, RealWalletTransaction } from "@rosti/types";
+import type { RealPayout, RealPayoutMethod, RealWalletBalance, RealWalletTransaction } from "@sofsavdo/types";
 import { apiRequest } from "./http-client";
 
 interface PaginatedResponse<T> {

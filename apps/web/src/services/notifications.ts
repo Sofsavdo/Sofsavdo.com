@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as api from "../lib/api";
 import { useSession } from "./session";
-import type { RealNotificationCategory } from "@rosti/types";
+import type { RealNotificationCategory } from "@sofsavdo/types";
 
 // Communication & Notification domain (Phase 10) — real backend only, no mock counterpart. Works
 // for any authenticated user (creator or staff), not just approved creators — see

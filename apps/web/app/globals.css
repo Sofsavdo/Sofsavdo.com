@@ -1,5 +1,5 @@
 @import "tailwindcss";
-@import "@rosti/config/tokens.css";
+@import "@sofsavdo/config/tokens.css";
 
 /* Tailwind v4's zero-config content auto-detection only walks the directory tree from this file
    outward within apps/web's own project root — it never reaches packages/ui (a sibling workspace

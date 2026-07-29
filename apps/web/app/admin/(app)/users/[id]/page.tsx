@@ -3,7 +3,7 @@
 import { use, useState } from "react";
 import Link from "next/link";
 import { RoleGuard } from "@/components/admin/RoleGuard";
-import { Alert, Badge, Button, Card, CardHeader, CardTitle, ConfirmModal, Skeleton, TextField } from "@rosti/ui";
+import { Alert, Badge, Button, Card, CardHeader, CardTitle, ConfirmModal, Skeleton, TextField } from "@sofsavdo/ui";
 import { ArrowLeft } from "lucide-react";
 import {
   useStaffUserDetail,

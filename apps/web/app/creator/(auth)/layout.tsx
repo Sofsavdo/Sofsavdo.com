@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BRAND } from "@rosti/config/brand";
+import { BRAND } from "@sofsavdo/config/brand";
 
 // These pages read session state on mount to redirect an already-logged-in creator onward —
 // nothing worth statically prerendering.

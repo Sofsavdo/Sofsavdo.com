@@ -13,7 +13,7 @@ import autocannon, { type Options, type Request, type Result } from "autocannon"
 // at production.
 //
 // Usage:
-//   LOADTEST_OFFER_SLUG=<a seeded public offer slug> npm run loadtest --workspace=@rosti/api
+//   LOADTEST_OFFER_SLUG=<a seeded public offer slug> npm run loadtest --workspace=@sofsavdo/api
 //
 // Optional env vars (each named check is skipped — not failed — if its token/slug isn't
 // provided, since not every environment has all of these seeded/available):
@@ -23,6 +23,8 @@ import autocannon, { type Options, type Request, type Result } from "autocannon"
 //                                 admin order list and executive analytics checks
 //   LOADTEST_CREATOR_TOKEN       a real creator bearer access token — enables the creator
 //                                 campaign list check
+//   LOADTEST_BUYER_TOKEN         a real buyer (plain User, see Phase D) bearer access token —
+//                                 enables the buyer order list check
 //   LOADTEST_CLICK_SECRET_KEY    must match the running instance's CLICK_SECRET_KEY — enables
 //                                 the Click callback check (a validly-signed payload is
 //                                 constructed the same way ClickPaymentAdapter verifies one)
@@ -35,6 +37,7 @@ const API_URL = (process.env.LOADTEST_API_URL ?? "http://localhost:4000").replac
 const OFFER_SLUG = process.env.LOADTEST_OFFER_SLUG;
 const ADMIN_TOKEN = process.env.LOADTEST_ADMIN_TOKEN;
 const CREATOR_TOKEN = process.env.LOADTEST_CREATOR_TOKEN;
+const BUYER_TOKEN = process.env.LOADTEST_BUYER_TOKEN;
 const CLICK_SECRET_KEY = process.env.LOADTEST_CLICK_SECRET_KEY;
 const CLICK_SERVICE_ID = process.env.LOADTEST_CLICK_SERVICE_ID ?? "";
 const DURATION_SECONDS = Number(process.env.LOADTEST_DURATION_SECONDS ?? 10);
@@ -103,6 +106,10 @@ async function main() {
   // 1. API process baseline — no DB/Redis touched, so this is the ceiling the DB-backed checks
   // below are measured against.
   results.push(summarize("Health liveness (baseline, no DB)", await run({ ...baseOpts, url: `${API_URL}/health/live` })));
+
+  // Catalog browse (Phase E) — the real, paginated public browse surface; unlike the other checks
+  // below it needs no seeded slug, so it always runs.
+  results.push(summarize("Catalog browse (GET /offers/catalog)", await run({ ...baseOpts, url: `${API_URL}/offers/catalog` })));
 
   if (!OFFER_SLUG) {
     console.warn("\nLOADTEST_OFFER_SLUG not set — skipping landing page, visit tracking, checkout, and Click callback checks.");
@@ -203,6 +210,16 @@ async function main() {
   } else {
     results.push(
       summarize("Creator campaign list (GET /creator/campaigns)", await run({ ...baseOpts, url: `${API_URL}/creator/campaigns`, headers: { authorization: `Bearer ${CREATOR_TOKEN}` } })),
+    );
+  }
+
+  // 8. Buyer order list (Phase D+G) — the lean-`select` rewrite this phase made to
+  // OrdersService.listForBuyer is the thing worth measuring here.
+  if (!BUYER_TOKEN) {
+    results.push({ name: "Buyer order list (GET /buyer/orders)", skipped: "LOADTEST_BUYER_TOKEN not set" });
+  } else {
+    results.push(
+      summarize("Buyer order list (GET /buyer/orders)", await run({ ...baseOpts, url: `${API_URL}/buyer/orders`, headers: { authorization: `Bearer ${BUYER_TOKEN}` } })),
     );
   }
 

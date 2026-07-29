@@ -1,8 +1,10 @@
 import type {
   Campaign,
+  BioComplianceStatus,
   CampaignApplicationStatus,
   CampaignStatus,
   CommissionStatus,
+  CreatorTier,
   ContentReviewAction,
   ContentStatus,
   CreatorAccountStatus,
@@ -21,7 +23,7 @@ import type {
   RealOrderStatus,
   RealPayoutStatus,
   RefundStatus,
-} from "@rosti/types";
+} from "@sofsavdo/types";
 
 export type Tone = "neutral" | "success" | "warning" | "error" | "info" | "accent";
 
@@ -66,6 +68,7 @@ export const commissionStatusMeta: Record<CommissionStatus, { label: string; ton
   REFUNDED: { label: "Qaytarilgan", tone: "error" },
   PAYABLE: { label: "To'lovga tayyor", tone: "success" },
   PAID: { label: "To'langan", tone: "success" },
+  DONATED: { label: "Fondga ulashilgan", tone: "info" },
 };
 
 export const payoutStatusMeta: Record<PayoutStatus, { label: string; tone: Tone }> = {
@@ -116,7 +119,7 @@ export const offerStatusMeta: Record<OfferStatus, { label: string; tone: Tone }>
 };
 
 // Separate from offerStatusMeta on purpose — status is what an admin set, availability is
-// computed server-side from status + startsAt/expiresAt (see OfferAvailability in @rosti/types).
+// computed server-side from status + startsAt/expiresAt (see OfferAvailability in @sofsavdo/types).
 // An offer can show status=Faol and availability=Muddati tugagan at the same time; the UI must
 // show both, not collapse them into one badge.
 export const offerAvailabilityMeta: Record<NonNullable<Offer["availability"]>, { label: string; tone: Tone }> = {
@@ -171,6 +174,18 @@ export const creatorAccountStatusMeta: Record<CreatorAccountStatus, { label: str
   ACTIVE: { label: "Faol", tone: "success" },
   SUSPENDED: { label: "Vaqtincha to'xtatilgan", tone: "warning" },
   BLOCKED: { label: "Bloklangan", tone: "error" },
+};
+
+// Phase Q — bio-compliance spot-check + Premium tier (see DECISIONS.md ADR-034).
+export const bioComplianceStatusMeta: Record<BioComplianceStatus, { label: string; tone: Tone }> = {
+  PENDING: { label: "Tekshirilmagan", tone: "neutral" },
+  COMPLIANT: { label: "Bio talabga javob beradi", tone: "success" },
+  NON_COMPLIANT: { label: "Bio talabga javob bermaydi", tone: "error" },
+};
+
+export const creatorTierMeta: Record<CreatorTier, { label: string; tone: Tone }> = {
+  STANDARD: { label: "Standart", tone: "neutral" },
+  PREMIUM: { label: "Premium", tone: "accent" },
 };
 
 // Real Content domain (Phase 7A) — distinct from contentStatusMeta above, which stays wired to
@@ -264,4 +279,18 @@ export const notificationChannelMeta: Record<RealNotificationChannel, { label: s
   IN_APP: { label: "Ilova ichida" },
   TELEGRAM: { label: "Telegram" },
   EMAIL: { label: "Email" },
+};
+
+export const competitionStatusMeta: Record<"DRAFT" | "ACTIVE" | "COMPLETED" | "ARCHIVED", { label: string; tone: Tone }> = {
+  DRAFT: { label: "Qoralama", tone: "neutral" },
+  ACTIVE: { label: "Faol", tone: "success" },
+  COMPLETED: { label: "Yakunlangan", tone: "neutral" },
+  ARCHIVED: { label: "Arxivlangan", tone: "neutral" },
+};
+
+export const competitionAvailabilityMeta: Record<"SCHEDULED" | "LIVE" | "EXPIRED" | "INACTIVE", { label: string; tone: Tone }> = {
+  LIVE: { label: "Hozir faol", tone: "success" },
+  SCHEDULED: { label: "Rejalashtirilgan", tone: "info" },
+  EXPIRED: { label: "Muddati tugagan", tone: "error" },
+  INACTIVE: { label: "Nofaol", tone: "neutral" },
 };

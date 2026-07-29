@@ -2,9 +2,9 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import type { OrderStatus, RealOrderStatus } from "@rosti/types";
-import { formatMoneyMinor } from "@rosti/types";
-import { DataTableShell, MobileDataCard, StatusBadge } from "@rosti/ui";
+import type { OrderStatus, RealOrderStatus } from "@sofsavdo/types";
+import { formatMoneyMinor } from "@sofsavdo/types";
+import { DataTableShell, MobileDataCard, StatusBadge } from "@sofsavdo/ui";
 import { useAdminOrders } from "@/services/admin/orders";
 import { useOrderReviewList } from "@/services/admin/orders";
 import { orderStatusMeta, realOrderStatusMeta } from "@/lib/status";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { CreatorApplicationData } from "@rosti/types";
+import type { CreatorApplicationData } from "@sofsavdo/types";
 import * as api from "../lib/api";
 import { useSession } from "./session";
 

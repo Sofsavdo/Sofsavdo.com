@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import type { Order, OrderStatus, Prisma, ProductType } from "@prisma/client";
+import type { Order, OrderStatus, PaymentProviderType, Prisma, ProductType } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { OffersService } from "../offers/offers.service";
 import { CampaignsService } from "../campaigns/campaigns.service";
@@ -45,6 +45,34 @@ export interface PublicOrderResponse {
   totalMinor: number;
   currency: string;
   paymentRedirectUrl: string | null;
+}
+
+// Buyer-facing shape — a real order-detail view (unlike PublicOrderResponse's order-success-page
+// summary), but never the admin internals: no attribution/commission (who referred this buyer and
+// what they earned is not the buyer's business), no internal notes.
+export interface BuyerOrderSummary {
+  id: string;
+  publicToken: string;
+  status: OrderStatus;
+  offerName: string;
+  totalMinor: number;
+  currency: string;
+  createdAt: Date;
+  // Cheap to include — ORDER_INCLUDE already fetches `payment` for every order in this query, so
+  // this costs nothing extra and lets the buyer's Purchases/Payment-History pages work off the
+  // list response alone, without an N+1 per-order detail fetch just to show a payment provider.
+  payment: { provider: string; status: string } | null;
+}
+
+export interface BuyerOrderDetail extends BuyerOrderSummary {
+  offer: { id: string; name: string; slug: string };
+  items: { id: string; nameSnapshot: string; quantity: number; unitPriceMinor: number; totalMinor: number }[];
+  address: { region: string; city: string; district: string | null; line1: string; comment: string | null } | null;
+  subtotalMinor: number;
+  discountMinor: number;
+  shippingMinor: number;
+  payment: { provider: string; status: string } | null;
+  statusHistory: { toStatus: OrderStatus; createdAt: Date }[];
 }
 
 export interface AdminOrderResponse {
@@ -173,6 +201,87 @@ export class OrdersService {
     };
   }
 
+  private toBuyerSummary(order: OrderWithRelations): BuyerOrderSummary {
+    return {
+      id: order.id,
+      publicToken: order.publicToken,
+      status: order.status,
+      offerName: order.offer.name,
+      totalMinor: order.totalMinor,
+      currency: order.currency,
+      createdAt: order.createdAt,
+      payment: order.payment ? { provider: order.payment.provider, status: order.payment.status } : null,
+    };
+  }
+
+  private toBuyerDetail(order: OrderWithRelations): BuyerOrderDetail {
+    return {
+      ...this.toBuyerSummary(order),
+      offer: order.offer,
+      items: order.items.map((i) => ({ id: i.id, nameSnapshot: i.nameSnapshot, quantity: i.quantity, unitPriceMinor: i.unitPriceMinor, totalMinor: i.totalMinor })),
+      address: order.address
+        ? { region: order.address.region, city: order.address.city, district: order.address.district, line1: order.address.line1, comment: order.address.comment }
+        : null,
+      subtotalMinor: order.subtotalMinor,
+      discountMinor: order.discountMinor,
+      shippingMinor: order.shippingMinor,
+      payment: order.payment ? { provider: order.payment.provider, status: order.payment.status } : null,
+      statusHistory: order.statusHistory.map((h) => ({ toStatus: h.toStatus, createdAt: h.createdAt })),
+    };
+  }
+
+  // ---- Buyer-facing reads (Phase D) ----
+
+  // No linked Customer yet (registered but never checked out, and no guest phone-match happened
+  // at registration) is a real, valid state — an empty order list, not an error.
+  //
+  // Phase G finding: this used to reuse the full ORDER_INCLUDE (10 relations — campaign, customer,
+  // address, items, statusHistory, attribution, commission, refunds, shipment, payment) even
+  // though BuyerOrderSummary only ever reads offer.name/status/totalMinor/currency/payment/
+  // createdAt/publicToken. A buyer with many orders was paying real DB + deserialization cost for
+  // items/statusHistory/attribution/etc. arrays on every single row, discarded immediately by
+  // toBuyerSummary. Selecting only what the summary actually needs is a real fix, not a
+  // micro-optimization — the detail read below still needs (and keeps) the full include.
+  async listForBuyer(userId: string): Promise<BuyerOrderSummary[]> {
+    const customer = await this.prisma.customer.findFirst({ where: { userId } });
+    if (!customer) return [];
+    const orders = await this.prisma.order.findMany({
+      where: { customerId: customer.id },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        publicToken: true,
+        status: true,
+        totalMinor: true,
+        currency: true,
+        createdAt: true,
+        offer: { select: { name: true } },
+        payment: { select: { provider: true, status: true } },
+      },
+    });
+    return orders.map((o) => ({
+      id: o.id,
+      publicToken: o.publicToken,
+      status: o.status,
+      offerName: o.offer.name,
+      totalMinor: o.totalMinor,
+      currency: o.currency,
+      createdAt: o.createdAt,
+      payment: o.payment ? { provider: o.payment.provider, status: o.payment.status } : null,
+    }));
+  }
+
+  async findOneForBuyerOrThrow(userId: string, orderId: string): Promise<BuyerOrderDetail> {
+    const customer = await this.prisma.customer.findFirst({ where: { userId } });
+    if (!customer) throw new DomainException("ORDER_NOT_FOUND", "Buyurtma topilmadi.");
+    const order = await this.prisma.order.findUnique({ where: { id: orderId }, include: ORDER_INCLUDE });
+    // Same 404 for "doesn't exist" and "exists but belongs to someone else" — never leak which
+    // case it is to an unauthorized caller (same convention as every other ownership-scoped read
+    // in this codebase, e.g. CreatorSalesController).
+    if (!order || order.customerId !== customer.id) throw new DomainException("ORDER_NOT_FOUND", "Buyurtma topilmadi.");
+    return this.toBuyerDetail(order);
+  }
+
   // ---- Validation helpers ----
 
   private assertCustomerInfoValid(customer: CustomerInfoDto, productType: ProductType): void {
@@ -183,14 +292,20 @@ export class OrdersService {
     }
   }
 
-  private resolvePaymentProvider(paymentMethod: string, offerPaymentOptions: string[]): "CLICK" | "MANUAL" {
+  // Phase F: broadened from "CLICK" | "MANUAL" to the full PaymentProviderType now that a
+  // registry (PaymentsModule/PaymentsService) exists instead of one hardcoded adapter — see
+  // DECISIONS.md's Phase F ADR. PAYME/CARD/UZUM_NASIYA still have no adapter behind them yet and
+  // stay rejected (spec: never a fake success path); COD does now, proving the registry works for
+  // a second real provider, not just Click.
+  private resolvePaymentProvider(paymentMethod: string, offerPaymentOptions: string[]): PaymentProviderType {
     if (!offerPaymentOptions.includes(paymentMethod)) {
       throw new DomainException("PAYMENT_METHOD_NOT_SUPPORTED", "Ushbu to'lov usuli bu taklif uchun mavjud emas.", { paymentMethod });
     }
     if (paymentMethod === "CLICK") return "CLICK";
     if (paymentMethod === "PAY_LATER") return "MANUAL";
-    // PAYME/CARD/COD — offer-configurable labels with no adapter behind them yet (spec: Click is
-    // the only real Phase 8 integration; everything else is future work, not a fake success path).
+    if (paymentMethod === "COD") return "CASH_ON_DELIVERY";
+    // PAYME/CARD — offer-configurable labels with no adapter behind them yet (spec: never a fake
+    // success path for a provider that isn't actually integrated).
     throw new DomainException("PAYMENT_METHOD_NOT_SUPPORTED", "Ushbu to'lov usuli hozircha qo'llab-quvvatlanmaydi.", { paymentMethod });
   }
 
@@ -273,7 +388,29 @@ export class OrdersService {
     });
   }
 
-  private async upsertCustomer(tx: Prisma.TransactionClient, dto: CustomerInfoDto) {
+  // `buyerUserId` is set only when checkout was called with a valid logged-in buyer session (see
+  // PublicCheckoutController's @OptionalAuth() route) — undefined for a true guest checkout.
+  // Authenticated-first lookup, falling back to today's phone-match for guests: a Customer row is
+  // never duplicated for a logged-in buyer even if they type a different phone than the one
+  // already linked to their account, and a guest row matching this buyer's phone gets linked
+  // (not duplicated) the first time they happen to check out while logged in. See DECISIONS.md's
+  // Buyer Accounts ADR for the exact rule.
+  private async upsertCustomer(tx: Prisma.TransactionClient, dto: CustomerInfoDto, buyerUserId?: string) {
+    if (buyerUserId) {
+      const linked = await tx.customer.findFirst({ where: { userId: buyerUserId } });
+      if (linked) {
+        return tx.customer.update({ where: { id: linked.id }, data: { fullName: dto.fullName, email: dto.email ?? linked.email } });
+      }
+      const guestMatch = await tx.customer.findFirst({ where: { phone: dto.phone, userId: null }, orderBy: { createdAt: "desc" } });
+      if (guestMatch) {
+        return tx.customer.update({
+          where: { id: guestMatch.id },
+          data: { fullName: dto.fullName, email: dto.email ?? guestMatch.email, userId: buyerUserId },
+        });
+      }
+      return tx.customer.create({ data: { fullName: dto.fullName, phone: dto.phone, email: dto.email, userId: buyerUserId } });
+    }
+
     const existing = await tx.customer.findFirst({ where: { phone: dto.phone }, orderBy: { createdAt: "desc" } });
     if (existing) {
       return tx.customer.update({ where: { id: existing.id }, data: { fullName: dto.fullName, email: dto.email ?? existing.email } });
@@ -283,10 +420,10 @@ export class OrdersService {
 
   // ---- Checkout / creation (public) ----
 
-  async createOrder(offerSlug: string, dto: CreateCheckoutDto): Promise<PublicOrderResponse & { orderId: string; paymentProvider: "CLICK" | "MANUAL"; paymentId: string | null }> {
+  async createOrder(offerSlug: string, dto: CreateCheckoutDto, buyerUserId?: string): Promise<PublicOrderResponse & { orderId: string; paymentProvider: PaymentProviderType; paymentId: string | null }> {
     const existingByKey = await this.prisma.order.findUnique({ where: { idempotencyKey: dto.idempotencyKey }, include: ORDER_INCLUDE });
     if (existingByKey) {
-      return { ...this.toPublicResponse(existingByKey), orderId: existingByKey.id, paymentProvider: (existingByKey.payment?.provider as "CLICK" | "MANUAL") ?? "CLICK", paymentId: existingByKey.payment?.id ?? null };
+      return { ...this.toPublicResponse(existingByKey), orderId: existingByKey.id, paymentProvider: existingByKey.payment?.provider ?? "CLICK", paymentId: existingByKey.payment?.id ?? null };
     }
 
     const offer = await this.prisma.offer.findUnique({
@@ -322,7 +459,7 @@ export class OrdersService {
     const attribution = await this.resolveAttribution(offer.id, dto.refCode, dto.promoCode, dto.visitorId);
 
     const order = await this.prisma.$transaction(async (tx) => {
-      const customer = await this.upsertCustomer(tx, dto.customer);
+      const customer = await this.upsertCustomer(tx, dto.customer, buyerUserId);
 
       let address = null;
       if (dto.customer.region || dto.customer.address) {

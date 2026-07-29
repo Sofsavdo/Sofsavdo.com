@@ -25,12 +25,12 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_USER: rosti
-          POSTGRES_PASSWORD: rosti
-          POSTGRES_DB: rosti_ci
+          POSTGRES_USER: sofsavdo
+          POSTGRES_PASSWORD: sofsavdo
+          POSTGRES_DB: sofsavdo_ci
         ports: ["5432:5432"]
         options: >-
-          --health-cmd "pg_isready -U rosti"
+          --health-cmd "pg_isready -U sofsavdo"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
@@ -45,7 +45,7 @@ jobs:
     env:
       # Disposable CI-only values — never real secrets, never a real deploy target. Same shape as
       # apps/api/.env.test.example, just pointed at this job's own service containers.
-      DATABASE_URL: postgresql://rosti:rosti@localhost:5432/rosti_ci
+      DATABASE_URL: postgresql://sofsavdo:sofsavdo@localhost:5432/sofsavdo_ci
       REDIS_URL: redis://localhost:6379
       NODE_ENV: test
       JWT_ACCESS_SECRET: ci-access-secret-not-for-production
@@ -62,28 +62,28 @@ jobs:
         run: npm ci
 
       - name: Prisma generate
-        run: npm run prisma:generate --workspace=@rosti/api
+        run: npm run prisma:generate --workspace=@sofsavdo/api
 
       - name: Prisma validate
-        run: npm run prisma:validate --workspace=@rosti/api
+        run: npm run prisma:validate --workspace=@sofsavdo/api
 
       - name: Typecheck
-        run: npm run typecheck --workspace=@rosti/api
+        run: npm run typecheck --workspace=@sofsavdo/api
 
       - name: Lint
-        run: npm run lint --workspace=@rosti/api
+        run: npm run lint --workspace=@sofsavdo/api
 
       - name: Apply migrations to the CI database
-        run: npm run prisma:migrate:deploy --workspace=@rosti/api
+        run: npm run prisma:migrate:deploy --workspace=@sofsavdo/api
 
       - name: Unit tests
-        run: npm run test:unit --workspace=@rosti/api
+        run: npm run test:unit --workspace=@sofsavdo/api
 
       - name: E2E tests
-        run: npm run test:e2e --workspace=@rosti/api
+        run: npm run test:e2e --workspace=@sofsavdo/api
 
       - name: Build
-        run: npm run build --workspace=@rosti/api
+        run: npm run build --workspace=@sofsavdo/api
 
   web:
     name: Web — typecheck, lint, build
@@ -106,10 +106,10 @@ jobs:
         run: npm ci
 
       - name: Typecheck
-        run: npm run typecheck --workspace=@rosti/web
+        run: npm run typecheck --workspace=@sofsavdo/web
 
       - name: Lint
-        run: npm run lint --workspace=@rosti/web
+        run: npm run lint --workspace=@sofsavdo/web
 
       - name: Build
-        run: npm run build --workspace=@rosti/web
+        run: npm run build --workspace=@sofsavdo/web

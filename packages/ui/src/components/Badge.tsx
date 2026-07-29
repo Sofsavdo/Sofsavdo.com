@@ -8,7 +8,7 @@ export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
 }
 
 // Generic status pill. Domain code (e.g. an OrderStatus -> tone map) lives at the call site in
-// apps/web once the Prisma enums are mirrored into @rosti/types — this component only knows
+// apps/web once the Prisma enums are mirrored into @sofsavdo/types — this component only knows
 // about visual tones, never about a specific domain enum, so it stays reusable across
 // Order/Commission/Payout/Campaign/Content statuses alike.
 // A visible border alongside a light fill (not fill alone) so every tone reads as a distinct

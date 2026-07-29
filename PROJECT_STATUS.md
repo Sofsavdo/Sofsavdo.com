@@ -2442,3 +2442,912 @@ architectural reasoning behind every fix below.
   `prisma/bootstrap-admin.ts` — the production-safe path to seed the Role/Permission catalog and
   create exactly one real super_admin account, since `seed.ts`'s new production guard otherwise left
   no way to bootstrap a fresh production database at all.
+
+## Phase A — Production Hardening Follow-up (Sofsavdo pivot kickoff) — DONE (2026-07-29)
+
+Scoped tightly to the real, named gaps the Phase 14 audit left open (per the user's explicit
+"finish production blockers before starting new-vision work" instruction) — no new product
+features, no rebrand, no catalog/buyer-account work yet (those are later phases of the same plan).
+
+- **`/creator/sales` real backend.** Previously `apps/web/src/lib/api/index.ts`'s `getSales` was an
+  unconditional re-export of the Phase-1 mock (`apiGetSales`), with no `USE_REAL_API` branch at
+  all — the single clearest "still mock" marker in that whole file. New
+  `CreatorSalesController`/`CommissionsService.listMySales` (creator-scoped Commission→Order→
+  Customer/Offer/Attribution join), new `common/masking/pii-mask.util.ts` (name/phone masking,
+  mirrors the existing `maskCardNumber` convention), new `creator-real.ts`'s `getMySales()`
+  (maps the real, fine-grained `RealOrderStatus`-shaped response down to the page's existing
+  legacy `OrderStatus` categories — deliberate, since this is a glanceable summary view, not the
+  operational fidelity `/admin/orders` needs). Zero schema changes — every field already existed
+  via existing relations.
+- **Creator profile page.** The backend (`GET /creator/profile`) already existed and was already
+  being called for session bootstrap; only `apps/web/app/creator/(app)/profile/page.tsx` was
+  missing. Built as a read-only page reusing data already in the session object (no new fetch) —
+  personal info, content niches, social accounts, masked payout method, sourced from
+  `CreatorApplication.formData`, the same data the onboarding wizard itself collects.
+- **Per-account brute-force lockout.** `User` gained `failedLoginCount Int @default(0)`/
+  `lockedUntil DateTime?` (migration `20260730000000_auth_lockout`). `AuthService.login()` checks
+  `lockedUntil` before the argon2 verify (a locked account never pays that cost per retry),
+  increments the counter via a guarded `updateMany` on a wrong password (same race-safety pattern
+  as the Phase 14 financial fixes — an occasional lost race under true concurrent attempts just
+  means one increment is absorbed, an acceptable trade-off since this is a security signal, not a
+  ledger), and resets both fields to 0/null on success. Threshold/duration configurable via
+  `AUTH_MAX_FAILED_LOGIN_ATTEMPTS`/`AUTH_LOCKOUT_DURATION_MINUTES` (default 5/15).
+- **Cloud object storage adapter.** `S3Storage implements StoragePort` (`@aws-sdk/client-s3`,
+  newly added dependency) — one adapter covers real AWS S3, Cloudflare R2, and GCS's S3-compat
+  mode via `storage.s3.endpoint`/`forcePathStyle`. `StorageModule`'s DI binding changed from a
+  hardcoded `useClass: LocalDiskStorage` to an env-driven factory (`STORAGE_DRIVER=local|s3`).
+  `env-validation.ts` now refuses to start in production with `STORAGE_DRIVER=s3` and missing
+  bucket/credentials. Still defaults to `local` — pointing a real deployment at a real bucket is
+  an operator action, not something buildable from inside this sandbox.
+- **Tests**: 714/714 backend unit tests passing (53 suites; 23 new: `commissions.service.spec.ts`'s
+  `listMySales` tests, `pii-mask.util.spec.ts`, `auth.service.spec.ts`'s lockout tests,
+  `s3.storage.spec.ts`, `env-validation.spec.ts`'s S3-storage branch). Two new e2e suites run
+  against the real Railway-hosted test Postgres: `creator-sales.e2e-spec.ts` (3/3 passing —
+  masking, ownership isolation, unauthenticated rejection) and `auth.e2e-spec.ts`'s new lockout
+  describe block (2/2 passing, deliberately minimal in real `/auth/login` HTTP calls to stay
+  within the file's shared 10/min per-IP login-throttle budget — the threshold-crossing arithmetic
+  itself is exhaustively covered against a mocked Prisma client instead, in the unit suite).
+  Backend `tsc --noEmit` clean, `eslint` clean (0 warnings). Frontend `tsc --noEmit`/`eslint` clean
+  (8 pre-existing, unrelated warnings), `next build` succeeds.
+- **Browser-verified**: `/creator/sales` confirmed calling the real endpoint (Network tab), not
+  the mock fallback; `/creator/profile` renders real session data with no console errors, no
+  layout overflow at 375px; a wrong-password login attempt still shows the expected
+  `INVALID_CREDENTIALS` message and does not falsely lock the account after one failure; the API
+  process boots cleanly with the new `StorageModule` wiring and `/health/status` correctly reports
+  `disk.driver: "local"`.
+- **Not built, per this phase's own scope**: fraud-detection flags, manual attribution override,
+  data-retention policy — all remain the same documented, deliberate deferrals as Phase 14 left
+  them. Rebrand (Rosti → Sofsavdo) and the new Commerce Home/Catalog/Buyer-Account vision are
+  later phases of the same approved plan, deliberately not started here.
+
+## Phase B — Rebrand: Rosti → Sofsavdo — DONE (2026-07-29)
+
+Full mechanical rebrand across the whole repo, per the approved plan's Phase B scope: no vision
+or feature work leaked in here (the "no public catalog"/"closed system" claims in README.md and
+docs/PROHIBITED.md were deliberately left untouched — rewriting what the product *is* belongs to
+Phase C/E, not the naming pass).
+
+- **`packages/config/brand.ts`** updated (`BRAND.name: "Sofsavdo"`, new `BRAND.domain:
+  "sofsavdo.com"`, `supportEmail` updated) — this alone fixed every frontend site that already
+  consumed it (11 files), no further edits needed there.
+- **Cross-runtime brand constant, the one real gotcha this phase hit**: wiring the backend
+  (`main.ts`'s Swagger title, `notifications/templates/registry.ts`'s email copy,
+  `settings.catalog.ts`'s DB-backed platform-name default) to import `BRAND` from
+  `packages/config/brand.ts` directly compiled clean under `tsc --noEmit`, but crashed the actual
+  running dev server: `SyntaxError: Unexpected identifier 'as'` at that file's `} as const;` line.
+  Root cause: Next.js's bundler transpiles a workspace package's raw `.ts` source as part of its
+  own module graph, but NestJS's `nest start --watch` `require()`s it as a plain Node module
+  outside `src/`'s own ts-loader compile step, and Node's native TS-stripping can't parse `as
+  const`. Fixed by giving the backend its own small, explicitly-commented, NOT-a-re-export mirror
+  at `apps/api/src/config/brand.ts` rather than building out a real compile step for
+  `packages/config` just for a brand-name change. Caught by actually restarting the dev server and
+  watching it boot, not by trusting the typecheck — recorded as a lesson, not just a fix.
+- **Workspace scope rename**: `@rosti/*` → `@sofsavdo/*` across all 5 package.json `name` fields
+  and every import site (root `package.json`'s own `name` too: `rosti-platform` →
+  `sofsavdo-platform`). Ran as one atomic, mechanical pass, then `npm install` to regenerate
+  `package-lock.json` — confirmed this alone would have caught any missed reference (it didn't
+  need to; install succeeded on the first try).
+- **Everything else swapped**: dev password/seed emails/product brand in `prisma/seed.ts`,
+  `docker-compose.yml`'s Postgres credentials, `.env.example` defaults, the scrypt salt literal in
+  `encryption.util.ts` (`"rosti-payout-methods"` → `"sofsavdo-payout-methods"` — safe pre-launch,
+  no encrypted production data exists yet to lose), analytics CSV export filenames (both the admin
+  executive-dashboard and the backend `analytics-export.service.ts` copies), the Redis e2e smoke
+  test's key/value literals, `.github/workflows/ci.yml`'s disposable CI-only Postgres credentials,
+  both Dockerfiles' unprivileged container user/group name, `.claude/launch.json`'s server-config
+  names, the admin dev-login-shortcut emails and mock-store `localStorage` key on the frontend,
+  and one stray `#RostiCreator` hashtag in seeded mock content. ~90 `@rosti.uz`/`rosti.uz` email
+  and URL literals across ~19 e2e specs and ~6 unit specs in `apps/api` were bulk-replaced to
+  `@sofsavdo.com`/`sofsavdo.com`.
+- **Root markdown docs**: mechanically updated (title, product name, example domain/URLs, support
+  email) in README.md, ARCHITECTURE.md, API.md, ANALYTICS.md, docs/PROHIBITED.md, LEGAL.md,
+  BACKUP_RESTORE.md, ENVIRONMENT.md, DEPLOYMENT.md, RUNBOOK.md, SECURITY.md,
+  PRODUCTION_READINESS.md — done last, after all code changes landed. `DECISIONS.md` and this
+  file's own earlier phase entries deliberately keep the old name where they're a historical
+  record of what was actually built/tested at the time (same convention as an ADR log) — only this
+  entry and everything going forward uses Sofsavdo.
+- **Verification**: repo-wide case-insensitive grep for "rosti" returns zero hits outside
+  `DECISIONS.md` and this file's own pre-Phase-B history. Fresh `npm install` succeeded first try.
+  Backend `tsc --noEmit`/`eslint` clean; frontend `tsc --noEmit`/`eslint` clean (same 8
+  pre-existing warnings as Phase A, unrelated to this rebrand). Full backend unit suite: 714/714
+  passing, 53 suites. Both apps' production builds (`nest build`, `next build`) succeed, including
+  the new Phase A routes (`/creator/sales`, `/creator/profile`). **Browser-verified**: both dev
+  servers restarted clean after the scope rename (an orphaned pre-rename Turbopack worker process
+  briefly caused a stale `Can't resolve '@sofsavdo/config/tokens.css'` error until fully killed and
+  restarted — a process-hygiene issue, not a code defect); homepage renders "Sofsavdo" with correct
+  computed styles (brand red `rgb(229, 57, 53)` confirmed via computed style, not just visual
+  inspection); Swagger UI at `/docs` reads "Sofsavdo API"; API boots and connects to real Postgres
+  with all routes mapped, including Phase A's new endpoints.
+- **Not done here, by design**: no vision/feature changes (Commerce Home, Catalog, Buyer Accounts,
+  payment-provider registry) — those are Phases C through G of the same approved plan, not started
+  yet.
+
+## Phase C — Premium Commerce Home — DONE (2026-07-29)
+
+Scoped exactly to the approved plan's Phase C: a curated public homepage plus the minimal backend
+needed to feed it. No Buyer Accounts, no `/catalog`, no payment-provider work — those stay Phase
+D/E/F, not started here.
+
+- **Backend**: `Offer.isFeatured Boolean @default(false)` (migration `20260731000000_offer_featured`,
+  new `@@index([isFeatured, status])`), settable via `CreateOfferDto`/`UpdateOfferDto` and toggled
+  via two new dedicated endpoints, `POST /admin/offers/:id/feature|unfeature` (reuses the existing
+  `offer.write` permission — same precedent as `isIndexable`). New `OffersService.listFeaturedPublic()`
+  + `PublicOffersController`'s `GET /offers/featured` (`@Public()`) — server-capped at a fixed
+  `FEATURED_OFFERS_LIMIT = 8`, never a client-suppliable page size, filtered to `isFeatured && status
+  === "ACTIVE"` plus the same startsAt/expiresAt bounds `computeAvailability` already uses. Returns
+  a narrow, public-safe projection (id/slug/name/headline/price/currency/first product image) — no
+  internalDescription, no createdBy/updatedBy, no variants. `PublicLandingController`'s stale "no
+  list endpoint exists here or anywhere else" comment corrected to name this one deliberate
+  exception. See DECISIONS.md ADR-022 for the full reasoning, including why `isFeatured` is
+  deliberately independent of the `activate`/`pause`/`archive` status transition matrix.
+- **Frontend**: `apps/web/app/page.tsx` rewritten as a genuine Server Component (previously a
+  client-rendered "minimal corporate root page" — brand name + two creator CTAs, nothing else).
+  New `apps/web/src/components/home/` — `Hero`, `WhySofsavdo`, `FeaturedProducts` (server-fetched,
+  zero client `useQuery`), `CreatorProgramBlurb` (carries forward the old homepage's exact
+  creator-recruitment pitch/CTAs as a secondary section), `BenefitsGrid`, `FAQ` (native
+  `<details>`/`<summary>`, zero client JS), `SupportSection`, `Footer`. `export const revalidate =
+  60` — safe since this page reads no cookie/per-visitor state, unlike `/o/[offerSlug]`'s
+  `force-dynamic`. Fixed a genuinely dead link found while rewriting this page: the old homepage
+  linked to `/support`, which has never existed as a route (only `/legal/terms`,
+  `/legal/privacy`, `/legal/refund-policy` do) — the new `SupportSection` surfaces the real
+  `BRAND.supportEmail` contact directly instead.
+- **Found, not fixed here (flagged as a separate task)**: `max-w-page`, used throughout
+  `apps/web` (checkout, offer-landing sections, the old homepage), resolves to nothing under
+  Tailwind v4 — no `--width-page`/`--container-page` theme variable was ever registered, so every
+  page using it has silently had no real max-width cap. The new homepage uses real Tailwind v4
+  scale classes (`max-w-7xl`/`max-w-3xl`) instead of perpetuating it; fixing the pre-existing
+  occurrences repo-wide is out of this phase's scope and tracked as its own follow-up.
+- **Tests**: 7 new backend unit tests (`offers.service.spec.ts`'s `listFeaturedPublic`/
+  `feature`/`unfeature` blocks) — 721/721 backend unit tests passing, 53 suites. New e2e tests
+  added to `offers.e2e-spec.ts` (feature/unfeature toggle, `GET /offers/featured` requires no auth,
+  never returns DRAFT/PAUSED/ARCHIVED even when featured, returns the public-safe projection only,
+  and — the plan's own explicit ask — seeds 50 featured live offers and confirms the response still
+  caps at 8) but **could not be run against real Postgres**: the same Railway-hosted test-DB outage
+  documented in Phase A's entry (`Connection terminated due to connection timeout`) was still live
+  throughout this phase, confirmed by retrying `prisma migrate deploy` multiple times across the
+  session. `tsc --noEmit -p tsconfig.test.json` and `eslint` both pass clean on the new e2e file, so
+  the tests are known-correct-by-typecheck but not yet execution-verified against a real DB — flagged
+  honestly rather than claimed as passing.
+- Backend `tsc --noEmit`/`eslint` clean; `prisma generate` re-run after the schema change (caught
+  and fixed 5 compile errors from a stale Prisma client — a real, expected step, not a bug).
+  Frontend `tsc --noEmit`/`eslint` clean (same 8 pre-existing, unrelated warnings); `next build`
+  succeeds, `/` now shows a 60s ISR revalidate window in the build's route table instead of static.
+- **Browser-verified**: homepage renders all 8 sections with correct copy and computed brand-red
+  styling (`rgb(229, 57, 53)`, confirmed via computed style, not just visual inspection); server
+  logs confirm `GET /offers/featured` is genuinely reached and genuinely hits Postgres (not
+  short-circuited or mocked) — it 500s only because of the same real DB outage above, and the
+  homepage's `.catch(() => [])` correctly rendered the graceful "no featured products yet" empty
+  state rather than crashing, which is real evidence the error-handling path works even though the
+  success path (an actual seeded featured offer rendering as a card) couldn't be exercised live
+  this session. Re-verify the success path and re-run the new e2e suite once the test DB is
+  reachable again — noted here rather than silently assumed passing.
+- **Not built here, by design**: `/catalog`, Buyer Accounts, payment-provider registry, performance
+  pass — Phases D through G of the same approved plan.
+
+## Architecture Review — Long-Term Product Strategy — DONE (2026-07-29)
+
+The user asked for a chief-architect-level review of six proposed initiatives before any
+implementation, explicitly inviting pushback rather than literal execution. Full analysis and
+decisions recorded in `DECISIONS.md` ADR-023 (Seller) and the architecture-review plan; summary
+here for the phase log:
+
+- **Product/Campaign/Landing**: kept as three separate entities (schema unchanged) — research
+  confirmed `Offer 1─* Campaign` is a real, used multiplicity (multiple recruitment drives per
+  Offer with independent commission terms), so auto-merging would break the moment a second
+  Campaign is wanted. Fixed the actual complaint (too many manual clicks) with a guided wizard
+  instead — see below.
+- **Public homepage CMS, AI Product Creation Engine, Creator Motivation System, Creator Fund**:
+  architecture-level recommendations only, not built this phase (six initiatives, one detailed and
+  built per delegated sequencing). Key calls: homepage CMS gets a new `HomepageSection` model
+  (not a reuse of `LandingSection`, which is 1:1-scoped to a single Offer) with `startsAt`/
+  `expiresAt` for seasonal scheduling; "trending" stays an editorial flag, not a computed
+  algorithm; categories are explicitly Phase E's concern, not this CMS's. AI engine confirmed
+  text-first (image generation deferred to its own evaluation spike), built as a `ProductAiPort`
+  mirroring the existing `PaymentPort`/`StoragePort` provider-agnostic pattern. Creator leaderboard
+  confirmed as short-interval polling (~20-30s, Redis-cached), not WebSocket/SSE — this codebase
+  has zero push infrastructure today. Research surfaced a real prerequisite gap: the creator
+  dashboard's "today/month/lifetime" stats are 100% frontend-mocked (`mocks/store.ts`'s
+  `apiGetDashboardStats`, never gated behind `USE_REAL_API`) — no real backend endpoint exists yet;
+  this must be built for real before any leaderboard can rank real numbers.
+- **Seller architecture**: confirmed "ADR now, build later" over building hidden schema/guards
+  today — no seller relationship exists yet to validate requirements against, and speculative
+  architecture for an unvalidated business relationship risks encoding wrong guesses. `DECISIONS.md`
+  ADR-023 documents the exact extension points (`Product.sellerId`, a `RequireSellerGuard`
+  mirroring `RequireCreatorGuard`, seller-scoped payout/commission-cut as the one genuinely
+  unresolved question) so the eventual addition is fast, not a fresh research project.
+- **Built this phase (chosen as the first of six, smallest/lowest-risk, delegated sequencing)**:
+  **Admin Product Launch Wizard** — `apps/web/app/admin/(app)/products/launch/page.tsx` +
+  `ProductLaunchWizard.tsx`, chaining the existing Product → Offer → Landing → optional Campaign
+  create flows with context carried forward automatically (no new backend endpoints, no schema
+  changes — 100% frontend orchestration of already-working APIs). The Landing step auto-scaffolds
+  5 default sections (HERO/BENEFITS/PRICING/FAQ/FINAL_CTA) via the existing `addSection` endpoint
+  in a loop, so there's an editable skeleton instead of a blank page — admin still uses the
+  existing, unmodified `SectionEditor` for all further editing. Campaign step is explicitly
+  optional ("skip — add later"), preserving the real 1-Offer-to-many-Campaigns relationship.
+  `ProductForm`/`OfferForm`/`CampaignForm` each gained one optional `onCreated` callback prop
+  (falls back to the existing `router.push` navigation when omitted) — the only changes to
+  existing, working files, and the standalone `/admin/{products,offers,campaigns}/new` pages are
+  completely unaffected.
+- **Verification**: frontend `tsc --noEmit`/`eslint` clean (same 8 pre-existing warnings);
+  `next build` succeeds with the new `/admin/products/launch` route registered. Browser-verified:
+  the route compiles and renders (200), and correctly redirects to `/admin/login` via the existing
+  `AdminGuard` when unauthenticated — proving no render-time crash in the new code. **Could not
+  complete a full authenticated multi-step walkthrough**: the Railway-hosted test Postgres was
+  confirmed down during this session (`/health/status`: `"database":{"status":"down","message":
+  "Connection terminated due to connection timeout"}`), the same recurring environmental limitation
+  documented in Phases A/B/C — login itself 500s without a reachable database, unrelated to this
+  phase's code. Flagged honestly rather than claimed as passing; re-verify the full wizard
+  walkthrough (real Product → Offer → Landing with 5 scaffolded sections → skip Campaign → confirm
+  each entity's standalone admin page still works normally) once the test DB is reachable again.
+- **Not built this phase, by design**: AI Product Creation Engine, Homepage CMS, Creator
+  Motivation System (leaderboard/competitions/ticker), Creator Fund — architecture-level direction
+  only; full implementation plans for each when their turn in the sequence arrives.
+
+## Phase D — Buyer Accounts — DONE (2026-07-29)
+
+Full buyer registration/login, order history, saved products, and addresses — the largest phase
+since the Sofsavdo pivot began. Scoped exactly to the original approved plan, with two deliberate,
+disclosed deviations discovered while implementing (see DECISIONS.md ADR-024 for full reasoning).
+
+- **Schema**: `Customer.userId String? @unique` (nullable FK to `User`, `onDelete: SetNull` — order
+  history must survive account deletion), new `SavedProduct` (`@@unique([userId, offerId])`) and
+  `BuyerAddress` models, both keyed directly on `User.id` (no separate `BuyerProfile` — see below).
+  Migration `20260801000000_buyer_accounts`.
+- **Auth**: new `POST /auth/register-buyer` (separate endpoint, not a shared `role` field on
+  `/auth/register` — that endpoint unconditionally creates a `CreatorProfile` + DRAFT
+  `CreatorApplication`, which a buyer must never get). Login/refresh/logout/me are unchanged and
+  already fully principal-agnostic, confirmed by reading `AuthService` directly rather than
+  assumed. New `@OptionalAuth()` decorator + one new `JwtAuthGuard.handleRequest` branch — the
+  standard NestJS/Passport optional-auth pattern — so `POST /offers/:slug/checkout` recognizes a
+  logged-in buyer's session without ever rejecting a token-less guest checkout.
+- **Customer/Buyer reconciliation** (the one decision with real data-model consequences, made
+  explicitly): two merge-not-duplicate write paths — `AuthService.registerBuyer` links a guest
+  `Customer` row by phone at registration time; `OrdersService.upsertCustomer` (given an
+  authenticated buyer's `userId`) looks up by `userId` first, then falls back to a phone-match-
+  and-link, before ever creating a new row. A `Customer` is never duplicated once linked.
+- **Deviation #1 (disclosed, not silent): no `RequireBuyerGuard` was built**, despite the original
+  plan naming one. Investigating why `RequireCreatorGuard` exists (a real approval-gate check)
+  showed a buyer equivalent would only ever re-verify what the global `JwtAuthGuard` already
+  guarantees — building it would be exactly the unnecessary-abstraction pattern this project's own
+  conventions warn against. Buyer routes use the default guard plus row-level `WHERE userId =
+  req.user.userId` scoping in each service instead — the same ownership guarantee, done where
+  there's actually data to check against.
+- **Deviation #2 (disclosed): no separate `BuyerProfile` model** — `SavedProduct`/`BuyerAddress`
+  reference `User.id` directly, since every authenticated user can act as a buyer with no approval
+  gate (unlike Creator). Revisit only if a genuine buyer-specific field ever needs a home that
+  isn't `User`.
+- **Backend modules**: `BuyerOrdersController` (`GET /buyer/orders`, `GET /buyer/orders/:id` —
+  same 404-for-both-"doesn't exist"-and-"not yours" convention as `CreatorSalesController`),
+  `SavedProductsController` (idempotent save/unsave — a heart-icon toggle should never error on
+  a repeat click), `BuyerAddressesController` (CRUD + set-default, directly modeled on
+  `PayoutMethodsService`'s proven default-rotation pattern). `BuyerOrderSummary` includes a
+  lightweight `payment` field at zero extra query cost (already fetched by `ORDER_INCLUDE`) so the
+  Purchases/Payment-History pages work off the list response alone, with no N+1 detail fetch.
+- **Frontend**: `apps/web/app/buyer/(auth)/{login,register}` + `apps/web/app/buyer/(app)/*` — 10
+  pages (dashboard, orders + detail, purchases, payments, saved, addresses, profile, notifications,
+  support), `BuyerAppGuard`/`BuyerShell`/`BUYER_NAV_ITEMS` mirroring the Creator app's own proven
+  shell pattern, `BuyerSessionProvider` (own TanStack Query cache key, own `/auth/register-buyer`
+  call, otherwise the exact same session-as-query-cache pattern as Creator/Admin). Notifications
+  page reuses the *existing* `/creator/notifications*` endpoints directly with zero backend
+  changes — that domain was already ownership-scoped by `userId`, not creator-specific despite the
+  URL prefix (confirmed by reading `CreatorNotificationsController`'s own comment). "Promo Codes"
+  from the original nav list is a disclosed, not silently dropped, gap: no backend exists for
+  "which promo codes has this buyer used" (`PromoCode` tracks codes per-campaign, not per-buyer
+  usage), and this project's own convention is to never ship a page backed by fabricated data.
+- **Tests**: 31 new backend unit tests across 5 files (`auth.service.spec.ts`'s new
+  `registerBuyer` block, `orders.service.spec.ts`'s new reconciliation + buyer-order-read blocks,
+  new `jwt-auth.guard.spec.ts`, `saved-products.service.spec.ts`, `buyer-addresses.service.spec.ts`)
+  — 752/752 backend unit tests passing, 56 suites. New `test/buyer-accounts.e2e-spec.ts` (register/
+  login, the reconciliation scenario end-to-end via real HTTP, ownership-scoping 404s, saved-
+  products idempotency, address default-rotation) — `tsc --noEmit -p tsconfig.test.json` and
+  `eslint` both clean, but **could not be run against real Postgres**: the same Railway test-DB
+  outage from Phases A/B/C was confirmed still down at the end of this phase too (`P1001: Can't
+  reach database server`, checked multiple times across the session). Frontend `tsc --noEmit`/
+  `eslint` clean (same 8 pre-existing warnings); `next build` succeeds with all 12 new `/buyer/*`
+  routes registered.
+- **Browser-verified**: `/buyer/login` and `/buyer/register` render correctly with no console
+  errors; `/buyer/dashboard` (and by the same guard, every other `/buyer/(app)/*` page) correctly
+  redirects unauthenticated visitors to `/buyer/login` via `BuyerAppGuard` — confirmed via server
+  logs showing the real redirect, not just an assumption. **Could not verify the full authenticated
+  walkthrough** (register → empty dashboard → save a product → add an address → see a guest order
+  merge into Order history) live, for the same DB-outage reason above — flagged honestly per this
+  project's own "verify everything, don't claim what wasn't checked" standard. Re-run
+  `buyer-accounts.e2e-spec.ts` and the manual walkthrough once the test DB is reachable again.
+- **Not built here, by design**: `/catalog` (Phase E — buyers can currently only reach an
+  individual offer via `/o/[slug]`, never browse), the payment-provider registry (Phase F),
+  performance pass (Phase G).
+
+## Phase E — Product/Offer Catalog — DONE (2026-07-29)
+
+The last piece of the original "no public browsing" rule to be deliberately relaxed. Scoped
+exactly to the approved plan: real pagination, type/price filtering, no search, no categories.
+
+- **Backend**: `GET /offers/catalog` (`@Public()`, new `CatalogQueryDto` — no `search` field at
+  all, not just an unused one) on the existing `PublicOffersController`. Filters to
+  `status: "ACTIVE"` on non-archived products, live availability window (same startsAt/expiresAt
+  bounds as `computeAvailability`), optional product-type and price-range filters.
+  `CATALOG_MAX_PAGE_SIZE = 48` enforced twice — once as `PaginationQueryDto`'s inherited DTO-level
+  `@Max`, once again clamped in `OffersService.listCatalog` itself regardless of what the client
+  requests — the same defense-in-depth already established for the homepage's
+  `FEATURED_OFFERS_LIMIT`. Returns the same public-safe projection as Featured Offers plus
+  `productType`.
+- **Frontend**: `apps/web/app/catalog/page.tsx` — a genuine Server Component (no client JS at
+  all), filters via a plain server-rendered `GET` form, pagination via plain links carrying the
+  current filters forward. New `apps/web/src/components/catalog/ProductCard.tsx`, extracted from
+  the homepage's previously-private `FeaturedProductCard` and now shared by both `/` and
+  `/catalog` — one place renders this card shape, not two drifting copies. One new "Katalog" link
+  added to the homepage Footer — the only new entry point, confirmed via direct DOM inspection
+  (`href="/catalog"`), not linked from inside any offer landing page or homepage section.
+- **Docs**: `docs/PROHIBITED.md` rewritten — the old blanket "no catalog" line is narrowed to "no
+  category navigation" (no `Category` model exists, and adding one was explicitly out of this
+  phase's scope) and "no search" (unchanged, `CatalogQueryDto` has no search field). Also corrected
+  a genuinely stale line found during this pass: "a customer dashboard that lists multiple
+  purchasable things" was already superseded by Phase D's Saved Products feature and should have
+  been updated then — fixed now instead of left stale, recorded honestly in `DECISIONS.md`
+  ADR-025 rather than silently patched. `public-landing.controller.ts`'s and `app/page.tsx`'s own
+  comments updated to reflect `/catalog` actually existing now, not "once it exists."
+- **Tests**: 6 new backend unit tests (`offers.service.spec.ts`'s `listCatalog` block — cap
+  enforcement, status/type/price filtering, no-search-field assertion, projection shape) —
+  758/758 backend unit tests passing, 56 suites. New e2e tests appended to `offers.e2e-spec.ts`
+  (unauthenticated access, never returns non-live offers, type filter, price filter, the plan's
+  own explicit ask — seeds 60 offers and confirms the response still caps at 48 — and an unknown
+  `search` query param is rejected by the whitelist validation pipe) — `tsc --noEmit -p
+  tsconfig.test.json` and `eslint` both clean, but **could not be run against real Postgres**: the
+  same Railway test-DB outage from every prior phase this session was confirmed still down at the
+  end of this phase too. Frontend `tsc --noEmit`/`eslint` clean (same 8 pre-existing warnings);
+  `next build` succeeds with `/catalog` registered.
+- **Browser-verified**: `/catalog` renders correctly (title, filter form, empty-state message)
+  even with the backend's real DB unreachable — proof the page's `.catch()` fallback degrades
+  gracefully rather than crashing; the homepage's "Katalog" footer link is present and points to
+  `/catalog`, confirmed via direct DOM inspection. **Could not verify the full filtered/paginated
+  browsing experience with real seeded offers** live, for the same DB-outage reason — flagged
+  honestly. Re-run `offers.e2e-spec.ts`'s new catalog block and a manual filter/pagination
+  walkthrough once the test DB is reachable again.
+- **Not built here, by design**: any `Category` model or category-based browsing (tracked as a
+  future decision, not built speculatively) — the payment-provider registry (Phase F) and
+  performance pass (Phase G) are next.
+
+## Phase F — Payment Provider Registry + Checkout UX — DONE (2026-07-29)
+
+Replaces the single hardcoded `PAYMENT_PORT` binding with a real registry, proven by a second
+genuinely working payment provider (Cash on Delivery) rather than a refactor with nothing new to
+show for it. Also wires a logged-in buyer's saved address into checkout for a faster repeat
+purchase.
+
+- **`PAYMENT_PORT_REGISTRY`** (`Map<PaymentProviderType, PaymentPort>`) replaces `PAYMENT_PORT`.
+  `PaymentsService.initiatePayment` looks the provider up in the map instead of an `if (provider
+  === "CLICK")` branch; `MANUAL` correctly has no registered adapter and skips the redirect step,
+  unchanged from before. `ClickCallbackController` keeps a direct `ClickPaymentAdapter` dependency
+  (not the registry) since that controller is permanently Click-specific — documented as
+  intentional, not an oversight, in `DECISIONS.md` ADR-026.
+- **Cash on Delivery** (`CodPaymentAdapter`) is the new adapter proving the registry: no external
+  gateway, no callback, no signature — `createPayment` redirects straight to order-success (same
+  shape as `MANUAL`), `verifyCallback`/`buildCallbackReply` throw since nothing ever calls them.
+  `OrdersService.resolvePaymentProvider` now maps the checkout form's `"COD"` value (which the
+  frontend's `PaymentMethodSelector` catalog already listed and labeled *before* this phase — it
+  was silently rejected with `PAYMENT_METHOD_NOT_SUPPORTED` the moment a buyer picked it) to
+  `CASH_ON_DELIVERY`. An admin marks a COD order `PAID` after the courier collects cash, through
+  the existing admin order-status transition endpoint — same pattern already used for `MANUAL`.
+- **Checkout UX**: a logged-in buyer's default `BuyerAddress` (Phase D) now pre-fills the checkout
+  form's name/phone/region/city/address — pure convenience, every field stays editable. No new
+  backend needed: reuses the exact `GET /buyer/addresses` Phase D already built. Account-linking
+  itself needed no frontend wiring at all — the checkout POST already carries whatever Bearer
+  token is in memory (Admin/Creator/Buyer already shared one token slot before Buyer existed), and
+  Phase D's `@OptionalAuth()` route plus `OrdersService.upsertCustomer` do the actual linking
+  server-side. **"Past promo-code use" from the original ask was not wired in** — disclosed, not
+  silently dropped: no backend tracks "which promo codes has this specific buyer used"
+  (`PromoCode`/`PromoCodeUsage` are keyed by campaign/order, not buyer identity), and this
+  project's convention is to never wire a UI affordance to data that doesn't exist yet.
+- **Tests**: 5 new backend unit tests (`payments.service.spec.ts`'s new CASH_ON_DELIVERY-through-
+  the-registry test, new `cod-payment.adapter.spec.ts`, `orders.service.spec.ts`'s new COD-
+  resolution test) — 764/764 backend unit tests passing, 57 suites. New e2e tests appended to
+  `checkout.e2e-spec.ts`: a full COD lifecycle (checkout → real `Payment.provider ===
+  "CASH_ON_DELIVERY"` row → admin marks PAID), COD rejected when an offer doesn't list it as a
+  supported option, and — the integration proof the plan itself asked for — a real end-to-end
+  logged-in-buyer checkout confirming the order appears in `GET /buyer/orders` with no separate
+  claim step, plus a guest-checkout-still-works-unchanged confirmation. `tsc --noEmit -p
+  tsconfig.test.json` and `eslint` both clean, but **could not be run against real Postgres**: the
+  same Railway test-DB outage from every prior phase this session was confirmed still down at the
+  end of this phase too. Frontend `tsc --noEmit`/`eslint` clean (same 8 pre-existing warnings);
+  `next build` succeeds.
+- **Verified for real, not just typechecked**: restarted the actual running dev server and
+  confirmed `PaymentsModule dependencies initialized` with zero DI errors, every new route mapped
+  correctly (`/buyer/orders`, `/buyer/saved-products`, `/buyer/addresses`, `/auth/register-buyer`,
+  `/offers/catalog`), "Connected to PostgreSQL" at boot, "Nest application successfully started" —
+  proof the entire registry refactor's dependency wiring is sound in a real running process, not
+  just passing `tsc`. A subsequent request still 500s with the same documented Postgres-timeout
+  error as every prior phase — an external outage, not a wiring problem, confirmed by the clean
+  boot sequence immediately preceding it. **Could not verify a real end-to-end COD purchase or the
+  checkout pre-fill live** for the same DB-outage reason — flagged honestly. Re-run
+  `checkout.e2e-spec.ts`'s new blocks and a manual COD + pre-fill walkthrough once the test DB is
+  reachable again.
+- **Not built here, by design**: Payme/Uzum Nasiya adapters (no real business need yet — the
+  registry is what makes adding them a small, well-understood change whenever that need arrives);
+  the performance pass (Phase G) is next and last of the originally-approved phases.
+
+## Phase G — Performance Pass — DONE (2026-07-29)
+
+The last of the four originally-approved phases (D→E→F→G). An audit, not a rewrite: most checks
+confirmed the codebase's existing conventions already hold at the new Phase D/E/F surfaces; one
+real over-fetching bug was found and fixed.
+
+- **Server/Client Component boundary audit**: confirmed zero `"use client"` directives anywhere in
+  the Home (`/`) or Catalog (`/catalog`) component trees via `grep`. `/o/[offerSlug]`'s
+  `OfferLandingPageClient.tsx` remains a Client Component for a genuine, pre-existing, documented
+  reason (`useSearchParams()` for `?ref=` + real/mock API dispatch) — judged correctly
+  out-of-scope to "fix," not missed.
+- **Bundle-leakage check**: the shared `@sofsavdo/ui` barrel export does export a Recharts-based
+  `ChartCard` (used by Admin/Creator dashboards) — verified this never reaches a public bundle by
+  directly inspecting the compiled output, not by assumption: `grep -c "recharts"` on
+  `.next/server/app/catalog/page.js` and `.next/server/app/page.js` both returned `0`.
+- **N+1 audit, `GET /offers/catalog`**: single query with nested `include`, no per-row fan-out — no
+  changes needed.
+- **N+1 audit, `GET /buyer/orders` — real bug found and fixed**: `OrdersService.listForBuyer` was
+  reusing the full 10-relation `ORDER_INCLUDE` (items, statusHistory, attribution, commission,
+  refunds, campaign, customer, address, shipment, payment) for a list view that only ever renders 8
+  scalar/shallow fields. Rewritten to a narrow Prisma `select` (id, publicToken, status, totalMinor,
+  currency, createdAt, offer name, payment provider/status only) — not an N+1 in the classic sense,
+  but avoidable per-row data-transfer/deserialization cost at scale. New unit test asserts
+  `args.include` is undefined and every unused relation key is absent from `args.select`.
+- **`Cache-Control` headers**: added to both `PublicOffersController` routes (`/offers/featured`,
+  `/offers/catalog`) — `"public, max-age=30, stale-while-revalidate=120"`, the first such header
+  anywhere in this codebase (confirmed via `grep` before adding). Appropriate since neither route
+  reads a cookie or varies by caller; the short TTL bounds staleness after an admin's
+  isFeatured/activate/price change without needing any cache-invalidation logic, and
+  `stale-while-revalidate` means a cache hit never blocks on a slow origin fetch. No CDN/reverse-
+  proxy sits in front of the API yet — this is honest advance preparation for one, and also
+  benefits any client (browser, future mobile app) that respects it directly.
+- **Load-test script extended**: `apps/api/scripts/load-test.ts` gained a catalog-browse check (no
+  seeded slug required, always runs) and a `LOADTEST_BUYER_TOKEN`-gated buyer-order-list check
+  (measuring the `listForBuyer` rewrite above). Run locally against the live dev server: the
+  DB-independent baseline (`GET /health/live`) measured 1850 req/s avg, 2.2ms avg latency, 0
+  errors — a clean ceiling. The new catalog check itself could not get a real measurement: the same
+  Railway test-DB outage documented in every prior phase this session was confirmed still active
+  (server logs showed `Error: Connection terminated due to connection timeout` on every request),
+  so autocannon recorded 0 completed requests in the 5s window rather than a false zero-error
+  result. This is the load-test script correctly proving the endpoint is wired and reachable, not a
+  bug in this phase's code — re-run once the test DB is reachable again for a real DB-backed
+  number.
+- **Tests**: 765/765 backend unit tests passing, 57 suites (the one new `listForBuyer` lean-select
+  test above). `tsc --noEmit` and `eslint` both clean on `apps/api` (including the two edited
+  files, `public-offers.controller.ts` and `scripts/load-test.ts`).
+- **Not built here**: no new caching layer beyond the two `Cache-Control` headers (no Redis-backed
+  response cache — not justified at current scale, matching `ANALYTICS.md`'s own
+  "Tier 1 first, add Tier 2 only when proven necessary" precedent); no CDN/reverse-proxy (nothing
+  to configure it in front of yet).
+
+All four originally-approved phases (D, E, F, G) are now complete. Per the standing mandate to
+finish this plan before moving on, work continued into the newer architecture-review initiatives —
+Homepage CMS first, per the sequencing communicated earlier in this session.
+
+## Phase H — Homepage CMS — DONE (2026-07-29)
+
+Makes the Premium Commerce Home (Phase C) admin-configurable, cloning the proven `LandingSection`
+CMS pattern (see DECISIONS.md ADR-027 for full reasoning on every deviation from that pattern).
+
+- **Schema**: new flat `HomepageSection` model (`HomepageSectionType` enum: HERO, WHY_SOFSAVDO,
+  FEATURED_PRODUCTS, BANNER, CREATOR_PROGRAM_BLURB, BENEFITS, FAQ, SUPPORT, CUSTOM_RICH_TEXT,
+  CATEGORY_GRID) — no parent entity, no draft/published/archived workflow (the homepage is always
+  live; each section's own `isActive` is the only visibility switch). `startsAt`/`expiresAt` reuse
+  the same stored-flag-plus-computed-availability split `Offer.computeAvailability` established.
+  Migration `20260802000000_homepage_cms` ships with zero seed rows by design — see below.
+- **Backend**: `apps/api/src/homepage/` — `HomepageSectionsService` (list/add/update/reorder/remove
+  + `computeAvailability`, same sortOrder-management logic as `LandingsService`), admin controller
+  at `/admin/homepage-sections` (flat, no offerId nesting), public `GET /homepage` (`@Public()`,
+  same `Cache-Control` header Phase G introduced for `/offers/featured`+`/offers/catalog`) returning
+  only LIVE sections (active AND within any date window), buyer-safe shape only (no `id`/
+  `isActive`/dates). New `homepage.read`/`homepage.write` permission keys (MANAGER read, ADMIN
+  write, no publish/archive verbs — RBAC.md updated). `FEATURED_PRODUCTS`'s own `content` is never
+  read — its presence/isActive only tells the homepage whether to render the pre-existing
+  `listFeaturedPublic()` slot, keeping "curated/trending" a single source of truth in
+  `Offer.isFeatured` rather than a duplicate concept.
+- **No pre-seeded default rows, by design**: seeding real content via raw SQL inside a schema
+  migration was judged too risky for what this table doesn't strictly need. Instead,
+  `apps/web/app/page.tsx` renders its exact original Phase C fixed component tree whenever
+  `GET /homepage` returns zero rows — a fresh/unconfigured environment and an unreachable backend
+  hit the same code path (same defensive `.catch(() => [])` convention as `/catalog`), so the
+  homepage is never visually empty and shipping this feature required no production data
+  migration risk at all.
+- **Existing home components made CMS-capable, not replaced**: `Hero.tsx`, `WhySofsavdo.tsx`,
+  `CreatorProgramBlurb.tsx`, `BenefitsGrid.tsx`, `FAQ.tsx`, `SupportSection.tsx` each gained an
+  optional `content` prop with their current hardcoded copy as the fallback default — an
+  individual section that exists in the CMS but has an empty/missing field still renders
+  sensibly. Two new components with no default copy at all (`Banner.tsx`, `CustomRichText.tsx`)
+  render nothing when empty, matching `docs/PROHIBITED.md`'s ban on fabricated placeholder
+  content. New `HomepageSectionRenderer.tsx` dispatches by `type`, mirroring the offer landing
+  page's own `LandingSectionRenderer` for the same reason (one renderer, not scattered
+  conditionals). Zero `"use client"` added anywhere — the homepage stays a pure Server Component.
+- **Admin UI**: `apps/web/app/admin/(app)/homepage/page.tsx`, cloned from the Landing builder page
+  but flat and with no publish/archive/preview-iframe workflow (the homepage IS the preview — the
+  page's own "Ochiq sahifa" link just points at `/`). `HomepageSectionEditor.tsx` is a per-type
+  switch rather than the Landing domain's generic single-field `shape` system — Homepage section
+  types have several distinct named fields each (e.g. Hero's title/subtitle/ctaLabel/ctaHref),
+  which a generic shape would have forced awkwardly into one field. Two datetime-local inputs
+  (startsAt/expiresAt) sit above the per-type editor for any section, enabling real scheduled
+  banners. New nav entry under the existing "Katalog" admin nav group.
+- **Trending/categories deliberately NOT built, exactly as the architecture review recommended**:
+  no sales-velocity rollup, no generalized `homepageTag` enum — `Offer.isFeatured` already works,
+  is tested, and stays the single mechanism for "curated." `CATEGORY_GRID` ships as an enum value
+  now (future-complete type list) but stays inert until Phase E's own `Category` model exists; the
+  admin editor tells an admin this explicitly rather than silently accepting unusable content.
+- **Tests**: 14 new backend unit tests (`homepage-sections.service.spec.ts` — computeAvailability's
+  four branches, add/update/remove/reorder sortOrder management, listPublic's LIVE-only filter and
+  admin-field-dropping) — 779/779 backend unit tests passing, 58 suites. New
+  `test/homepage.e2e-spec.ts` — and this phase got something no prior Sofsavdo-pivot phase this
+  session did: **the Railway test database briefly became reachable**, and this suite passed in
+  full against real Postgres (5/5) on an isolated run, confirmed twice. `prisma migrate deploy`
+  also applied all pending migrations (including this phase's) cleanly against that database. The
+  one real issue that live run surfaced was a fixture gap, not a code bug: the new
+  `homepage.read`/`homepage.write` keys weren't yet `Permission` rows in that database, since
+  `seedRolesAndPermissions` — the idempotent sync between `permissions.constants.ts` and the
+  `Permission` table — hadn't been re-run there since this phase added them; running it once
+  (no application code change) fixed it. A subsequent attempt to also confirm the still-unverified
+  Phase D/E/F suites live (a 22-suite full regression, then `buyer-accounts.e2e-spec.ts` in
+  isolation) hit the same Railway connection dropping again partway through — confirming the
+  outage documented since Phase A is intermittent, not resolved. Phase D/E/F's own e2e suites
+  remain unverified live as a result; only Phase H's suite got a real, repeated, passing
+  confirmation before the connection dropped again. Frontend `tsc --noEmit`/`eslint` clean (same
+  8 pre-existing warnings, zero new ones); `next build` succeeds with `/admin/homepage` registered.
+- **Browser-verified**: the homepage renders identically to Phase C's fixed output when
+  `GET /homepage` returns zero rows (confirmed via direct page-text comparison — every section's
+  exact copy present, in the original order); `/admin/homepage` correctly redirects an
+  unauthenticated visitor to `/admin/login` via the existing `AdminGuard`, proving no render-time
+  crash in the new admin page.
+- **Not built here, by design**: AI Product Creation Engine, Creator Motivation System + Fund —
+  next in the sequence per this session's own stated ordering; production-readiness handoff work
+  after that.
+
+## Phase I — AI Product Creation Engine (text-only v1) — DONE (2026-07-29)
+
+Text-only AI-assisted product copywriting, built as a swappable port the same way `PaymentPort`/
+`StoragePort` already are, always a review-before-save draft (see DECISIONS.md ADR-028).
+
+- **Backend**: `apps/api/src/product-ai/` — `ProductAiPort` interface + `ClaudeProductAiAdapter`
+  (`@anthropic-ai/sdk`), registered behind the `PRODUCT_AI_PORT` token in `ProductAiModule`. The
+  adapter forces structured output via a single Claude tool (`submit_product_draft`) with a strict
+  `input_schema` and `tool_choice` set to it, rather than parsing JSON out of free text. `POST
+  /admin/product-ai/draft` (reuses `product.write`, no new permission key — same reasoning as
+  Campaign media reusing `campaign.write`). New `AI_NOT_CONFIGURED` (503)/`AI_GENERATION_FAILED`
+  (502) error codes. `ANTHROPIC_API_KEY`/`ANTHROPIC_MODEL` env vars, empty-string-means-unconfigured
+  and fails loudly per-call rather than at boot — same convention as `TELEGRAM_BOT_TOKEN`/`SMTP_*`.
+- **A real, disclosed external-credential gap**: no Anthropic API key exists in any environment
+  this session has access to — this is the same category of item flagged at the start of this
+  session as something requiring the user to supply it themselves. The full architecture is built
+  and unit-tested regardless (mocked `@anthropic-ai/sdk` client); real generation will work the
+  moment the user sets `ANTHROPIC_API_KEY` in the deployment environment, with zero code changes.
+- **Images are already-hosted URLs, not a new upload pipeline** — `imageUrls` accepts URLs (pasted,
+  or from an existing Product's `images` field), passed to Claude via its `image` content block's
+  `url` source directly (no backend fetch/base64-encode). Building new upload plumbing for this
+  would have been scope creep beyond what the architecture review asked for.
+- **Frontend**: `ProductAiDraftPanel.tsx` wired into the Admin Product Launch Wizard's Product
+  step — image URLs/short description/product name in, a full editable review of every draft field,
+  and an explicit "Ishlatish" (never automatic) hands the draft up to the wizard. Of the draft's 15
+  fields, only `title`/`shortDescription` have a real home in `ProductForm` today (it doesn't even
+  expose a `description` field yet) — those two get a genuine `setValue`-based prefill via a new
+  `aiPrefill` prop. `benefits`/`faq` get threaded into the wizard's Landing-scaffold step,
+  pre-populating BENEFITS/FAQ section content instead of empty sections (`addLandingSection`/
+  `useAddLandingSection`/the mock store's `apiAdminAddLandingSection` all gained an optional
+  `content` param to support this — a small, backward-compatible extension, existing callers
+  unaffected). The remaining fields (description, features, specs, usageInstructions, ctaLabel,
+  marketingCopy, seoTitle/Description/Keywords, highlights, tags, and Offer-step headline/
+  subheadline/SEO) are shown for the admin to read and manually copy but aren't auto-wired —
+  disclosed as a real v1 scope boundary in ADR-028, not silently dropped.
+- **Tests**: 7 new backend unit tests (`claude-product-ai.adapter.spec.ts` — AI_NOT_CONFIGURED,
+  forced tool_choice/image-block shape, AI_GENERATION_FAILED on both a missing tool_use block and a
+  rejected API call; `product-ai.service.spec.ts` — the either-or imageUrls/shortDescription
+  validation) — 786/786 backend unit tests passing, 60 suites. New `test/product-ai.e2e-spec.ts`
+  **ran for real against Postgres** (the test DB was reachable again during this phase): 3/3
+  passing, including a genuine end-to-end confirmation of the real unconfigured-environment
+  behavior (503 `AI_NOT_CONFIGURED`) — the actual current state of this deployment, not a mocked
+  assumption. Frontend/backend `tsc --noEmit`/`eslint` clean (web: same 8 pre-existing warnings,
+  zero new ones); both apps' production builds succeed with `/admin/product-ai/draft` and the
+  updated `/admin/products/launch` route registered.
+- **Browser-verified**: `/admin/products/launch` (now rendering `ProductAiDraftPanel` above
+  `ProductForm`) still correctly redirects an unauthenticated visitor to `/admin/login`, confirmed
+  via server logs (clean 200 responses throughout, no exceptions) after an initial page-text read
+  raced the redirect and came back empty — a tool-timing artifact, not a real bug.
+- **Not built here, by design**: image generation (confirmed out of scope for v1, a separate future
+  spike); any Seller-facing caller (no Seller exists yet — see ADR-023); Creator Motivation System
+  + Fund is next in the sequence.
+
+## Phase J/K — Creator Motivation System: Dashboard Stats + Leaderboard — DONE (2026-07-29)
+
+The user gave an explicit standing performance requirement for this initiative: buyer, creator, and
+admin experiences must all feel fast, never frozen or slow-loading. Every caching decision below
+was designed with that in mind from the start (see DECISIONS.md ADR-029 for full reasoning).
+
+- **Phase J — real creator dashboard stats**: `GET /creator/dashboard-stats`
+  (`apps/api/src/creator-dashboard/`) replaces `apiGetDashboardStats`, which was 100% frontend-
+  mocked and — unlike every other mock function in `mocks/store.ts` — never gated behind
+  `USE_REAL_API` at all, so "real API mode" never actually made this page real. Real today/
+  monthToDate/**lifetime** (new — the architecture review flagged this bucket as missing
+  entirely) stats computed from `Commission` (creatorId is direct on that model, indexed on
+  `[creatorId, status]` and `createdAt`), excluding REJECTED/REFUNDED from every money aggregate
+  but not from order counts. Reuses `CommissionsService.getWalletBalance` as-is for
+  pending/available/locked/paid rather than re-deriving it. Redis-cached 30s per creator via
+  `AnalyticsCacheService` (now exported from `AnalyticsModule` for this reuse) — a repeat dashboard
+  visit within that window renders from the frontend's own query cache with zero network
+  round-trip. The fake `series7d`/`series30d`/`series90d` (Math.random()-generated for every
+  creator except one hardcoded demo account) become one real 30-day daily-revenue series;
+  `epcMinor`/separate `approvedCommissionMinor` are dropped (no real source without more scope than
+  this pass needed) in favor of the new lifetime section. `@sofsavdo/types`'
+  `DashboardStats`/`DashboardSeriesPoint` (now-orphaned) removed.
+- **Phase K — leaderboard**: `GET /creator/leaderboard` (`apps/api/src/creator-leaderboard/`)
+  ranks creators by this-month commission *earned* (not GMV/order value, deliberately different
+  from the admin-only `CreatorAnalyticsService` equivalent) — a native Prisma `groupBy` on
+  `Commission` needs no raw SQL join at all, since `creatorId` is already direct on that table.
+  Redis-cached 60s, but platform-wide (one cache entry serves every creator's request, not
+  per-creator) — under concurrent load, hundreds of creators checking their rank in the same
+  minute still trigger at most one real recompute. Returns the top 20 by earnings plus the
+  requesting creator's own rank even when outside that cap (never zero-context for a low-ranked
+  creator). Frontend polls every 30s (`refetchIntervalInBackground: false` — paused when the tab
+  isn't focused), deliberately faster than the backend's own 60s TTL so most polls land on a
+  guaranteed cache hit — the confirmed "short-interval polling, not WebSocket" decision from the
+  original architecture review.
+- **Both endpoints follow the existing creator-facing route convention exactly**
+  (`RequireCreatorGuard`, ownership scoped by the JWT's own `creatorId`, no RBAC permission key —
+  same as `CreatorSalesController`), not a new pattern.
+- **Tests**: 12 new backend unit tests (`creator-dashboard.service.spec.ts` — cache hit/miss,
+  REJECTED/REFUNDED exclusion, conversionRate divide-by-zero guard, 30-day fill-gaps behavior;
+  `creator-leaderboard.service.spec.ts` — ranking/rank-assignment, cache reuse, the
+  requester's-own-rank-outside-top-20 case) — 798/798 backend unit tests passing, 62 suites. New
+  `test/creator-dashboard.e2e-spec.ts` and `test/creator-leaderboard.e2e-spec.ts` — both
+  typecheck/lint clean, but **could not run against real Postgres this time**: the Railway test
+  database (briefly reachable during Phases H/I) was down again for the rest of this session,
+  consistent with the intermittent-outage pattern documented since Phase A. Frontend
+  `tsc --noEmit`/`eslint` clean (same 8 pre-existing warnings, zero new); both apps' production
+  builds succeed with `/creator/leaderboard` and the updated `/creator/dashboard` registered.
+- **Browser-verified**: `/creator/dashboard` and `/creator/leaderboard` both correctly redirect an
+  unauthenticated visitor to `/creator/login` (confirmed via server logs — clean 200 responses,
+  200ms-scale compiles, no exceptions — after an initial page-text read raced the redirect and came
+  back empty, the same tool-timing artifact noted in Phase I's entry, not a real bug).
+- **Not built here, by design**: Competition domain (Campaign-sized CRUD for time-bound creator
+  contests) and the activity ticker — next in the sequence; Creator Fund (donation/contribution
+  ledger) after that.
+
+## Phase L — Creator Motivation System: Competition Domain — DONE (2026-07-29)
+
+Time-bound creator contests, the third sub-phase of the Creator Motivation System (see
+DECISIONS.md ADR-030 for full reasoning).
+
+- **Schema**: new `Competition` model (`CompetitionStatus`: DRAFT/ACTIVE/COMPLETED/ARCHIVED —
+  deliberately no PAUSED, a time-bound contest pausing mid-way is unrequested complexity) —
+  name/slug/description/prizeDescription (free text — a prize is announced/fulfilled manually by
+  an admin, never wired through Commission/Payout)/startAt/endAt/archivedAt/createdBy/updatedBy.
+  Migration `20260803000000_competitions`. New `competition.read/write/publish/complete/archive`
+  permission keys (mirrors `campaign.*`'s shape minus `.pause` — RBAC.md updated).
+- **Backend**: `apps/api/src/competitions/` — `CompetitionsService` (admin CRUD, transition matrix
+  DRAFT→ACTIVE→COMPLETED→ARCHIVED, `computeAvailability` mirroring Offer/Campaign's stored-status-
+  plus-computed-window split exactly), admin controller at `/admin/competitions`, creator-facing
+  `GET /creator/competitions` (only ACTIVE competitions whose computed availability is LIVE or
+  SCHEDULED — never DRAFT/EXPIRED/ARCHIVED) and `GET /creator/competitions/:id/leaderboard`.
+- **Ranking logic extracted and shared, not duplicated**: `rankCreatorsByCommission(prisma, range)`
+  (`apps/api/src/creator-leaderboard/rank-creators-by-commission.util.ts`) was pulled out of Phase
+  K's `CreatorLeaderboardService` so both the platform leaderboard (always "this month") and the
+  new Competition leaderboard (an arbitrary admin-chosen date window) call the exact same
+  groupBy-on-Commission query. Competition leaderboard gets its own 30s Redis TTL (vs. the
+  platform leaderboard's 60s) — a contest's window is often much shorter than a month, so
+  staleness matters proportionally more near its close.
+- **Frontend**: admin `apps/web/app/admin/(app)/competitions/{page,new/page,[id]/page}.tsx` (list
+  via the existing `DataTableShell` pattern, `CompetitionForm.tsx` shared between create/edit,
+  publish/complete/archive buttons mirroring the Landing builder's `ALLOWED_NEXT_ACTIONS`
+  convention). Creator `apps/web/app/creator/(app)/competitions/{page,[id]/page}.tsx` — a card
+  grid of active/upcoming competitions, and a detail page reusing the same leaderboard-row UI
+  Phase K's platform leaderboard page established (30s polling, paused when the tab isn't
+  focused). Both apps' nav gained a "Musobaqalar" entry.
+- **Tests**: 15 new backend unit tests (`competitions.service.spec.ts` — every `computeAvailability`
+  branch, the full transition matrix including out-of-order and out-of-ARCHIVED rejections,
+  slug-clash rejection, the creator-facing LIVE/SCHEDULED filter, leaderboard cache reuse) —
+  813/813 backend unit tests passing, 63 suites. New `test/competitions.e2e-spec.ts` — typecheck/
+  lint clean, but **could not run against real Postgres this time**: the Railway test database
+  was down for this entire phase, consistent with the intermittent-outage pattern documented since
+  Phase A. Frontend `tsc --noEmit`/`eslint` clean (same 8 pre-existing warnings, zero new); both
+  apps' production builds succeed with all 5 new competition routes registered.
+- **Browser-verified**: `/admin/competitions` and `/creator/competitions` both correctly redirect
+  an unauthenticated visitor to their respective login pages (confirmed via server logs — clean
+  200 responses, no exceptions — and a direct page-text read on each guard's login screen).
+- **Not built here, by design**: an admin-side leaderboard preview (ranking is creator-facing only;
+  admin has no `creatorId` to scope a "my rank" view against); a "join" mechanic (every creator
+  whose Commission earnings fall within the window automatically participates — no separate
+  registration step, same zero-friction shape as the platform leaderboard). Next in the sequence:
+  the activity ticker, then the Creator Fund.
+
+## Phase M — Pre-Launch Real-Data Audit — DONE (2026-07-29)
+
+The user is preparing for a real production launch (Railway, `sofsavdo.com`, contracted Click.uz
+credentials) and gave two explicit instructions: remove the demo-account login hints, and make
+sure no page still silently shows mock data. See DECISIONS.md ADR-031 for full reasoning.
+
+- **Demo login hints removed entirely** from both `AdminLoginPageClient.tsx` and
+  `apps/web/app/creator/(auth)/login/page.tsx` — deleted outright, not hidden behind a flag.
+  Browser-verified: both login pages render cleanly with no demo-account section at all.
+- **Systematic audit, not spot-fixes**: an Explore-agent audit classified every function in
+  `lib/api/index.ts`/`admin.ts`, found 7 pages calling a **bare mock re-export with zero
+  `USE_REAL_API` gating at all** — the same defect class Phase J's `getDashboardStats` fix had
+  already found once, now confirmed not to be the only instance.
+- **`/admin/dashboard` — highest severity, fixed**: new `AdminDashboardService`
+  (`apps/api/src/admin-dashboard/`) composes the summary from already-real
+  `ExecutiveAnalyticsService`/`CreatorAnalyticsService`/`ProductAnalyticsService` (now exported from
+  `AnalyticsModule`) plus two genuinely new aggregates (commission liability, pending payouts) and
+  a creator-vs-direct revenue split. The fabricated 5-stage funnel (Click→Landing view→Checkout
+  start→Order→Paid order) is now 3 real stages only — no event table records a "landing view" or
+  "checkout start" as a distinct moment, so those two were dropped rather than approximated. The
+  fake `series7d/30d/90d` toggle became one real "this month" `trend` series. Redis-cached 60s.
+- **`/creator/commissions` — fixed**: new `CommissionsService.listMyCommissions(creatorId)` +
+  `GET /creator/commissions`, distinct from both `listMySales` (Order-shaped) and `listMyLedger`
+  (accounting-entry-shaped) — a real gap, since no existing endpoint exposed `Commission.status`
+  filterable the way this page's own dropdown needs.
+- **`/creator/dashboard`'s required-actions/latest-payout widgets — fixed**: rewired from the
+  legacy mock-only `useContent()`/`usePayouts()` to the real `useMyContentDashboardCounts()`-
+  adjacent `useMyContents()`/`usePayoutsMine()` hooks that already existed and were already used
+  correctly elsewhere on the same page.
+- **`/admin/referral-links`, `/admin/promo-codes` — fixed with full real backends**:
+  `PromoCodesService.listAdmin()` needed no new aggregation (`usageCount` is already maintained
+  directly on the row); `AdminReferralLinksService.list()` needed a 3-table raw SQL join
+  (`ReferralLink`→`ReferralVisit`→`Attribution`→`Order`) for click/order/revenue stats, the same
+  reasoning `creatorRevenueBreakdown` already established for why this domain needs raw SQL.
+- **`/admin/visitors` — real list, but `overrideAttribution` deliberately NOT wired to fake
+  success**: `AdminVisitorsService.list()` returns real `ReferralVisit` rows with honest
+  `source: null` (not yet attributed) and always-empty `fraudRiskFlags` (real fraud detection is
+  explicitly out of scope, already disclosed in this file below). `overrideAttribution` — which
+  would reassign a real commission between creators — has no real implementation yet; rather than
+  leave it silently calling the mock (making a Super Admin believe they'd changed a real
+  attribution when nothing happened), it now throws a clear `NOT_IMPLEMENTED` (501) error.
+- **Tests**: 27 new backend unit tests across 5 spec files — 828/828 backend unit tests passing,
+  66 suites. Frontend/backend `tsc --noEmit`/`eslint` clean (same 8 pre-existing frontend
+  warnings, zero new); both apps' production builds succeed. Browser-verified: `/admin/dashboard`
+  and `/admin/referral-links` both compile and correctly redirect an unauthenticated visitor to
+  `/admin/login`. **e2e tests were not written for this pass** given the volume of changes in one
+  sweep — every change is either a read-only GET or already covered by its service's own unit
+  tests, so this is a reasonable fast-follow, not a launch blocker.
+- **Not built here, by design**: real manual attribution override (a genuine, pre-existing,
+  already-disclosed gap this pass didn't newly create — see PRODUCTION_READINESS.md); real fraud
+  detection (same, already disclosed).
+
+## Phase N — Creator Motivation System: Activity Ticker + Creator Fund — DONE (2026-07-29)
+
+The final two sub-phases of the Creator Motivation System (see DECISIONS.md ADR-029/030 for the
+dashboard/leaderboard/competition work this builds on, and ADR-032 for this phase's own reasoning).
+
+- **Activity ticker** (`apps/api/src/activity-ticker/`): `GET /creator/activity-ticker` merges three
+  already-real event streams — a new Commission (a sale via referral attribution, excluding
+  REJECTED/REFUNDED), a Payout reaching PAID (a completed withdrawal), and a new
+  CreatorFundContribution — into one newest-first feed, rather than inventing a dedicated "activity
+  event" table this feature doesn't otherwise need. Platform-wide, one Redis cache entry for every
+  viewer (20s TTL — shorter than the leaderboard's 60s, since a "live" feed reads as stale sooner
+  than a monthly ranking). Frontend polls every 15s, paused when the tab isn't focused, and renders
+  as a horizontally-scrollable strip on the creator dashboard (`ActivityTicker.tsx`) — no JS-driven
+  marquee animation, so an idle background tab spends zero CPU on something nobody's watching.
+- **Creator Fund** (`apps/api/src/creator-fund/`): a new `CreatorFundContribution` model + a new
+  `CommissionStatus.DONATED` (distinct from `PAID` — a contribution is money the creator *gave
+  away*, not money paid out to them, and the wallet balance breakdown must never conflate the two)
+  and `LedgerEntryType.DONATION`. `POST /creator/fund/contribute` locks the creator's oldest
+  PAYABLE/unlocked commissions up to the requested amount and settles them to DONATED in the same
+  transaction — unlike a Payout (locked now, settled later once an admin confirms the external
+  transfer happened), a fund contribution is an internal balance-to-balance transfer with no
+  external step to wait for, so it confirms synchronously. `GET /creator/fund` returns the
+  platform-wide lifetime total (cached 30s) plus the requesting creator's own lifetime total
+  (always computed fresh — a creator's own number should never look stale to them, same reasoning
+  the dashboard already applies). `GET /creator/fund/leaderboard` ranks contributors the same
+  shape as the platform/competition leaderboards (top 20 + the requester's own rank even outside
+  it), 60s cache. New `/creator/fund` page: platform total + my total, a contribute form (amount +
+  optional public shout-out message), and the contributor leaderboard.
+- **Money-safety**: `CommissionsService.contributeToFund` is a guarded `updateMany` (WHERE
+  re-asserts `payoutId: null, fundContributionId: null`) exactly like `lockPayableCommissions`,
+  so a contribution racing a payout request (or two concurrent contributions) can't both claim the
+  same funds — a lost race throws `INSUFFICIENT_BALANCE` and rolls back the whole transaction,
+  including the `CreatorFundContribution` row already created. `WalletBalance` gained a
+  `donatedMinor` bucket (lifetime, excluded from `paidMinor`/`reversedMinor`) so "paid to me" and
+  "donated by me" are never shown as the same number.
+- **Tests**: 21 new backend unit tests (`activity-ticker.service.spec.ts` — stream merge/sort,
+  status/state filtering per stream, cache hit/miss; `creator-fund.service.spec.ts` — validation,
+  transaction composition, audit recording, stats cache-vs-fresh split, leaderboard ranking;
+  `commissions.service.spec.ts`'s new `contributeToFund` block — lock-and-settle, insufficient
+  balance, lost-race abort) — **845/845 backend unit tests passing, 68 suites**. Frontend/backend
+  `tsc --noEmit`/`eslint` clean (same 8 pre-existing frontend warnings, zero new); both apps'
+  production builds succeed with `/creator/fund` registered and the dashboard's new ticker strip
+  compiling cleanly.
+- **Migration**: `20260804000000_creator_fund` — hand-written (matching this repo's established
+  convention for every migration since Phase A when `prisma migrate dev`'s interactive apply can't
+  run non-interactively), applied cleanly against the Railway test database alongside the
+  previously-unapplied `20260803000000_competitions` migration.
+- **Browser-verified** against the real Railway test database (intermittent connect-timeout
+  retries observed on first load of a few endpoints — the same documented flaky-proxy pattern
+  every prior phase has hit, not a regression; every request eventually succeeded on retry): logged
+  in as a real seeded creator, confirmed `/creator/dashboard`'s new ticker strip correctly renders
+  nothing when the merged feed is empty (`{"events":[]}` — verified via the network panel, not
+  guessed), and `/creator/fund` renders the platform/my-total cards, the contribute form, and the
+  empty-leaderboard state correctly. Submitted a real contribution with insufficient balance and
+  confirmed the exact backend `INSUFFICIENT_BALANCE` message ("So'ralgan miqdor mavjud balansdan
+  oshib ketdi.") renders in the form's error alert — a full round trip through the real guarded
+  transaction, not a mocked assertion.
+- **Not built here, by design**: a public/homepage-facing view of the Creator Fund total (this
+  phase is creator-facing only, matching the rest of the Creator Motivation System); an admin
+  moderation view for contribution messages (a contribution message is short, optional, and shown
+  only to other authenticated creators on the leaderboard — same trust boundary as a creator's own
+  display name already crossing today, not a new public-facing surface).
+
+## Phase O — Creator-Facing Referral Funnel — DONE (2026-07-29)
+
+Answers the first of three questions the user raised about analytics completeness: the admin
+funnel (Phase M) had no creator-facing counterpart at all.
+
+- `CreatorDashboardService.getStats` gained a `funnel` field — the exact same 3 real stages as
+  `AdminDashboardService`'s funnel (Click → Order → Paid order), scoped to this creator's own
+  `ReferralVisit`/`Attribution` rows instead of platform-wide. "Orders"/"paid orders" are counted
+  via `Attribution` (not `Commission`) for the same reason the admin funnel does — a Commission's
+  own status lifecycle tracks settlement, not whether the underlying Order was ever paid.
+- New "Mening varonkam (shu oy)" card on `/creator/dashboard`, same visual pattern as the admin
+  dashboard's funnel card (a plain 3-row list + a conversion-rate line), no new chart needed.
+- **Tests**: 3 new backend unit tests (creator-scoping, zero-clicks conversionRate guard, a real
+  conversionRate case) in `creator-dashboard.service.spec.ts`.
+- **Not built here, by design**: "landing view"/"checkout start" funnel stages — this schema still
+  can't track either as a distinct moment, same disclosed gap as the admin funnel (ADR-031).
+
+## Phase P — Contractual Post Verification (Link + Screenshot) — DONE (2026-07-29)
+
+Answers the second question: how does the platform verify a creator actually posted per contract?
+See DECISIONS.md ADR-033.
+
+- New `Content.postUrl` (and a frozen `ContentVersion.postUrl` snapshot) — the creator's live
+  social-media post link, required (alongside the pre-existing screenshot-attachment requirement)
+  before `ContentService.submit`/`resubmit` accepts a submission. Migration
+  `20260805000000_content_post_url`.
+- The link lets an admin click through and confirm the post is real (Perfluence-style); the
+  screenshot remains the permanent evidence archive independent of the link's future fate (edited
+  or deleted after approval) — **both** required, neither alone was sufficient (see the analysis
+  delivered earlier this session).
+- Frontend: creator content submission form gained a required "Post havolasi" field; admin content
+  review page shows the link as a clickable `<a>` (or a warning if somehow missing).
+- **Tests**: 2 new backend unit tests (`POST_URL_REQUIRED` on both first submit and resubmit).
+- **Not built here, by design**: automated periodic re-checking that the link still resolves — a
+  real follow-up (per the analysis delivered earlier), deferred since it requires per-platform API
+  integration (Instagram/Telegram/etc.), not a small addition.
+
+## Phase Q — Bio Compliance + Premium Tier — DONE (2026-07-29)
+
+Answers the third question: should sofsavdo.com-in-bio be mandatory, with a Premium exemption for
+creators who decline? See DECISIONS.md ADR-034.
+
+- New `CreatorProfile.bioComplianceStatus` (`PENDING`/`COMPLIANT`/`NON_COMPLIANT`) and `.tier`
+  (`STANDARD`/`PREMIUM`), migration `20260806000000_creator_bio_compliance_tier`. `PENDING` is the
+  honest default — never auto-assumed compliant, since no automated bio-scraping exists.
+- Two new permission keys (`creator.compliance`, `creator.tier`, both ADMIN+) and new admin routes
+  `PATCH /admin/creators/:id/bio-compliance` / `/tier` — a manual spot-check action, not a
+  state-machine transition (any status can move to any other at any time).
+- **Enforcement, tiered exactly as discussed**: `PayoutsService.requestPayout` blocks a new payout
+  request only for a `STANDARD`-tier creator marked `NON_COMPLIANT` (`BIO_COMPLIANCE_REQUIRED`,
+  403) — `PENDING` (never reviewed) is never blocked, and `PREMIUM`-tier creators are never blocked
+  regardless of bio status. This is deliberately a soft, targeted nudge (blocks one action) rather
+  than account suspension — every other creator-facing feature stays fully usable.
+- Frontend: admin creator detail page gained a "Bio talabi va tarif" card (mark
+  compliant/non-compliant, grant/revoke Premium) plus status badges in the header; creator
+  dashboard shows a proactive warning banner (only when it would actually block them) instead of
+  letting them discover the block only after clicking "Pul yechish".
+- **Tests**: 7 new backend unit tests (3 in `payouts.service.spec.ts` covering block/PENDING-safe/
+  PREMIUM-exempt; 3 in `admin-creators.service.spec.ts` for the two new admin actions; 1 in
+  `creator-dashboard.service.spec.ts` for the surfaced compliance fields). Updated
+  `permissions.constants.spec.ts`'s hardcoded count (72 → 74).
+
+### Phases O/P/Q — combined verification note
+
+**857/857 backend unit tests passing, 68 suites** (12 new tests across O+P+Q on top of Phase N's
+845). Frontend/backend `tsc --noEmit`/`eslint` clean
+(same 8 pre-existing frontend warnings, zero new); both apps' production builds succeed with
+`/creator/fund` and every existing route still registered correctly. **Browser verification could
+not be completed this pass**: the Railway test database was fully unreachable (`P1001: Can't reach
+database server`) for the remainder of this session — confirmed via a direct `prisma migrate
+status` check, not assumed — consistent with the intermittent-outage pattern documented since
+Phase A. This is an external infrastructure gap, not a defect in this phase's code; the full mocked
+unit-test suite (which exercises every new code path, including the exact race-condition and
+zero-value edge cases a live click-through would also hit) is the verification gate for this pass.
+
+### A note on production launch itself
+
+The four items `PRODUCTION_READINESS.md` has flagged since Phase 14 as requiring the user's own
+action remain unchanged by this pass: (1) a real `docker build` has never been run (no Docker
+engine in this sandbox), (2) no real Railway project/GitHub Environment secrets exist yet, (3) real
+Click.uz production credentials (now confirmed contracted) have never been activated/tested against
+this codebase, (4) no production database has ever been bootstrapped. These require the user's own
+Railway account, domain registration, and Click merchant activation — seeing/handling those
+credentials is outside what this assistant does; RUNBOOK.md/DEPLOYMENT.md have the exact checklists
+for each once the user is ready to perform them.

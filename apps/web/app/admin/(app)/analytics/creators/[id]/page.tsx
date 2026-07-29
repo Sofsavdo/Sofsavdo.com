@@ -1,8 +1,8 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { formatMoneyMinor } from "@rosti/types";
-import { AnalyticsFilterBar, Card, CardHeader, CardTitle, Skeleton, StatTile } from "@rosti/ui";
+import { formatMoneyMinor } from "@sofsavdo/types";
+import { AnalyticsFilterBar, Card, CardHeader, CardTitle, Skeleton, StatTile } from "@sofsavdo/ui";
 import { useAnalyticsFilters } from "@/lib/useAnalyticsFilters";
 import { useCreatorAnalyticsDetail } from "@/services/admin/analytics";
 

@@ -1,6 +1,6 @@
 # Backup & Restore
 
-Rosti's only stateful, irreplaceable data store is Postgres (`DATABASE_URL`). Redis holds nothing
+Sofsavdo's only stateful, irreplaceable data store is Postgres (`DATABASE_URL`). Redis holds nothing
 that isn't safe to lose (rate-limit counters, analytics cache — see `AnalyticsCacheService`/
 `HealthController`'s "Redis down degrades, never breaks correctness" design). Locally-stored media
 (`LocalDiskStorage`, dev/test only) is not covered here — production is expected to move to a real
@@ -17,7 +17,7 @@ tool-agnostic fallback that works regardless of what Railway's UI currently offe
 Manual/scripted logical backup, using the same connection string the app itself uses:
 
 ```bash
-pg_dump "$DATABASE_URL" --format=custom --file="rosti-backup-$(date +%Y%m%d-%H%M%S).dump"
+pg_dump "$DATABASE_URL" --format=custom --file="sofsavdo-backup-$(date +%Y%m%d-%H%M%S).dump"
 ```
 
 - `--format=custom` (not plain SQL) — enables selective restore and is compressed by default.
@@ -35,7 +35,7 @@ pg_dump "$DATABASE_URL" --format=custom --file="rosti-backup-$(date +%Y%m%d-%H%M
 
 ```bash
 # Into a NEW, empty database — never restore over a live one without reading the section below first.
-pg_restore --dbname="$RESTORE_TARGET_DATABASE_URL" --clean --if-exists --no-owner rosti-backup-<timestamp>.dump
+pg_restore --dbname="$RESTORE_TARGET_DATABASE_URL" --clean --if-exists --no-owner sofsavdo-backup-<timestamp>.dump
 ```
 
 - `--clean --if-exists` drops existing objects before recreating them — safe against a target that

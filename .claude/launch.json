@@ -2,16 +2,16 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "rosti-web",
+      "name": "sofsavdo-web",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--workspace=@rosti/web"],
+      "runtimeArgs": ["run", "dev", "--workspace=@sofsavdo/web"],
       "port": 3100,
       "autoPort": true
     },
     {
-      "name": "rosti-api",
+      "name": "sofsavdo-api",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["dotenv", "-e", "apps/api/.env.test", "--", "npm", "run", "dev", "--workspace=@rosti/api"],
+      "runtimeArgs": ["dotenv", "-e", "apps/api/.env.test", "--", "npm", "run", "dev", "--workspace=@sofsavdo/api"],
       "port": 4000
     }
   ]

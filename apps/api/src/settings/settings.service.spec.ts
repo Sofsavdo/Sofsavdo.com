@@ -1,4 +1,5 @@
 import { Test } from "@nestjs/testing";
+import { BRAND } from "../config/brand";
 import { SettingsService } from "./settings.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditService } from "../common/audit/audit.service";
@@ -26,7 +27,7 @@ describe("SettingsService (Phase 12)", () => {
       prisma.setting.findMany.mockResolvedValue([]);
       const result = await service.getAll();
       const platformName = result.find((s) => s.key === "general.platformName");
-      expect(platformName?.value).toBe("Rosti");
+      expect(platformName?.value).toBe(BRAND.name);
     });
 
     it("uses the stored value when a Setting row exists", async () => {

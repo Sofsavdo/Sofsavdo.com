@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import type { LandingSectionAdmin } from "@rosti/types";
-import { Button, TextAreaField, TextField } from "@rosti/ui";
+import type { LandingSectionAdmin } from "@sofsavdo/types";
+import { Button, TextAreaField, TextField } from "@sofsavdo/ui";
 import { Plus, Trash2 } from "lucide-react";
 import { SECTION_TYPE_SHAPE } from "./sectionTypeConfig";
 

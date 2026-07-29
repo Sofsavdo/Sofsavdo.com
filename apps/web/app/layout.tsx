@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Manrope } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
-import { BRAND } from "@rosti/config/brand";
+import { BRAND } from "@sofsavdo/config/brand";
 
 // Phase 15: tokens.css has named "Inter"/"Manrope" as --font-body/--font-heading since Phase 1,
 // but nothing ever actually loaded them as web fonts — the audit confirmed zero next/font usage,

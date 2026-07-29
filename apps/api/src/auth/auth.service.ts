@@ -11,6 +11,7 @@ import { DomainException } from "../common/errors/domain-error";
 import { AppLogger } from "../common/logging/app-logger.service";
 import { NOTIFICATION_EVENTS } from "../notifications/events";
 import type { RegisterDto } from "./dto/register.dto";
+import type { RegisterBuyerDto } from "./dto/register-buyer.dto";
 import type { LoginDto } from "./dto/login.dto";
 
 interface PasswordResetPayload {
@@ -102,6 +103,46 @@ export class AuthService {
     return this.issueSession(userId);
   }
 
+  // Buyer self-registration — a deliberately separate method from register() above, not a shared
+  // "role" branch: register() unconditionally creates a CreatorProfile + DRAFT CreatorApplication,
+  // which a buyer must never get. A plain User row is the entire buyer "profile" — every
+  // authenticated User can act as a buyer with no separate approval gate, unlike Creator (see
+  // DECISIONS.md's Buyer Accounts ADR).
+  async registerBuyer(dto: RegisterBuyerDto): Promise<AuthResult> {
+    if (dto.email) {
+      const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
+      if (existing) throw new DomainException("EMAIL_TAKEN", "Bu email allaqachon ro'yxatdan o'tgan.");
+    }
+    if (dto.phone) {
+      const existing = await this.prisma.user.findUnique({ where: { phone: dto.phone } });
+      if (existing) throw new DomainException("PHONE_TAKEN", "Bu telefon raqami allaqachon ro'yxatdan o'tgan.");
+    }
+
+    const passwordHash = await argon2.hash(dto.password);
+
+    const userId = await this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: { email: dto.email, phone: dto.phone, displayName: dto.fullName, passwordHash },
+      });
+
+      // Reconciliation: if this phone number already placed a guest order before this account
+      // existed, link that Customer row to the new User now, rather than leaving it a permanently
+      // orphaned guest record the buyer can never see in their own order history. A Customer row
+      // is never duplicated — only ever linked, once, the first time a real account claims it.
+      if (dto.phone) {
+        const guestCustomer = await tx.customer.findFirst({ where: { phone: dto.phone, userId: null } });
+        if (guestCustomer) {
+          await tx.customer.update({ where: { id: guestCustomer.id }, data: { userId: user.id } });
+        }
+      }
+
+      return user.id;
+    });
+
+    await this.events.emitAsync(NOTIFICATION_EVENTS.USER_REGISTERED, { userId, displayName: dto.fullName });
+    return this.issueSession(userId);
+  }
+
   async login(dto: LoginDto): Promise<AuthResult> {
     if (!dto.email && !dto.phone) {
       throw new DomainException("VALIDATION_ERROR", "Email yoki telefon raqami kiritilishi shart.");
@@ -118,11 +159,41 @@ export class AuthService {
     if (user.status === "BLOCKED") throw new DomainException("FORBIDDEN", "Hisobingiz bloklangan.");
     if (user.status === "DELETED") throw new DomainException("INVALID_CREDENTIALS", "Email/parol noto'g'ri.");
 
-    const valid = await argon2.verify(user.passwordHash, dto.password);
-    if (!valid) throw new DomainException("INVALID_CREDENTIALS", "Email/parol noto'g'ri.");
+    // Per-account brute-force lockout (Phase A) — a sibling mitigation to the per-IP
+    // ThrottlerGuard limits already on this route, which alone don't slow a distributed attempt
+    // spread across many IPs against one account. Checked before the password verify so a locked
+    // account never pays the (slow, by design) argon2 cost on every retry.
+    if (user.lockedUntil && user.lockedUntil > new Date()) {
+      throw new DomainException("ACCOUNT_LOCKED", "Ko'p muvaffaqiyatsiz urinish sababli hisobingiz vaqtincha bloklangan. Birozdan so'ng qayta urinib ko'ring.");
+    }
 
-    await this.prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
+    const valid = await argon2.verify(user.passwordHash, dto.password);
+    if (!valid) {
+      await this.registerFailedLoginAttempt(user.id, user.failedLoginCount);
+      throw new DomainException("INVALID_CREDENTIALS", "Email/parol noto'g'ri.");
+    }
+
+    await this.prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date(), failedLoginCount: 0, lockedUntil: null } });
     return this.issueSession(user.id);
+  }
+
+  // Guarded on failedLoginCount matching what was just read — same race-safety shape as every
+  // other concurrent-mutation guard in this codebase (see CommissionsService.approve). Unlike a
+  // financial ledger, an occasional lost race here just means one attempt's increment is absorbed
+  // into whichever concurrent request's update committed first — the count is a security signal,
+  // not money, so a rare undercount under true concurrent login attempts is an acceptable
+  // trade-off for never needing a transaction here.
+  private async registerFailedLoginAttempt(userId: string, currentCount: number): Promise<void> {
+    const maxAttempts = this.config.get<number>("auth.maxFailedLoginAttempts")!;
+    const lockoutMinutes = this.config.get<number>("auth.lockoutDurationMinutes")!;
+    const nextCount = currentCount + 1;
+    await this.prisma.user.updateMany({
+      where: { id: userId, failedLoginCount: currentCount },
+      data: {
+        failedLoginCount: nextCount,
+        lockedUntil: nextCount >= maxAttempts ? new Date(Date.now() + lockoutMinutes * 60_000) : undefined,
+      },
+    });
   }
 
   async refresh(presentedRefreshToken: string): Promise<AuthResult> {

@@ -114,3 +114,13 @@ export function useBlockRealCreator() {
 export function useUnblockRealCreator() {
   return useRealCreatorMutation((id: string) => api.unblockRealCreator(id));
 }
+
+export function useSetCreatorBioCompliance() {
+  return useRealCreatorMutation(({ id, status }: { id: string; status: import("@sofsavdo/types").BioComplianceStatus }) =>
+    api.setCreatorBioCompliance(id, status),
+  );
+}
+
+export function useSetCreatorTier() {
+  return useRealCreatorMutation(({ id, tier }: { id: string; tier: import("@sofsavdo/types").CreatorTier }) => api.setCreatorTier(id, tier));
+}

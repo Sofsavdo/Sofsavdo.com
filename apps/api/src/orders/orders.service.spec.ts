@@ -13,6 +13,7 @@ describe("OrdersService", () => {
   let service: OrdersService;
   let prisma: {
     order: { findUnique: jest.Mock; findUniqueOrThrow: jest.Mock; update: jest.Mock; count: jest.Mock; findMany: jest.Mock };
+    customer: { findFirst: jest.Mock };
     offer: { findUnique: jest.Mock };
     campaign: { findUnique: jest.Mock };
     promoCode: { findUnique: jest.Mock };
@@ -52,7 +53,7 @@ describe("OrdersService", () => {
     status: "ACTIVE",
     startsAt: null,
     expiresAt: null,
-    paymentOptions: ["CLICK", "PAY_LATER"],
+    paymentOptions: ["CLICK", "PAY_LATER", "COD"],
     product: { id: "product1", type: "PHYSICAL_PRODUCT", status: "ACTIVE", stockQuantity: 5 },
     landingPage: { status: "PUBLISHED", archivedAt: null },
     variants: [],
@@ -67,6 +68,7 @@ describe("OrdersService", () => {
   beforeEach(async () => {
     prisma = {
       order: { findUnique: jest.fn(), findUniqueOrThrow: jest.fn(), update: jest.fn(), count: jest.fn(), findMany: jest.fn() },
+      customer: { findFirst: jest.fn() },
       offer: { findUnique: jest.fn() },
       campaign: { findUnique: jest.fn() },
       promoCode: { findUnique: jest.fn() },
@@ -207,6 +209,12 @@ describe("OrdersService", () => {
       expect(result.paymentProvider).toBe("MANUAL");
     });
 
+    it("resolves COD to the CASH_ON_DELIVERY provider (Phase F)", async () => {
+      const dto: CreateCheckoutDto = { ...validDto, paymentMethod: "COD" };
+      const result = await service.createOrder("physical-offer", dto);
+      expect(result.paymentProvider).toBe("CASH_ON_DELIVERY");
+    });
+
     it("attributes the sale to a creator and snapshots a commission when a valid refCode is given", async () => {
       prisma.referralLink.findUnique.mockResolvedValue({ id: "link1", offerId: "offer1", creatorId: "creator1", campaignId: "campaign1", status: "ACTIVE", expiresAt: null });
       prisma.campaign.findUnique.mockResolvedValue({ status: "ACTIVE", startDate: null, endDate: null });
@@ -235,6 +243,45 @@ describe("OrdersService", () => {
       await service.createOrder("physical-offer", dto);
       expect(tx.order.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ discountMinor: 10_000_00, totalMinor: 90_000_00 }) }));
       expect(promoCodes.commitUsage).toHaveBeenCalledWith(tx, "promo1", "order1", "customer1");
+    });
+
+    describe("buyer reconciliation (Phase D)", () => {
+      it("guest checkout (no buyerUserId) never looks up Customer by userId", async () => {
+        await service.createOrder("physical-offer", validDto);
+        expect(tx.customer.findFirst).toHaveBeenCalledWith({ where: { phone: validDto.customer.phone }, orderBy: { createdAt: "desc" } });
+      });
+
+      it("logged-in buyer with an already-linked Customer updates that row, never creates a new one", async () => {
+        tx.customer.findFirst.mockResolvedValueOnce({ id: "linked-customer-1", userId: "buyer1", email: null });
+        tx.customer.update.mockResolvedValue({ id: "linked-customer-1" });
+        await service.createOrder("physical-offer", validDto, "buyer1");
+        expect(tx.customer.findFirst).toHaveBeenCalledWith({ where: { userId: "buyer1" } });
+        expect(tx.customer.update).toHaveBeenCalledWith(
+          expect.objectContaining({ where: { id: "linked-customer-1" } }),
+        );
+        expect(tx.customer.create).not.toHaveBeenCalled();
+      });
+
+      it("logged-in buyer with no linked Customer, but a matching guest row by phone, links (not duplicates) that row", async () => {
+        tx.customer.findFirst
+          .mockResolvedValueOnce(null) // no Customer linked to this userId yet
+          .mockResolvedValueOnce({ id: "guest-customer-1", phone: validDto.customer.phone, userId: null, email: null }); // guest match by phone
+        tx.customer.update.mockResolvedValue({ id: "guest-customer-1" });
+        await service.createOrder("physical-offer", validDto, "buyer1");
+        expect(tx.customer.update).toHaveBeenCalledWith({
+          where: { id: "guest-customer-1" },
+          data: expect.objectContaining({ userId: "buyer1" }),
+        });
+        expect(tx.customer.create).not.toHaveBeenCalled();
+      });
+
+      it("logged-in buyer with no linked Customer and no guest match creates a new Customer with userId set", async () => {
+        tx.customer.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+        await service.createOrder("physical-offer", validDto, "buyer1");
+        expect(tx.customer.create).toHaveBeenCalledWith({
+          data: expect.objectContaining({ userId: "buyer1" }),
+        });
+      });
     });
   });
 
@@ -367,6 +414,72 @@ describe("OrdersService", () => {
         expect.objectContaining({ data: expect.objectContaining({ amountMinor: 100_000_00, status: "REQUESTED" }) }),
       );
       expect(tx.product.update).toHaveBeenCalledWith({ where: { id: "product1" }, data: { stockQuantity: { increment: 1 } } });
+    });
+  });
+
+  describe("listForBuyer / findOneForBuyerOrThrow (Phase D)", () => {
+    it("returns an empty list, not an error, when the buyer has no linked Customer yet", async () => {
+      prisma.customer.findFirst.mockResolvedValue(null);
+      await expect(service.listForBuyer("buyer1")).resolves.toEqual([]);
+      expect(prisma.order.findMany).not.toHaveBeenCalled();
+    });
+
+    it("scopes the order list to the buyer's own linked Customer only", async () => {
+      prisma.customer.findFirst.mockResolvedValue({ id: "customer1" });
+      prisma.order.findMany.mockResolvedValue([mockFullOrderLookup()]);
+      const result = await service.listForBuyer("buyer1");
+      expect(prisma.order.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { customerId: "customer1" } }));
+      expect(result).toHaveLength(1);
+    });
+
+    it("Phase G: fetches only the fields the summary actually needs — not the full ORDER_INCLUDE (items/statusHistory/attribution/commission/refunds/campaign/customer/address/shipment)", async () => {
+      prisma.customer.findFirst.mockResolvedValue({ id: "customer1" });
+      prisma.order.findMany.mockResolvedValue([]);
+      await service.listForBuyer("buyer1");
+      const args = prisma.order.findMany.mock.calls[0][0];
+      expect(args.include).toBeUndefined();
+      expect(args.select).toEqual(
+        expect.objectContaining({
+          id: true,
+          publicToken: true,
+          status: true,
+          totalMinor: true,
+          currency: true,
+          createdAt: true,
+          offer: { select: { name: true } },
+          payment: { select: { provider: true, status: true } },
+        }),
+      );
+      // The over-fetched relations this replaced must genuinely not be requested.
+      expect(args.select.items).toBeUndefined();
+      expect(args.select.statusHistory).toBeUndefined();
+      expect(args.select.attribution).toBeUndefined();
+      expect(args.select.commission).toBeUndefined();
+      expect(args.select.refunds).toBeUndefined();
+      expect(args.select.campaign).toBeUndefined();
+      expect(args.select.customer).toBeUndefined();
+      expect(args.select.address).toBeUndefined();
+      expect(args.select.shipment).toBeUndefined();
+    });
+
+    it("404s (ORDER_NOT_FOUND) for an order that belongs to a different buyer — never leaks that it exists", async () => {
+      prisma.customer.findFirst.mockResolvedValue({ id: "customer1" });
+      prisma.order.findUnique.mockResolvedValue(mockFullOrderLookup({ customerId: "someone-elses-customer" }));
+      await expect(service.findOneForBuyerOrThrow("buyer1", "order1")).rejects.toMatchObject({ code: "ORDER_NOT_FOUND" });
+    });
+
+    it("404s the same way for an order that doesn't exist at all", async () => {
+      prisma.customer.findFirst.mockResolvedValue({ id: "customer1" });
+      prisma.order.findUnique.mockResolvedValue(null);
+      await expect(service.findOneForBuyerOrThrow("buyer1", "missing")).rejects.toMatchObject({ code: "ORDER_NOT_FOUND" });
+    });
+
+    it("returns the full detail shape for an order the buyer actually owns", async () => {
+      prisma.customer.findFirst.mockResolvedValue({ id: "customer1" });
+      prisma.order.findUnique.mockResolvedValue(mockFullOrderLookup({ customerId: "customer1" }));
+      const result = await service.findOneForBuyerOrThrow("buyer1", "order1");
+      expect(result.id).toBe("order1");
+      expect(result.items).toHaveLength(1);
     });
   });
 });

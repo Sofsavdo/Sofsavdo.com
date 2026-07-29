@@ -4,9 +4,13 @@ import { LandingsService } from "./landings.service";
 import { Public } from "../common/decorators/public.decorator";
 import { DomainException } from "../common/errors/domain-error";
 
-// THE ONLY public read of an offer/landing — see API.md's Public section. No list endpoint
-// exists here or anywhere else in this API; a buyer can only ever land on the one page their
-// link points to.
+// THE ONLY public read of a single offer's FULL landing page — see API.md's Public section.
+// `PublicOffersController`'s `GET /offers/featured` (homepage) and `GET /offers/catalog`
+// (Phase E's real, paginated `/catalog`) are the two deliberate exceptions to "no public list" —
+// see their own comments. Neither of those two list endpoints links back into this one's own
+// page template, though: this endpoint here is still what a buyer actually lands on and checks
+// out from, one offer at a time, reached from a featured/catalog card or a shared referral link,
+// never from another offer's own landing page.
 @ApiTags("public")
 @Controller("offers")
 export class PublicLandingController {

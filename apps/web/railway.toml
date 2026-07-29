@@ -1,6 +1,6 @@
 # Railway service config for the web app. Assumes this service's "Root Directory" (dashboard) is
 # left at the monorepo root ("/"), NOT "apps/web" — apps/web/Dockerfile needs the repo root as
-# its Docker build context (it depends on the workspace-internal @rosti/config/types/ui packages
+# its Docker build context (it depends on the workspace-internal @sofsavdo/config/types/ui packages
 # living alongside it). dockerfilePath below is relative to that root directory. See
 # DEPLOYMENT.md for the full Railway project setup.
 

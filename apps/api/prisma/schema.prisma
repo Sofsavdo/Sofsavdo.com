@@ -1,4 +1,4 @@
-// Rosti — Creator Affiliate Commerce Platform
+// Sofsavdo — Creator Affiliate Commerce Platform
 // Prisma schema — Phase 1 architecture artifact.
 // Convention: every monetary field is an Int in minor currency units (tiyin/kopeck
 // equivalent for so'm — 1 so'm = 100 minor units) — never Float/Decimal-as-float.
@@ -28,42 +28,55 @@ enum UserStatus {
 }
 
 model User {
-  id             String     @id @default(cuid())
-  email          String?    @unique
-  phone          String?    @unique
-  passwordHash   String
+  id               String     @id @default(cuid())
+  email            String?    @unique
+  phone            String?    @unique
+  passwordHash     String
   // Nullable — every account before Phase 12 was created without one (staff via seed, creators
   // via CreatorProfile.displayName instead). Populated going forward for staff created through the
   // real admin User Management UI; the frontend's pre-existing email-local-part fallback (see
   // admin-real.ts's mapSessionUserToAdminUser) stays in place for rows where this is still null.
-  displayName    String?
-  status         UserStatus @default(ACTIVE)
-  emailVerified  DateTime?
-  phoneVerified  DateTime?
-  lastLoginAt    DateTime?
+  displayName      String?
+  status           UserStatus @default(ACTIVE)
+  emailVerified    DateTime?
+  phoneVerified    DateTime?
+  lastLoginAt      DateTime?
   // Phase 10 — set once the user links their Telegram account (e.g. via a /start deep-link token
   // exchanged for this chat id); null means Telegram delivery is impossible regardless of the
   // user's own preference toggle, same as an unconfigured PayoutMethod blocking a payout request.
-  telegramChatId String?    @unique
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
+  telegramChatId   String?    @unique
+  // Per-account brute-force lockout (Phase A, production-hardening pass) — a sibling mitigation to
+  // the per-IP ThrottlerGuard limits already on /auth/login. failedLoginCount resets to 0 on any
+  // successful login; lockedUntil is set once the count crosses configuration.ts's
+  // auth.maxFailedLoginAttempts and read (not re-derived from the count) on every login attempt,
+  // so a lockout's expiry is a fixed point in time rather than something a slow trickle of retries
+  // could keep pushing back.
+  failedLoginCount Int        @default(0)
+  lockedUntil      DateTime?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
 
   roles                        UserRole[]
   creatorProfile               CreatorProfile?
   refreshTokens                RefreshToken[]
-  auditLogsActed               AuditLog[]             @relation("AuditActor")
+  auditLogsActed               AuditLog[]               @relation("AuditActor")
   notifications                Notification[]
   notificationPreferences      NotificationPreference[]
-  offersCreated                Offer[]                @relation("OfferCreatedBy")
-  offersUpdated                Offer[]                @relation("OfferUpdatedBy")
-  landingPagesCreated          LandingPage[]          @relation("LandingCreatedBy")
-  landingPagesUpdated          LandingPage[]          @relation("LandingUpdatedBy")
-  campaignsCreated             Campaign[]             @relation("CampaignCreatedBy")
-  campaignsUpdated             Campaign[]             @relation("CampaignUpdatedBy")
-  campaignApplicationsReviewed CampaignApplication[]  @relation("CampaignApplicationReviewedBy")
-  contentReviewed              Content[]              @relation("ContentReviewedBy")
-  contentVersionsSubmitted     ContentVersion[]       @relation("ContentVersionSubmittedBy")
-  contentReviewComments        ContentReviewComment[] @relation("ContentReviewCommentAuthor")
+  offersCreated                Offer[]                  @relation("OfferCreatedBy")
+  offersUpdated                Offer[]                  @relation("OfferUpdatedBy")
+  landingPagesCreated          LandingPage[]            @relation("LandingCreatedBy")
+  landingPagesUpdated          LandingPage[]            @relation("LandingUpdatedBy")
+  campaignsCreated             Campaign[]               @relation("CampaignCreatedBy")
+  campaignsUpdated             Campaign[]               @relation("CampaignUpdatedBy")
+  campaignApplicationsReviewed CampaignApplication[]    @relation("CampaignApplicationReviewedBy")
+  contentReviewed              Content[]                @relation("ContentReviewedBy")
+  contentVersionsSubmitted     ContentVersion[]         @relation("ContentVersionSubmittedBy")
+  contentReviewComments        ContentReviewComment[]   @relation("ContentReviewCommentAuthor")
+  customer                     Customer?
+  savedProducts                SavedProduct[]
+  buyerAddresses               BuyerAddress[]
+  competitionsCreated          Competition[]            @relation("CompetitionCreatedBy")
+  competitionsUpdated          Competition[]            @relation("CompetitionUpdatedBy")
 
   @@index([status])
 }
@@ -134,21 +147,42 @@ enum CreatorApplicationStatus {
   REJECTED
 }
 
+// Phase Q — see CreatorProfile.bioComplianceStatus's own comment and DECISIONS.md ADR-034.
+enum BioComplianceStatus {
+  PENDING
+  COMPLIANT
+  NON_COMPLIANT
+}
+
+enum CreatorTier {
+  STANDARD
+  PREMIUM
+}
+
 model CreatorProfile {
-  id            String   @id @default(cuid())
-  userId        String   @unique
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  displayName   String
-  city          String?
-  bio           String?
-  contentNiches String[] // e.g. ["beauty", "edtech"]
-  avatarFileId  String?
+  id                  String              @id @default(cuid())
+  userId              String              @unique
+  user                User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  displayName         String
+  city                String?
+  bio                 String?
+  contentNiches       String[] // e.g. ["beauty", "edtech"]
+  avatarFileId        String?
   // Stable creator-to-creator referral code (6B Enhancement) — generated at registration,
   // backfilled for pre-existing creators by the migration, never rotated (no rotation
   // requirement exists; a stable code keeps already-shared links working forever).
-  referralCode  String   @unique
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  referralCode        String              @unique
+  // Phase Q — whether an admin has manually spot-checked that this creator's public social bio
+  // mentions sofsavdo.com, per the platform's contractual requirement. PENDING (never checked) is
+  // the honest default — never auto-assumed COMPLIANT, since no automated bio-scraping exists (see
+  // DECISIONS.md ADR-034). Enforcement (PayoutsService.requestPayout) only ever blocks on
+  // NON_COMPLIANT, never on PENDING — an unreviewed creator isn't penalized for an admin backlog.
+  bioComplianceStatus BioComplianceStatus @default(PENDING)
+  // The Premium exemption: a NON_COMPLIANT + PREMIUM creator is still allowed to request payouts —
+  // see Decision in ADR-034 on why this is an incentive, not a bypass.
+  tier                CreatorTier         @default(STANDARD)
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
 
   socialAccounts       SocialAccount[]
   applications         CreatorApplication[]
@@ -160,10 +194,11 @@ model CreatorProfile {
   commissions          Commission[]
   payoutMethods        PayoutMethod[]
   payouts              Payout[]
-  referralsGiven       CreatorReferral[]     @relation("ReferralReferrer")
-  referralReceived     CreatorReferral?      @relation("ReferralReferred")
+  referralsGiven       CreatorReferral[]         @relation("ReferralReferrer")
+  referralReceived     CreatorReferral?          @relation("ReferralReferred")
   // Real Content vertical (Phase 7A) — distinct from the legacy `content CreatorContent[]` above.
-  contents             Content[]             @relation("ContentByCreator")
+  contents             Content[]                 @relation("ContentByCreator")
+  fundContributions    CreatorFundContribution[]
 
   @@index([city])
 }
@@ -318,6 +353,12 @@ model Offer {
   seoTitle            String?
   seoDescription      String?
   isIndexable         Boolean      @default(false)
+  // Editorial curation flag for the public homepage's featured-products section (Phase C/Sofsavdo
+  // pivot) — deliberately independent of `status`/`computeAvailability()`: an admin can pre-feature
+  // an offer before it goes ACTIVE, and the public read side (OffersService.listFeaturedPublic)
+  // is what actually enforces "must also be live right now", the same separation of concerns as
+  // the stored-status-vs-computed-availability split documented on OfferStatus above.
+  isFeatured          Boolean      @default(false)
   createdById         String?
   createdBy           User?        @relation("OfferCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   updatedById         String?
@@ -333,11 +374,13 @@ model Offer {
   orders          Order[]
   referralVisits  ReferralVisit[]
   deliveryRegions OfferDeliveryRegion[]
+  savedByUsers    SavedProduct[]
 
   @@index([status])
   @@index([productId])
   @@index([archivedAt])
   @@index([startsAt, expiresAt])
+  @@index([isFeatured, status])
 }
 
 model OfferVariant {
@@ -471,6 +514,48 @@ model LandingSection {
   content       Json // text, image/video refs, CTA label, background/layout variant
 
   @@index([landingPageId, sortOrder])
+}
+
+// Homepage CMS (Sofsavdo architecture review, Part 1 §2) — deliberately a flat top-level table,
+// not scoped to a parent the way LandingSection is scoped to LandingPage: the homepage has no
+// natural 1:1 parent entity, and (unlike an Offer's landing page) there is no draft/published/
+// archived workflow here — the homepage is always live, and each section's own isActive flag is
+// the only visibility switch, edited directly (see DECISIONS.md ADR-027). FEATURED_PRODUCTS is a
+// deliberate exception: its content is never read for copy — the section's presence+isActive only
+// tells the homepage whether to render the existing OffersService.listFeaturedPublic() slot, so
+// "trending"/"curated" stays a single source of truth in Offer.isFeatured, not duplicated here.
+// CATEGORY_GRID ships as a type now so the enum is future-complete, but stays unused/unbuildable
+// until Phase E's own Category model exists (see ADR-027) — do not build category data twice.
+enum HomepageSectionType {
+  HERO
+  WHY_SOFSAVDO
+  FEATURED_PRODUCTS
+  BANNER
+  CREATOR_PROGRAM_BLURB
+  BENEFITS
+  FAQ
+  SUPPORT
+  CUSTOM_RICH_TEXT
+  CATEGORY_GRID
+}
+
+model HomepageSection {
+  id        String              @id @default(cuid())
+  type      HomepageSectionType
+  sortOrder Int                 @default(0)
+  isActive  Boolean             @default(true)
+  content   Json
+  // Scheduling window for seasonal banners/campaigns — reuses the same stored-flag-plus-computed-
+  // availability split Offer.startsAt/expiresAt already established (see OffersService.
+  // computeAvailability); a banner with a date window just IS a section whose computed
+  // availability lapses, not a separate "SeasonalCampaign" entity.
+  startsAt  DateTime?
+  expiresAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sortOrder])
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -708,6 +793,46 @@ model CampaignApplication {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
+// Creator Motivation System — Competitions (Sofsavdo architecture review, Phase L)
+// ────────────────────────────────────────────────────────────────────────────
+
+// Deliberately smaller than CampaignStatus — no PAUSED. A time-bound contest pausing mid-way (and
+// resuming with what date window?) is speculative complexity this domain hasn't asked for; DRAFT
+// can go straight to ARCHIVED (cancelled before ever going live) or ACTIVE (published).
+enum CompetitionStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+model Competition {
+  id               String            @id @default(cuid())
+  name             String
+  slug             String            @unique
+  description      String?
+  // Free text, not a structured payout model — a Competition's prize is announced/fulfilled
+  // manually by an admin (same "human confirms it" pattern already used for MANUAL/COD payments),
+  // not paid out through the Commission/Payout financial-integrity machinery. See DECISIONS.md
+  // ADR-030 for why this stays out of scope rather than being half-built.
+  prizeDescription String?
+  startAt          DateTime
+  endAt            DateTime
+  status           CompetitionStatus @default(DRAFT)
+  // Set only by the archive transition, cleared never — same convention as Offer.archivedAt.
+  archivedAt       DateTime?
+  createdById      String?
+  createdBy        User?             @relation("CompetitionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById      String?
+  updatedBy        User?             @relation("CompetitionUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@index([status])
+  @@index([startAt, endAt])
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 // Content Management (Phase 7A)
 // ────────────────────────────────────────────────────────────────────────────
 //
@@ -752,6 +877,14 @@ model Content {
   // Free-form, creator-authored structured extras (e.g. platform-specific fields) — same
   // passthrough-Json-bag convention as CampaignApplication.answers.
   metadata Json?
+
+  // Phase P — the live URL of the creator's actual social-media post, required (alongside at
+  // least one screenshot attachment) before a submit/resubmit is accepted (see
+  // ContentService.assertSubmittable). Lets an admin click through and verify the post really
+  // exists, the same way Perfluence-style contractual verification works; the screenshot
+  // attachment remains the permanent evidence archive independent of the link's future fate
+  // (edited/deleted) — see DECISIONS.md ADR-033.
+  postUrl String?
 
   // 0 while still an unsubmitted DRAFT; becomes 1 on first submit, +1 on every resubmit after
   // CHANGES_REQUESTED. Mirrors ContentVersion.versionNumber — the count of permanent versions.
@@ -838,6 +971,9 @@ model ContentVersion {
   notes              String?
   hashtags           String[]
   metadata           Json?
+  // Frozen at this exact submission, same reasoning as attachmentSnapshot below — the live
+  // Content.postUrl can change on a later resubmit, but this version's own claim never should.
+  postUrl            String?
   attachmentSnapshot Json
   submittedAt        DateTime @default(now())
   submittedById      String
@@ -1079,11 +1215,57 @@ model Customer {
   phone     String
   email     String?
   createdAt DateTime @default(now())
+  // Nullable, unique — links a Customer to a real Buyer account once one exists. A Customer row
+  // is created at guest checkout regardless of whether the phone number ever becomes a real
+  // account (see OrdersService.upsertCustomer); this stays null for true guests forever. Set at
+  // buyer registration (phone-match reconciliation) or at checkout time when a logged-in buyer's
+  // session is present — see DECISIONS.md's Buyer Accounts ADR for the exact merge rule.
+  // onDelete: SetNull, not Cascade — a Customer's order history is a financial/business record
+  // that must survive even if the linked User account is later deleted, unlike SavedProduct/
+  // BuyerAddress below which are pure convenience data with no reason to outlive the account.
+  userId    String?  @unique
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   addresses Address[]
   orders    Order[]
 
   @@index([phone])
+}
+
+// Buyer's own "wishlist" — deliberately keyed on User.id directly (no separate BuyerProfile
+// model exists or is needed: unlike Creator, every authenticated User can act as a buyer with no
+// approval gate, so there is nothing a distinct profile row would add here).
+model SavedProduct {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  offerId   String
+  offer     Offer    @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, offerId])
+  @@index([userId])
+}
+
+// A buyer's saved addresses for faster repeat checkout — deliberately separate from the
+// checkout-time `Address` model above, which is an immutable per-order snapshot. A saved address
+// is copied into a fresh `Address` row at checkout time, never reused by reference, so editing or
+// deleting a saved address can never retroactively change what a past order shipped to.
+model BuyerAddress {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label     String?
+  region    String
+  city      String
+  district  String?
+  line1     String
+  comment   String?
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
 }
 
 model Address {
@@ -1303,27 +1485,37 @@ enum CommissionStatus {
   REFUNDED
   PAYABLE
   PAID
+  // Phase N (Creator Fund) — a PAYABLE commission the creator voluntarily contributed to the
+  // shared Creator Fund instead of withdrawing. Kept distinct from PAID so wallet balance
+  // breakdowns never conflate "paid out to me" with "donated away" — see DECISIONS.md ADR-032.
+  DONATED
 }
 
 model Commission {
-  id               String           @id @default(cuid())
-  orderId          String           @unique
-  order            Order            @relation(fields: [orderId], references: [id])
-  creatorId        String
-  creator          CreatorProfile   @relation(fields: [creatorId], references: [id])
-  commissionRuleId String
-  commissionRule   CommissionRule   @relation(fields: [commissionRuleId], references: [id])
-  baseAmountMinor  Int // order subtotal after discount, before shipping/tax/fees
-  amountMinor      Int
-  currency         String           @default("UZS")
-  status           CommissionStatus @default(PENDING)
-  approvedAt       DateTime?
-  payableAt        DateTime?
-  paidAt           DateTime?
-  payoutId         String?
-  payout           Payout?          @relation(fields: [payoutId], references: [id])
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
+  id                 String                   @id @default(cuid())
+  orderId            String                   @unique
+  order              Order                    @relation(fields: [orderId], references: [id])
+  creatorId          String
+  creator            CreatorProfile           @relation(fields: [creatorId], references: [id])
+  commissionRuleId   String
+  commissionRule     CommissionRule           @relation(fields: [commissionRuleId], references: [id])
+  baseAmountMinor    Int // order subtotal after discount, before shipping/tax/fees
+  amountMinor        Int
+  currency           String                   @default("UZS")
+  status             CommissionStatus         @default(PENDING)
+  approvedAt         DateTime?
+  payableAt          DateTime?
+  paidAt             DateTime?
+  payoutId           String?
+  payout             Payout?                  @relation(fields: [payoutId], references: [id])
+  // Phase N (Creator Fund) — mirrors payoutId's lock-then-settle shape exactly, but for a
+  // contribution instead of a withdrawal. A commission is locked by exactly one of
+  // payoutId/fundContributionId at a time, never both.
+  donatedAt          DateTime?
+  fundContributionId String?
+  fundContribution   CreatorFundContribution? @relation(fields: [fundContributionId], references: [id])
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
 
   ledgerEntries CommissionLedger[]
 
@@ -1338,6 +1530,9 @@ enum LedgerEntryType {
   ACCRUAL
   REVERSAL
   PAYOUT
+  // Phase N (Creator Fund) — mirrors PAYOUT's "money left the available balance" meaning, distinct
+  // destination only.
+  DONATION
 }
 
 // Append-only ledger — Commission.status is a derived read model, this table is
@@ -1449,6 +1644,28 @@ model Payout {
   commissions Commission[]
 
   @@index([creatorId, status])
+}
+
+// Phase N (Creator Motivation System — Creator Fund). Unlike Payout, a contribution never leaves
+// the platform and needs no admin review/processing delay — it's an internal transfer from one
+// creator's available balance into a shared pool, so it settles synchronously in the same request
+// that creates it (see CreatorFundService.contribute — locks PAYABLE commissions the same
+// race-safe way PayoutsService.requestPayout does, then immediately marks them DONATED instead of
+// leaving them locked pending a later settlement step). `message` is an optional public shout-out
+// shown next to the contribution on the fund's contributor leaderboard.
+model CreatorFundContribution {
+  id          String         @id @default(cuid())
+  creatorId   String
+  creator     CreatorProfile @relation(fields: [creatorId], references: [id])
+  amountMinor Int
+  currency    String         @default("UZS")
+  message     String?
+  createdAt   DateTime       @default(now())
+
+  commissions Commission[]
+
+  @@index([creatorId])
+  @@index([createdAt])
 }
 
 // ────────────────────────────────────────────────────────────────────────────

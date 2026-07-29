@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import type { Offer } from "@rosti/types";
-import { Alert, Button, Card, CardHeader, CardTitle, SelectField, TextAreaField, TextField } from "@rosti/ui";
+import type { Offer } from "@sofsavdo/types";
+import { Alert, Button, Card, CardHeader, CardTitle, SelectField, TextAreaField, TextField } from "@sofsavdo/ui";
 import { Plus, Trash2 } from "lucide-react";
 import { offerSchema, type OfferInput } from "@/lib/schemas-admin";
 import { useAdminProducts, useCreateOffer, useUpdateOffer } from "@/services/admin/catalog";
@@ -21,7 +21,15 @@ const CTA_TYPES = [
 
 const PAYMENT_OPTIONS = ["CLICK", "PAYME", "CARD", "COD"];
 
-export function OfferForm({ existing, defaultProductId }: { existing?: Offer; defaultProductId?: string }) {
+export function OfferForm({
+  existing,
+  defaultProductId,
+  onCreated,
+}: {
+  existing?: Offer;
+  defaultProductId?: string;
+  onCreated?: (created: Offer) => void;
+}) {
   const router = useRouter();
   const productsQuery = useAdminProducts();
   const createOffer = useCreateOffer();
@@ -96,7 +104,8 @@ export function OfferForm({ existing, defaultProductId }: { existing?: Offer; de
       router.push(`/admin/offers/${existing.id}`);
     } else {
       const created = await createOffer.mutateAsync(payload);
-      router.push(`/admin/offers/${created.id}`);
+      if (onCreated) onCreated(created);
+      else router.push(`/admin/offers/${created.id}`);
     }
   }
 

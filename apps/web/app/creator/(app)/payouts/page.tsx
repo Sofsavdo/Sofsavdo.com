@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { formatMoneyMinor } from "@rosti/types";
-import { Alert, Badge, Button, Card, CardHeader, CardTitle, EmptyState, SelectField, Skeleton, TextField } from "@rosti/ui";
+import { formatMoneyMinor } from "@sofsavdo/types";
+import { Alert, Badge, Button, Card, CardHeader, CardTitle, EmptyState, SelectField, Skeleton, TextField } from "@sofsavdo/ui";
 import {
   useAddPayoutMethod,
   useBalance,

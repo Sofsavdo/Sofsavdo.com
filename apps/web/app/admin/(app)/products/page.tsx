@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Plus } from "lucide-react";
-import { DataTableShell, Button, MobileDataCard, StatusBadge } from "@rosti/ui";
+import { Plus, Rocket } from "lucide-react";
+import { DataTableShell, Button, MobileDataCard, StatusBadge } from "@sofsavdo/ui";
 import { useAdminProducts } from "@/services/admin/catalog";
 import { productStatusMeta } from "@/lib/status";
 
@@ -32,11 +32,18 @@ export default function AdminProductsPage() {
       onSearchChange={setSearch}
       searchPlaceholder="Mahsulot nomi bo'yicha qidirish"
       actions={
-        <Button asChild size="sm">
-          <Link href="/admin/products/new">
-            <Plus className="mr-1.5 size-4" /> Yangi mahsulot
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+          <Button asChild size="sm">
+            <Link href="/admin/products/launch">
+              <Rocket className="mr-1.5 size-4" /> Yangi mahsulot (to&apos;liq)
+            </Link>
+          </Button>
+          <Button asChild size="sm" variant="outline">
+            <Link href="/admin/products/new">
+              <Plus className="mr-1.5 size-4" /> Faqat mahsulot
+            </Link>
+          </Button>
+        </div>
       }
       isLoading={query.isLoading}
       isError={query.isError}

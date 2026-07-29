@@ -55,4 +55,19 @@ export class OffersController {
   archive(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.offers.archive(id, user.userId);
   }
+
+  // Reuses "offer.write" rather than a new granular permission — same precedent as isIndexable
+  // (see permissions.constants.ts's comment): this is an existing admin-editable entity gaining a
+  // field, not a new domain that needs its own permission.
+  @RequirePermissions("offer.write")
+  @Post(":id/feature")
+  feature(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.offers.feature(id, user.userId);
+  }
+
+  @RequirePermissions("offer.write")
+  @Post(":id/unfeature")
+  unfeature(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.offers.unfeature(id, user.userId);
+  }
 }

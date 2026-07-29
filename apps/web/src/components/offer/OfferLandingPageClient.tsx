@@ -3,8 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Skeleton } from "@rosti/ui";
-import { BRAND } from "@rosti/config/brand";
+import { Skeleton } from "@sofsavdo/ui";
+import { BRAND } from "@sofsavdo/config/brand";
 import { useOfferPublic } from "@/services/offer";
 import { LandingSectionRenderer, ReferralBanner, StickyMobileCta } from "./sections";
 import { DeliveryQuoteBox } from "./DeliveryQuoteBox";

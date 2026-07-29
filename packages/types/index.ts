@@ -139,6 +139,7 @@ export interface ContentVersionItem {
   notes?: string;
   hashtags: string[];
   metadata?: Record<string, unknown>;
+  postUrl?: string;
   submittedAt: string;
 }
 
@@ -170,6 +171,7 @@ export interface ContentCreatorView {
   notes?: string;
   hashtags: string[];
   metadata?: Record<string, unknown>;
+  postUrl?: string;
   currentVersionNumber: number;
   rejectionReason?: string;
   changesRequestedReason?: string;
@@ -193,7 +195,7 @@ export interface ContentAdminView extends ContentCreatorView {
 
 export type ContentDashboardCounts = Record<ContentStatus, number>;
 
-export type CommissionStatus = "PENDING" | "APPROVED" | "REJECTED" | "REFUNDED" | "PAYABLE" | "PAID";
+export type CommissionStatus = "PENDING" | "APPROVED" | "REJECTED" | "REFUNDED" | "PAYABLE" | "PAID" | "DONATED";
 export type PayoutStatus = "REQUESTED" | "UNDER_REVIEW" | "APPROVED" | "PROCESSING" | "PAID" | "REJECTED";
 export type PayoutMethodType = "CARD" | "BANK_ACCOUNT";
 export type OrderStatus =
@@ -449,26 +451,6 @@ export interface BalanceSummary {
   payoutRequestedMinor: number;
   paidMinor: number;
   minimumPayoutMinor: number;
-}
-
-export interface DashboardSeriesPoint {
-  date: string;
-  clicks: number;
-  orders: number;
-  revenueMinor: number;
-}
-
-export interface DashboardStats {
-  today: { clicks: number; orders: number; revenueMinor: number };
-  monthToDate: { salesMinor: number; commissionMinor: number };
-  pendingCommissionMinor: number;
-  approvedCommissionMinor: number;
-  availableBalanceMinor: number;
-  conversionRate: number; // 0..1
-  epcMinor: number; // earnings per click, minor units
-  series7d: DashboardSeriesPoint[];
-  series30d: DashboardSeriesPoint[];
-  series90d: DashboardSeriesPoint[];
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -943,6 +925,7 @@ export interface RealWalletBalance {
   lockedMinor: number;
   paidMinor: number;
   reversedMinor: number;
+  donatedMinor: number;
   currency: string;
   minimumPayoutMinor: number;
 }
@@ -1066,6 +1049,9 @@ export interface RealRole {
   userCount: number;
 }
 
+export type BioComplianceStatus = "PENDING" | "COMPLIANT" | "NON_COMPLIANT";
+export type CreatorTier = "STANDARD" | "PREMIUM";
+
 export interface RealCreatorAdminListItem {
   id: string;
   displayName: string;
@@ -1075,6 +1061,8 @@ export interface RealCreatorAdminListItem {
   createdAt: string;
   accountStatus: RealUserStatus;
   onboardingStatus: CreatorApplicationStatus;
+  bioComplianceStatus: BioComplianceStatus;
+  tier: CreatorTier;
 }
 
 export interface RealCreatorAdminDetail extends RealCreatorAdminListItem {

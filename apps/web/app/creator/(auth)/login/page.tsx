@@ -5,17 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Button, Card, CardHeader, CardTitle, TextField, Alert } from "@rosti/ui";
+import { Button, Card, CardHeader, CardTitle, TextField, Alert } from "@sofsavdo/ui";
 import { useSession } from "@/services/session";
 import { loginSchema, type LoginInput } from "@/lib/schemas";
 import { postAuthRoute } from "@/lib/routing";
-
-const DEMO_ACCOUNTS = [
-  { email: "malika@example.uz", label: "Malika — tasdiqlangan creator" },
-  { email: "aziz@example.uz", label: "Aziz — ko'rib chiqilmoqda" },
-  { email: "dilnoza@example.uz", label: "Dilnoza — tuzatish talab qilingan" },
-  { email: "sardor@example.uz", label: "Sardor — rad etilgan" },
-];
 
 export default function LoginPage() {
   const router = useRouter();
@@ -24,7 +17,6 @@ export default function LoginPage() {
   const {
     register,
     handleSubmit,
-    setValue,
     formState: { errors },
   } = useForm<LoginInput>({ resolver: zodResolver(loginSchema) });
 
@@ -64,24 +56,6 @@ export default function LoginPage() {
           {loginPending ? "Tekshirilmoqda..." : "Kirish"}
         </Button>
       </form>
-
-      <div className="mt-6 flex flex-col gap-2 border-t border-border pt-4">
-        <p className="font-body text-xs text-text-muted">
-          Demo hisoblar (parol: istalgan 6+ belgi, masalan <code>demo1234</code>):
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {DEMO_ACCOUNTS.map((acc) => (
-            <button
-              key={acc.email}
-              type="button"
-              onClick={() => setValue("email", acc.email)}
-              className="rounded-full border border-border px-3 py-1 font-body text-xs text-text-secondary hover:border-accent hover:text-accent"
-            >
-              {acc.label}
-            </button>
-          ))}
-        </div>
-      </div>
 
       <div className="mt-6 flex items-center justify-between font-body text-sm">
         <Link href="/creator/forgot-password" className="text-text-secondary underline">

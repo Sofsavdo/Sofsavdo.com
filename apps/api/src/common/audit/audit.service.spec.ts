@@ -9,12 +9,12 @@ describe("AuditService (Phase 12 — general admin audit-log browser)", () => {
   const entryRow = (over: Record<string, unknown> = {}) => ({
     id: "log1",
     actorId: "actor1",
-    actor: { id: "actor1", email: "admin@rosti.uz" },
+    actor: { id: "actor1", email: "admin@sofsavdo.com" },
     action: "STAFF_CREATED",
     entityType: "User",
     entityId: "user1",
     before: null,
-    after: { email: "new@rosti.uz" },
+    after: { email: "new@sofsavdo.com" },
     createdAt: new Date(),
     ...over,
   });

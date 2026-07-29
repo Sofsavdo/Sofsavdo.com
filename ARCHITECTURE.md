@@ -153,7 +153,7 @@ canonical URL (see SEO notes in DECISIONS.md ADR-006).
 ## 6. Request flow example — buyer purchase
 
 ```
-Creator's audience clicks rosti.uz/o/serum?ref=malika
+Creator's audience clicks sofsavdo.com/o/serum?ref=malika
   → Next.js server component fetches GET /offers/serum/public
   → API resolves referral code "malika" for offer "serum", writes a ReferralVisit
     (visitorId, sessionId, ip hash, UA, utm params, expiresAt = now + campaign.attributionWindowDays)

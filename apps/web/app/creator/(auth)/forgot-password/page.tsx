@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
-import { Button, Card, CardHeader, CardTitle, TextField, Alert } from "@rosti/ui";
+import { Button, Card, CardHeader, CardTitle, TextField, Alert } from "@sofsavdo/ui";
 import * as api from "@/lib/api";
 import { forgotPasswordSchema, type ForgotPasswordInput } from "@/lib/schemas";
 

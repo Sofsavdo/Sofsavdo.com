@@ -1,8 +1,10 @@
-import { Body, Controller, Get, Param, Post, Query } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Post, Query } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { AdminCreatorsService } from "./admin-creators.service";
 import { CreatorQueryDto } from "./dto/creator-query.dto";
 import { AccountActionDto } from "./dto/account-action.dto";
+import { SetBioComplianceDto } from "./dto/set-bio-compliance.dto";
+import { SetTierDto } from "./dto/set-tier.dto";
 import { RequirePermissions } from "../common/decorators/permissions.decorator";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import type { AuthenticatedUser } from "../common/guards/jwt-auth.guard";
@@ -71,5 +73,17 @@ export class AdminCreatorsController {
   @Post(":id/unblock")
   unblock(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.creators.unblock(id, user.userId);
+  }
+
+  @RequirePermissions("creator.compliance")
+  @Patch(":id/bio-compliance")
+  setBioCompliance(@Param("id") id: string, @Body() dto: SetBioComplianceDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.creators.setBioCompliance(id, dto.status, user.userId);
+  }
+
+  @RequirePermissions("creator.tier")
+  @Patch(":id/tier")
+  setTier(@Param("id") id: string, @Body() dto: SetTierDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.creators.setTier(id, dto.tier, user.userId);
   }
 }

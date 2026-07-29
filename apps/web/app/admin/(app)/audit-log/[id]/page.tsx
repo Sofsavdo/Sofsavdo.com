@@ -2,7 +2,7 @@
 
 import { use } from "react";
 import Link from "next/link";
-import { Alert, Card, CardHeader, CardTitle, Skeleton } from "@rosti/ui";
+import { Alert, Card, CardHeader, CardTitle, Skeleton } from "@sofsavdo/ui";
 import { ArrowLeft } from "lucide-react";
 import { useRealAuditLogDetail } from "@/services/admin/system";
 

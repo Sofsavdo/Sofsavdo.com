@@ -45,6 +45,8 @@ is a distinct row in the `Permission` table.
 | Creator | `creator.review` |
 | Creator | `creator.suspend` |
 | Creator | `creator.block` |
+| Creator | `creator.compliance` |
+| Creator | `creator.tier` |
 | Content | `content.read` |
 | Content | `content.review` |
 | Content | `content.approve` |
@@ -83,6 +85,21 @@ is a distinct row in the `Permission` table.
 | Role (staff role/permission management) | `role.manage` |
 | Refund (admin review decision) | `refund.read` |
 | Refund (admin review decision) | `refund.manage` |
+| Homepage (public homepage CMS sections) | `homepage.read` |
+| Homepage (public homepage CMS sections) | `homepage.write` |
+| Competition (creator motivation contests) | `competition.read` |
+| Competition (creator motivation contests) | `competition.write` |
+| Competition (creator motivation contests) | `competition.publish` |
+| Competition (creator motivation contests) | `competition.complete` |
+| Competition (creator motivation contests) | `competition.archive` |
+
+**Homepage CMS note:** `homepage.read`/`homepage.write` follow the same two-verb split as
+`landing.*`, but with no `.publish`/`.archive` verbs — the homepage has no draft/published/archived
+workflow (see DECISIONS.md ADR-027), it's always live, and each section's own `isActive` flag
+(toggled via `.write`) is the only visibility switch.
+
+**Competition note:** `competition.*` mirrors `campaign.*`'s permission shape exactly, minus a
+`.pause` verb — `CompetitionStatus` has no PAUSED state (see schema.prisma's own comment on why).
 
 **6B Enhancement note:** `referral.read`/`referral.manage` were reserved-but-unused rows before this
 checkpoint (no admin route consumed them yet); they're now the real gate for the creator-to-creator
@@ -207,6 +224,8 @@ per-resource scoping in the MVP.
 | `creator.review` | ✓ | ✓ | ✓ |
 | `creator.suspend` | | ✓ | ✓ |
 | `creator.block` | | | ✓ |
+| `creator.compliance` | | ✓ | ✓ |
+| `creator.tier` | | ✓ | ✓ |
 | `content.read` | ✓ | ✓ | ✓ |
 | `content.review` | ✓ | ✓ | ✓ |
 | `content.approve` | | ✓ | ✓ |
@@ -245,6 +264,13 @@ per-resource scoping in the MVP.
 | `role.manage` | | | ✓ |
 | `refund.read` | ✓ | ✓ | ✓ |
 | `refund.manage` | | ✓ | ✓ |
+| `homepage.read` | ✓ | ✓ | ✓ |
+| `homepage.write` | | ✓ | ✓ |
+| `competition.read` | ✓ | ✓ | ✓ |
+| `competition.write` | | ✓ | ✓ |
+| `competition.publish` | | ✓ | ✓ |
+| `competition.complete` | | ✓ | ✓ |
+| `competition.archive` | | ✓ | ✓ |
 
 A plain creator (a `User` with a `CreatorProfile` and no `UserRole` rows at all) has **zero**
 entries in this table — `RolesService.getRoleKeysAndPermissionsForUser` returns an empty array for

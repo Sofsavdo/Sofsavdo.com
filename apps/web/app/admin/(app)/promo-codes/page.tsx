@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { formatPercent, formatMoneyMinor } from "@rosti/types";
-import { Badge, DataTableShell, MobileDataCard } from "@rosti/ui";
+import { formatPercent, formatMoneyMinor } from "@sofsavdo/types";
+import { Badge, DataTableShell, MobileDataCard } from "@sofsavdo/ui";
 import { useAdminPromoCodes } from "@/services/admin/marketing";
 
 export default function AdminPromoCodesPage() {

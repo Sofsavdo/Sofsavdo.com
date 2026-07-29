@@ -37,7 +37,7 @@ pass. Flagged here for a deliberate decision, with exact locations:
    (`/creator/onboarding`) and campaign applications without ever seeing or accepting a creator-
    specific agreement (commission terms, content rights, code-of-conduct, termination conditions).
    This is arguably the single highest-value document to get real legal review on, since it's the
-   contract governing the money relationship between Rosti and every creator.
+   contract governing the money relationship between Sofsavdo and every creator.
 4. **No campaign-specific rules acknowledgment.** A creator applying to a campaign
    (`/creator/campaigns/[id]`) sees the campaign's commission/media requirements but never
    explicitly accepts them as binding.
@@ -56,12 +56,12 @@ pass. Flagged here for a deliberate decision, with exact locations:
   BACKUP_RESTORE.md's "Data retention" section) — tax/accounting law may set a *minimum* retention
   period for financial records that conflicts with a "delete on request" privacy expectation;
   reconciling that is a legal question.
-- Click.uz's own merchant agreement terms — confirm Rosti's own ToS/refund policy doesn't
-  contradict whatever Rosti agreed to as a Click merchant.
+- Click.uz's own merchant agreement terms — confirm Sofsavdo's own ToS/refund policy doesn't
+  contradict whatever Sofsavdo agreed to as a Click merchant.
 
 ## Support contact info
 
-`support@rosti.uz` appears on the order-success page and (now) the landing page footer. No other
+`support@sofsavdo.com` appears on the order-success page and (now) the landing page footer. No other
 support channel (phone, Telegram, live chat) exists in the UI. Confirm this is the actual, monitored
 support channel before launch — a placeholder email that nobody checks is worse than no email, since
 customers will believe it works.

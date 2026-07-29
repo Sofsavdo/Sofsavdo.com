@@ -40,13 +40,13 @@ describe("Offers (e2e)", () => {
       data: perms.map((p) => ({ roleId: role.id, permissionId: p.id })),
       skipDuplicates: true,
     });
-    const adminUser = await prisma.user.create({ data: { email: `admin-${suffix}@rosti.uz`, passwordHash: "x" } });
+    const adminUser = await prisma.user.create({ data: { email: `admin-${suffix}@sofsavdo.com`, passwordHash: "x" } });
     await prisma.userRole.create({ data: { userId: adminUser.id, roleId: role.id } });
     adminAccessToken = tokens.signAccessToken(adminUser.id);
 
     const creatorUser = await prisma.user.create({
       data: {
-        email: `creator-${suffix}@rosti.uz`,
+        email: `creator-${suffix}@sofsavdo.com`,
         passwordHash: "x",
         creatorProfile: { create: { displayName: "Test Creator", contentNiches: [], referralCode: suffix } },
       },
@@ -300,5 +300,163 @@ describe("Offers (e2e)", () => {
       .set("Authorization", `Bearer ${adminAccessToken}`)
       .expect(404);
     expect(res.body.code).toBe("NOT_FOUND");
+  });
+
+  describe("feature / unfeature + GET /offers/featured (Phase C)", () => {
+    it("toggles isFeatured via dedicated admin endpoints, reusing offer.write", async () => {
+      const created = await request(app.getHttpServer())
+        .post("/admin/offers")
+        .set("Authorization", `Bearer ${adminAccessToken}`)
+        .send({ productId, name: "Featurable", slug: `featurable-${suffix}`, headline: "Test headline", priceMinor: 1000 })
+        .expect(201);
+
+      const featured = await request(app.getHttpServer())
+        .post(`/admin/offers/${created.body.id}/feature`)
+        .set("Authorization", `Bearer ${adminAccessToken}`)
+        .expect(201);
+      expect(featured.body.isFeatured).toBe(true);
+
+      const unfeatured = await request(app.getHttpServer())
+        .post(`/admin/offers/${created.body.id}/unfeature`)
+        .set("Authorization", `Bearer ${adminAccessToken}`)
+        .expect(201);
+      expect(unfeatured.body.isFeatured).toBe(false);
+    });
+
+    it("GET /offers/featured requires no authentication", async () => {
+      await request(app.getHttpServer()).get("/offers/featured").expect(200);
+    });
+
+    it("never returns a DRAFT/PAUSED/ARCHIVED offer, even when isFeatured is true", async () => {
+      const draft = await request(app.getHttpServer())
+        .post("/admin/offers")
+        .set("Authorization", `Bearer ${adminAccessToken}`)
+        .send({ productId, name: "Featured but draft", slug: `featured-draft-${suffix}`, headline: "Test headline", priceMinor: 1000 })
+        .expect(201);
+      await request(app.getHttpServer())
+        .post(`/admin/offers/${draft.body.id}/feature`)
+        .set("Authorization", `Bearer ${adminAccessToken}`)
+        .expect(201);
+
+      const res = await request(app.getHttpServer()).get("/offers/featured").expect(200);
+      expect(res.body.some((o: { slug: string }) => o.slug === `featured-draft-${suffix}`)).toBe(false);
+    });
+
+    it("returns a live featured offer with the public-safe projection only", async () => {
+      const live = await request(app.getHttpServer())
+        .post("/admin/offers")
+        .set("Authorization", `Bearer ${adminAccessToken}`)
+        .send({
+          productId,
+          name: "Live featured",
+          slug: `live-featured-${suffix}`,
+          headline: "Live featured headline",
+          priceMinor: 25_000,
+        })
+        .expect(201);
+      await request(app.getHttpServer()).post(`/admin/offers/${live.body.id}/activate`).set("Authorization", `Bearer ${adminAccessToken}`).expect(201);
+      await request(app.getHttpServer()).post(`/admin/offers/${live.body.id}/feature`).set("Authorization", `Bearer ${adminAccessToken}`).expect(201);
+
+      const res = await request(app.getHttpServer()).get("/offers/featured").expect(200);
+      const entry = res.body.find((o: { slug: string }) => o.slug === `live-featured-${suffix}`);
+      expect(entry).toMatchObject({ name: "Live featured", headline: "Live featured headline", priceMinor: 25_000, currency: "UZS" });
+      expect(entry).not.toHaveProperty("internalDescription");
+      expect(entry).not.toHaveProperty("createdBy");
+    });
+
+    it("caps the response at FEATURED_OFFERS_LIMIT even with 50 featured live offers seeded", async () => {
+      const batchSuffix = `${suffix}-bulk`;
+      await prisma.offer.createMany({
+        data: Array.from({ length: 50 }, (_, i) => ({
+          productId,
+          name: `Bulk featured ${i}`,
+          slug: `bulk-featured-${batchSuffix}-${i}`,
+          headline: `Bulk featured headline ${i}`,
+          priceMinor: 1000,
+          status: "ACTIVE" as const,
+          isFeatured: true,
+        })),
+      });
+
+      const res = await request(app.getHttpServer()).get("/offers/featured").expect(200);
+      expect(res.body.length).toBeLessThanOrEqual(8);
+
+      await prisma.offer.deleteMany({ where: { slug: { contains: batchSuffix } } });
+    });
+  });
+
+  describe("GET /offers/catalog (Phase E)", () => {
+    it("requires no authentication", async () => {
+      await request(app.getHttpServer()).get("/offers/catalog").expect(200);
+    });
+
+    it("never returns a DRAFT/PAUSED/ARCHIVED offer", async () => {
+      const draft = await request(app.getHttpServer())
+        .post("/admin/offers")
+        .set("Authorization", `Bearer ${adminAccessToken}`)
+        .send({ productId, name: "Catalog draft", slug: `catalog-draft-${suffix}`, headline: "Test headline", priceMinor: 1000 })
+        .expect(201);
+
+      const res = await request(app.getHttpServer()).get("/offers/catalog").expect(200);
+      expect(res.body.items.some((o: { slug: string }) => o.slug === draft.body.slug)).toBe(false);
+    });
+
+    it("returns a live offer with the public-safe projection, including productType", async () => {
+      const live = await request(app.getHttpServer())
+        .post("/admin/offers")
+        .set("Authorization", `Bearer ${adminAccessToken}`)
+        .send({ productId, name: "Catalog live", slug: `catalog-live-${suffix}`, headline: "Catalog live headline", priceMinor: 25_000 })
+        .expect(201);
+      await request(app.getHttpServer()).post(`/admin/offers/${live.body.id}/activate`).set("Authorization", `Bearer ${adminAccessToken}`).expect(201);
+
+      const res = await request(app.getHttpServer()).get("/offers/catalog").expect(200);
+      const entry = res.body.items.find((o: { slug: string }) => o.slug === `catalog-live-${suffix}`);
+      expect(entry).toMatchObject({ name: "Catalog live", headline: "Catalog live headline", priceMinor: 25_000, currency: "UZS", productType: "PHYSICAL_PRODUCT" });
+      expect(entry).not.toHaveProperty("internalDescription");
+    });
+
+    it("filters by product type", async () => {
+      const courseProduct = await prisma.product.create({ data: { name: `Catalog course product ${suffix}`, slug: `catalog-course-product-${suffix}`, type: "COURSE" } });
+      const course = await request(app.getHttpServer())
+        .post("/admin/offers")
+        .set("Authorization", `Bearer ${adminAccessToken}`)
+        .send({ productId: courseProduct.id, name: "Catalog course", slug: `catalog-course-${suffix}`, headline: "Test headline", priceMinor: 15_000 })
+        .expect(201);
+      await request(app.getHttpServer()).post(`/admin/offers/${course.body.id}/activate`).set("Authorization", `Bearer ${adminAccessToken}`).expect(201);
+
+      const res = await request(app.getHttpServer()).get("/offers/catalog?type=COURSE").expect(200);
+      expect(res.body.items.every((o: { productType: string }) => o.productType === "COURSE")).toBe(true);
+      expect(res.body.items.some((o: { slug: string }) => o.slug === `catalog-course-${suffix}`)).toBe(true);
+    });
+
+    it("filters by price range", async () => {
+      const res = await request(app.getHttpServer()).get("/offers/catalog?minPriceMinor=24000&maxPriceMinor=26000").expect(200);
+      expect(res.body.items.every((o: { priceMinor: number }) => o.priceMinor >= 24_000 && o.priceMinor <= 26_000)).toBe(true);
+    });
+
+    it("caps the response at CATALOG_MAX_PAGE_SIZE even when the client requests more per page", async () => {
+      const batchSuffix = `${suffix}-catalog-bulk`;
+      await prisma.offer.createMany({
+        data: Array.from({ length: 60 }, (_, i) => ({
+          productId,
+          name: `Bulk catalog ${i}`,
+          slug: `bulk-catalog-${batchSuffix}-${i}`,
+          headline: `Bulk catalog headline ${i}`,
+          priceMinor: 1000,
+          status: "ACTIVE" as const,
+        })),
+      });
+
+      const res = await request(app.getHttpServer()).get("/offers/catalog?pageSize=100").expect(200);
+      expect(res.body.items.length).toBeLessThanOrEqual(48);
+      expect(res.body.pageSize).toBeLessThanOrEqual(48);
+
+      await prisma.offer.deleteMany({ where: { slug: { contains: batchSuffix } } });
+    });
+
+    it("has no way to pass a search term at all — an unknown query param is rejected by the whitelist validation pipe", async () => {
+      const res = await request(app.getHttpServer()).get("/offers/catalog?search=anything").expect(400);
+      expect(res.body.code).toBe("VALIDATION_ERROR");
+    });
   });
 });

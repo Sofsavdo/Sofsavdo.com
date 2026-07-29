@@ -1,6 +1,6 @@
-# Rosti — Launch & Operations Runbook
+# Sofsavdo — Launch & Operations Runbook
 
-Practical, step-by-step procedures for taking Rosti from a deployed-but-empty instance to serving
+Practical, step-by-step procedures for taking Sofsavdo from a deployed-but-empty instance to serving
 real creators, real customers, and real Click payments — and for running it day to day afterward.
 Written against the actual code in this repo as of Phase 14 (Production Hardening); every command
 and endpoint below is real, not illustrative. Placeholders (`<...>`) are things only the operator
@@ -13,7 +13,7 @@ what's built vs. deferred.
 
 ## 1. Click.uz go-live checklist
 
-Rosti's Click integration ([click-payment.adapter.ts](apps/api/src/payments/click-payment.adapter.ts),
+Sofsavdo's Click integration ([click-payment.adapter.ts](apps/api/src/payments/click-payment.adapter.ts),
 [click-callback.controller.ts](apps/api/src/payments/click-callback.controller.ts)) has been built and
 tested against **test credentials only**. Nobody on this project has activated real production Click
 credentials. Before doing so:
@@ -66,7 +66,7 @@ bootstrap script instead:
 
 ```bash
 BOOTSTRAP_ADMIN_EMAIL=you@yourcompany.uz BOOTSTRAP_ADMIN_PASSWORD='a-real-strong-password-12+chars' \
-  npm run bootstrap:admin --workspace=@rosti/api
+  npm run bootstrap:admin --workspace=@sofsavdo/api
 ```
 
 What it does ([bootstrap-admin.ts](apps/api/prisma/bootstrap-admin.ts)):

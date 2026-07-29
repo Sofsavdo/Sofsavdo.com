@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { DataTableShell, MobileDataCard, StatusBadge } from "@rosti/ui";
+import { DataTableShell, MobileDataCard, StatusBadge } from "@sofsavdo/ui";
 import { useRealCreatorList } from "@/services/admin/creators";
 import { applicationStatusMeta, creatorAccountStatusMeta } from "@/lib/status";
-import type { CreatorApplicationStatus, RealUserStatus } from "@rosti/types";
+import type { CreatorApplicationStatus, RealUserStatus } from "@sofsavdo/types";
 
 export default function AdminCreatorsPage() {
   const [search, setSearch] = useState("");

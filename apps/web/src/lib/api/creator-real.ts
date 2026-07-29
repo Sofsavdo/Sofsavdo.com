@@ -5,6 +5,7 @@
 // in as one role naturally replaces whichever session was active before, same as switching admin
 // accounts already worked).
 import type {
+  BioComplianceStatus,
   Campaign,
   CampaignApplicationCreatorView,
   CampaignMediaItem,
@@ -18,11 +19,15 @@ import type {
   ContentDashboardCounts,
   ContentReviewAction,
   ContentStatus,
+  CommissionStatus,
   CreatorCampaign,
   CreatorCampaignStatus,
+  CreatorTier,
   CreatorUser,
+  OrderStatus,
+  Sale,
   SocialPlatform,
-} from "@rosti/types";
+} from "@sofsavdo/types";
 import { apiRequest, setAccessToken, ApiError } from "./http-client";
 
 interface BackendSessionUser {
@@ -575,6 +580,7 @@ interface BackendContentVersion {
   notes: string | null;
   hashtags: string[];
   metadata: unknown;
+  postUrl: string | null;
   submittedAt: string;
 }
 
@@ -596,6 +602,7 @@ interface BackendContent {
   notes: string | null;
   hashtags: string[];
   metadata: unknown;
+  postUrl: string | null;
   currentVersionNumber: number;
   rejectionReason: string | null;
   changesRequestedReason: string | null;
@@ -626,7 +633,9 @@ function mapContentAttachment(a: BackendContentAttachment): ContentAttachmentIte
   };
 }
 
-function mapContentVersion(v: BackendContentVersion): { id: string; versionNumber: number; caption?: string; notes?: string; hashtags: string[]; metadata?: Record<string, unknown>; submittedAt: string } {
+function mapContentVersion(
+  v: BackendContentVersion,
+): { id: string; versionNumber: number; caption?: string; notes?: string; hashtags: string[]; metadata?: Record<string, unknown>; postUrl?: string; submittedAt: string } {
   return {
     id: v.id,
     versionNumber: v.versionNumber,
@@ -634,6 +643,7 @@ function mapContentVersion(v: BackendContentVersion): { id: string; versionNumbe
     notes: v.notes ?? undefined,
     hashtags: v.hashtags,
     metadata: (v.metadata as Record<string, unknown> | null) ?? undefined,
+    postUrl: v.postUrl ?? undefined,
     submittedAt: v.submittedAt,
   };
 }
@@ -652,6 +662,7 @@ function mapContent(c: BackendContent): ContentCreatorView {
     notes: c.notes ?? undefined,
     hashtags: c.hashtags,
     metadata: (c.metadata as Record<string, unknown> | null) ?? undefined,
+    postUrl: c.postUrl ?? undefined,
     currentVersionNumber: c.currentVersionNumber,
     rejectionReason: c.rejectionReason ?? undefined,
     changesRequestedReason: c.changesRequestedReason ?? undefined,
@@ -681,6 +692,7 @@ export interface CreateContentInput {
   notes?: string;
   hashtags?: string[];
   metadata?: Record<string, unknown>;
+  postUrl?: string;
 }
 
 export async function createContent(campaignId: string, input: CreateContentInput): Promise<ContentCreatorView> {
@@ -736,4 +748,251 @@ export async function uploadContentAttachment(contentId: string, input: UploadCo
 
 export async function deleteContentAttachment(attachmentId: string): Promise<ContentCreatorView> {
   return mapContent(await apiRequest<BackendContent>(`/creator/content-attachments/${attachmentId}`, { method: "DELETE" }));
+}
+
+// ---- Sales (Phase A, production-hardening pass) ----
+
+// Real backend's Order.status (see CommissionsService.listMySales) has finer-grained states than
+// the legacy mock `OrderStatus` this read-only summary page/table was built against (NEW/
+// CONFIRMED/PROCESSING/SHIPPED/DELIVERED/COMPLETED/CANCELLED/RETURNED/REFUNDED) — deliberately
+// mapped down rather than widening `Sale`/`SalesTable` to the real enum, since /creator/sales is a
+// glanceable "did I get paid" summary, not an operational order-management surface (that fidelity
+// already exists, for staff, on /admin/orders via RealOrderStatus). Two real states collapse into
+// one legacy bucket by design: PAYMENT_PENDING joins CREATED under "NEW" (nothing sellable has
+// happened yet either way) and IN_TRANSIT joins SHIPPED under "SHIPPED" (both read as "on the way"
+// to a creator who takes no action here regardless).
+const REAL_TO_LEGACY_ORDER_STATUS: Record<string, OrderStatus> = {
+  CREATED: "NEW",
+  PAYMENT_PENDING: "NEW",
+  PAID: "CONFIRMED",
+  PROCESSING: "PROCESSING",
+  SHIPPED: "SHIPPED",
+  IN_TRANSIT: "SHIPPED",
+  DELIVERED: "DELIVERED",
+  CANCELLED: "CANCELLED",
+  REFUNDED: "REFUNDED",
+};
+
+interface BackendCreatorSale {
+  id: string;
+  orderPublicToken: string;
+  createdAt: string;
+  campaignName: string;
+  offerName: string;
+  customerMasked: string;
+  amountMinor: number;
+  discountMinor: number;
+  commissionBaseMinor: number;
+  commissionMinor: number;
+  orderStatus: string;
+  attributionSource: "PROMO_CODE" | "REFERRAL_VISIT" | "MANUAL";
+}
+
+export async function getMySales(): Promise<Sale[]> {
+  const items = await apiRequest<BackendCreatorSale[]>("/creator/sales");
+  return items.map((s) => ({
+    id: s.id,
+    orderPublicToken: s.orderPublicToken,
+    createdAt: s.createdAt,
+    campaignName: s.campaignName,
+    offerName: s.offerName,
+    customerMasked: s.customerMasked,
+    amountMinor: s.amountMinor,
+    discountMinor: s.discountMinor,
+    commissionBaseMinor: s.commissionBaseMinor,
+    commissionMinor: s.commissionMinor,
+    orderStatus: REAL_TO_LEGACY_ORDER_STATUS[s.orderStatus] ?? "NEW",
+    // MANUAL attribution (admin override) has no legacy-mock equivalent — falls back to
+    // REFERRAL_VISIT since that's the more common real-world cause a manual correction fixes.
+    attributionSource: s.attributionSource === "PROMO_CODE" ? "PROMO_CODE" : "REFERRAL_VISIT",
+  }));
+}
+
+// ---- Dashboard stats (Phase J) — replaces the previous 100%-mocked apiGetDashboardStats, which
+// was never gated behind USE_REAL_API at all (see DECISIONS.md ADR-029). Field names match
+// CreatorDashboardStats (apps/api/src/creator-dashboard/creator-dashboard.service.ts) 1:1 — no
+// adapter needed, same no-rename precedent as Landing's LandingResponse/LandingPage.
+
+export interface DashboardPeriodStats {
+  ordersCount: number;
+  salesMinor: number;
+  commissionMinor: number;
+}
+
+export interface DashboardWallet {
+  pendingMinor: number;
+  availableMinor: number;
+  lockedMinor: number;
+  paidMinor: number;
+  reversedMinor: number;
+  donatedMinor: number;
+  currency: string;
+  minimumPayoutMinor: number;
+}
+
+// Phase O — the creator-facing counterpart of the admin dashboard's funnel, same 3 real stages
+// (Click → Order → Paid order), scoped to this creator's own referral traffic.
+export interface DashboardFunnel {
+  period: "this_month";
+  clicks: number;
+  orders: number;
+  paidOrders: number;
+  conversionRate: number;
+}
+
+export interface DashboardStats {
+  today: DashboardPeriodStats & { clicks: number; conversionRate: number };
+  monthToDate: DashboardPeriodStats;
+  lifetime: DashboardPeriodStats;
+  wallet: DashboardWallet;
+  dailyRevenue30d: { date: string; revenueMinor: number }[];
+  funnel: DashboardFunnel;
+  compliance: { bioComplianceStatus: BioComplianceStatus; tier: CreatorTier };
+}
+
+export async function getDashboardStats(): Promise<DashboardStats> {
+  return apiRequest<DashboardStats>("/creator/dashboard-stats");
+}
+
+// ---- Leaderboard (Phase K) — real backend only, no mock counterpart (a brand-new competitive/
+// motivational surface — same "real backend only" precedent as Content/Order management above).
+
+export interface LeaderboardEntry {
+  rank: number;
+  creatorId: string;
+  displayName: string;
+  commissionMinor: number;
+  ordersCount: number;
+}
+
+export interface LeaderboardResponse {
+  period: "this_month";
+  top: LeaderboardEntry[];
+  me: LeaderboardEntry | null;
+}
+
+export async function getLeaderboard(): Promise<LeaderboardResponse> {
+  return apiRequest<LeaderboardResponse>("/creator/leaderboard");
+}
+
+// ---- Competitions (Phase L) — real backend only, no mock counterpart. Field names match
+// CompetitionResponse/CompetitionLeaderboardResponse 1:1.
+
+export type CompetitionAvailability = "SCHEDULED" | "LIVE" | "EXPIRED" | "INACTIVE";
+
+export interface CreatorCompetition {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  prizeDescription: string | null;
+  startAt: string;
+  endAt: string;
+  availability: CompetitionAvailability;
+}
+
+export async function getMyCompetitions(): Promise<CreatorCompetition[]> {
+  return apiRequest<CreatorCompetition[]>("/creator/competitions");
+}
+
+export interface CompetitionLeaderboardEntry {
+  rank: number;
+  creatorId: string;
+  displayName: string;
+  commissionMinor: number;
+  ordersCount: number;
+}
+
+export interface CompetitionLeaderboardResponse {
+  competitionId: string;
+  top: CompetitionLeaderboardEntry[];
+  me: CompetitionLeaderboardEntry | null;
+}
+
+export async function getCompetitionLeaderboard(competitionId: string): Promise<CompetitionLeaderboardResponse> {
+  return apiRequest<CompetitionLeaderboardResponse>(`/creator/competitions/${competitionId}/leaderboard`);
+}
+
+// ---- Activity ticker (Phase N) — real backend only, no mock counterpart. Field names match
+// ActivityTickerResponse (apps/api/src/activity-ticker/activity-ticker.service.ts) 1:1.
+
+export type ActivityEventType = "SALE" | "PAYOUT" | "FUND_CONTRIBUTION";
+
+export interface ActivityEvent {
+  type: ActivityEventType;
+  creatorDisplayName: string;
+  amountMinor: number;
+  currency: string;
+  occurredAt: string;
+}
+
+export interface ActivityTickerResponse {
+  events: ActivityEvent[];
+}
+
+export async function getActivityTicker(): Promise<ActivityTickerResponse> {
+  return apiRequest<ActivityTickerResponse>("/creator/activity-ticker");
+}
+
+// ---- Creator Fund (Phase N) — real backend only, no mock counterpart. Field names match
+// CreatorFundService's responses (apps/api/src/creator-fund/creator-fund.service.ts) 1:1.
+
+export interface CreatorFundContributionResponse {
+  id: string;
+  amountMinor: number;
+  currency: string;
+  message: string | null;
+  createdAt: string;
+}
+
+export interface CreatorFundStatsResponse {
+  totalMinor: number;
+  currency: string;
+  myTotalMinor: number;
+}
+
+export interface CreatorFundLeaderboardEntry {
+  rank: number;
+  creatorId: string;
+  displayName: string;
+  totalMinor: number;
+}
+
+export interface CreatorFundLeaderboardResponse {
+  top: CreatorFundLeaderboardEntry[];
+  me: CreatorFundLeaderboardEntry | null;
+}
+
+export async function getFundStats(): Promise<CreatorFundStatsResponse> {
+  return apiRequest<CreatorFundStatsResponse>("/creator/fund");
+}
+
+export async function getFundLeaderboard(): Promise<CreatorFundLeaderboardResponse> {
+  return apiRequest<CreatorFundLeaderboardResponse>("/creator/fund/leaderboard");
+}
+
+export async function contributeToFund(amountMinor: number, message?: string): Promise<CreatorFundContributionResponse> {
+  return apiRequest<CreatorFundContributionResponse>("/creator/fund/contribute", { method: "POST", body: { amountMinor, message } });
+}
+
+// ---- Commissions (Phase M) — real backend only, replacing a previously 100%-mocked page with
+// zero USE_REAL_API gating at all (see DECISIONS.md ADR-031). Field names match
+// CreatorCommissionResponse (apps/api/src/commissions/commissions.service.ts) 1:1 — a real
+// Commission.status (PENDING/APPROVED/REJECTED/REFUNDED/PAYABLE/PAID), distinct from the legacy
+// mock Commission type's saleId/payableAt/paidAt shape.
+
+export interface CreatorCommission {
+  id: string;
+  orderPublicToken: string;
+  campaignName: string;
+  commissionType: string;
+  baseAmountMinor: number;
+  amountMinor: number;
+  currency: string;
+  status: CommissionStatus;
+  createdAt: string;
+}
+
+export async function getMyCommissions(): Promise<CreatorCommission[]> {
+  return apiRequest<CreatorCommission[]>("/creator/commissions");
 }

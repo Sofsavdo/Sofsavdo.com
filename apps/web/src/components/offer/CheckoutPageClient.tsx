@@ -5,12 +5,15 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { formatMoneyMinor } from "@rosti/types";
-import { Alert, Button, Card, CardHeader, CardTitle, SelectField, Skeleton, TextAreaField, TextField } from "@rosti/ui";
+import { useQuery } from "@tanstack/react-query";
+import { formatMoneyMinor } from "@sofsavdo/types";
+import { Alert, Button, Card, CardHeader, CardTitle, SelectField, Skeleton, TextAreaField, TextField } from "@sofsavdo/ui";
 import { useOfferPublic, useCreateOrder, useValidatePromoCode, useTrackVisit } from "@/services/offer";
 import { checkoutSchema, type CheckoutInput } from "@/lib/schemas";
 import { PaymentMethodSelector } from "./PaymentMethodSelector";
 import { ApiError } from "@/lib/api";
+import { useBuyerSession } from "@/services/buyerSession";
+import { getMyAddresses } from "@/lib/api/buyer-real";
 
 // Duck-typed rather than `instanceof ApiError`: `@/lib/api`'s barrel exports `MockApiError as
 // ApiError` (mock mode has no real HTTP layer, so it was never given a statusCode), so the name
@@ -45,8 +48,36 @@ export function CheckoutPageClient({ offerSlug }: { offerSlug: string }) {
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<CheckoutInput>({ resolver: zodResolver(checkoutSchema) });
+
+  // Phase F checkout UX improvement: a logged-in buyer's saved default address pre-fills the
+  // form, so a repeat purchase doesn't mean retyping everything. This is pure convenience — the
+  // buyer can still edit every field before submitting, and account linking itself already
+  // happens automatically server-side (the checkout POST already carries the buyer's Bearer token
+  // if one is in memory; see PublicCheckoutController's @OptionalAuth() route and
+  // OrdersService.upsertCustomer). No new backend endpoint was needed for this — it's the exact
+  // same GET /buyer/addresses Phase D already built for the Addresses page.
+  const { user: buyerUser } = useBuyerSession();
+  const buyerAddressesQuery = useQuery({
+    queryKey: ["buyer-addresses"],
+    queryFn: getMyAddresses,
+    enabled: !!buyerUser,
+  });
+
+  useEffect(() => {
+    if (!buyerUser) return;
+    if (buyerUser.displayName) setValue("fullName", buyerUser.displayName);
+    if (buyerUser.phone) setValue("phone", buyerUser.phone);
+    const defaultAddress = buyerAddressesQuery.data?.find((a) => a.isDefault) ?? buyerAddressesQuery.data?.[0];
+    if (defaultAddress) {
+      setValue("region", defaultAddress.region);
+      setValue("city", defaultAddress.city);
+      setValue("address", defaultAddress.line1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [buyerUser, buyerAddressesQuery.data]);
 
   // Records the page view against the ?ref= link (if any) once, on mount — see
   // POST /offers/:slug/visit / ReferralVisit in DECISIONS.md ADR-015. Never blocks rendering: an

@@ -74,12 +74,12 @@ describe("Checkout/Payment/Order (e2e)", () => {
     const adminRole = await prisma.role.create({ data: { key: `checkout-admin-${suffix}`, name: "Checkout Admin" } });
     const adminPerms = await prisma.permission.findMany({ where: { key: { in: ["order.read", "order.update", "order.refund"] } } });
     await prisma.rolePermission.createMany({ data: adminPerms.map((p) => ({ roleId: adminRole.id, permissionId: p.id })), skipDuplicates: true });
-    const adminUser = await prisma.user.create({ data: { email: `checkout-admin-${suffix}@rosti.uz`, passwordHash: "x" } });
+    const adminUser = await prisma.user.create({ data: { email: `checkout-admin-${suffix}@sofsavdo.com`, passwordHash: "x" } });
     await prisma.userRole.create({ data: { userId: adminUser.id, roleId: adminRole.id } });
     adminAccessToken = tokens.signAccessToken(adminUser.id);
 
     const noPermsRole = await prisma.role.create({ data: { key: `checkout-noperm-${suffix}`, name: "No perms" } });
-    const noPermsUser = await prisma.user.create({ data: { email: `checkout-noperm-${suffix}@rosti.uz`, passwordHash: "x" } });
+    const noPermsUser = await prisma.user.create({ data: { email: `checkout-noperm-${suffix}@sofsavdo.com`, passwordHash: "x" } });
     await prisma.userRole.create({ data: { userId: noPermsUser.id, roleId: noPermsRole.id } });
     noPermsStaffToken = tokens.signAccessToken(noPermsUser.id);
   });
@@ -381,6 +381,47 @@ describe("Checkout/Payment/Order (e2e)", () => {
     });
   });
 
+  describe("Cash on Delivery (Phase F — proves the payment provider registry, not just Click)", () => {
+    it("creates a CASH_ON_DELIVERY payment with no external redirect, then admin marks it PAID on delivery", async () => {
+      const offer = await makeOffer("cod", { paymentOptions: ["CLICK", "PAY_LATER", "COD"] });
+      const checkoutRes = await request(app.getHttpServer())
+        .post(`/offers/${offer.slug}/checkout`)
+        .send({ paymentMethod: "COD", regionCode: "TAS", idempotencyKey: `cod-${suffix}`, customer: validCustomer("1000015") })
+        .expect(201);
+      // Same "no external redirect, straight to order-success" shape as Pay Later — the buyer
+      // pays the courier in person, there is genuinely nothing to redirect to.
+      expect(checkoutRes.body.paymentRedirectUrl).toBeNull();
+      expect(checkoutRes.body.status).toBe("PAYMENT_PENDING");
+
+      const order = await prisma.order.findUnique({ where: { publicToken: checkoutRes.body.publicToken } });
+      const payment = await prisma.payment.findUnique({ where: { orderId: order!.id } });
+      // The one assertion that actually proves the registry, not a hardcoded branch: a real
+      // Payment row with a real, distinct provider value, created through the exact same
+      // PaymentsService.initiatePayment code path as CLICK.
+      expect(payment!.provider).toBe("CASH_ON_DELIVERY");
+      expect(payment!.status).toBe("PENDING");
+
+      const res = await request(app.getHttpServer())
+        .patch(`/admin/orders/${order!.id}/status`)
+        .set("Authorization", `Bearer ${adminAccessToken}`)
+        .send({ status: "PAID", note: "Cash collected on delivery" })
+        .expect(200);
+      expect(res.body.status).toBe("PAID");
+
+      const paymentAfter = await prisma.payment.findUnique({ where: { orderId: order!.id } });
+      expect(paymentAfter!.status).toBe("PAID");
+    });
+
+    it("rejects COD when the offer doesn't list it as a supported payment option", async () => {
+      const offer = await makeOffer("cod-unsupported", { paymentOptions: ["CLICK"] });
+      const res = await request(app.getHttpServer())
+        .post(`/offers/${offer.slug}/checkout`)
+        .send({ paymentMethod: "COD", regionCode: "TAS", idempotencyKey: `cod-unsupported-${suffix}`, customer: validCustomer("1000016") })
+        .expect(400);
+      expect(res.body.code).toBe("PAYMENT_METHOD_NOT_SUPPORTED");
+    });
+  });
+
   describe("stock / overselling", () => {
     it("rejects checkout with OUT_OF_STOCK when stockQuantity is 0", async () => {
       const offer = await makeOffer("outofstock", { stockQuantity: 0 });
@@ -434,7 +475,7 @@ describe("Checkout/Payment/Order (e2e)", () => {
     it("validates a promo code discount without creating an order, then applies it at checkout", async () => {
       const offer = await makeOffer("promo");
       const creatorUser = await prisma.user.create({
-        data: { email: `checkout-promocreator-${suffix}@rosti.uz`, passwordHash: "x", creatorProfile: { create: { displayName: "Promo Creator", contentNiches: [], referralCode: `promo-${suffix}`.slice(0, 60) } } },
+        data: { email: `checkout-promocreator-${suffix}@sofsavdo.com`, passwordHash: "x", creatorProfile: { create: { displayName: "Promo Creator", contentNiches: [], referralCode: `promo-${suffix}`.slice(0, 60) } } },
         include: { creatorProfile: true },
       });
       const campaign = await prisma.campaign.create({
@@ -484,7 +525,7 @@ describe("Checkout/Payment/Order (e2e)", () => {
     it("attributes an order to the creator behind a valid ?ref= link", async () => {
       const offer = await makeOffer("reflink");
       const creatorUser = await prisma.user.create({
-        data: { email: `checkout-refcreator-${suffix}@rosti.uz`, passwordHash: "x", creatorProfile: { create: { displayName: "Ref Creator", contentNiches: [], referralCode: `reflink-${suffix}`.slice(0, 60) } } },
+        data: { email: `checkout-refcreator-${suffix}@sofsavdo.com`, passwordHash: "x", creatorProfile: { create: { displayName: "Ref Creator", contentNiches: [], referralCode: `reflink-${suffix}`.slice(0, 60) } } },
         include: { creatorProfile: true },
       });
       const campaign = await prisma.campaign.create({
@@ -551,6 +592,36 @@ describe("Checkout/Payment/Order (e2e)", () => {
     it("returns ORDER_NOT_FOUND for an unknown publicToken", async () => {
       const res = await request(app.getHttpServer()).get("/orders/public/does-not-exist-token").expect(404);
       expect(res.body.code).toBe("ORDER_NOT_FOUND");
+    });
+  });
+
+  describe("logged-in buyer checkout (Phase D + Phase F's @OptionalAuth() integration)", () => {
+    it("links a logged-in buyer's checkout to their account automatically — no separate claim step", async () => {
+      const offer = await makeOffer("buyer-linked");
+      const buyer = await request(app.getHttpServer())
+        .post("/auth/register-buyer")
+        .send({ email: `checkout-buyer-${suffix}@sofsavdo.com`, password: "Str0ngPass!", fullName: "Checkout Buyer" })
+        .expect(201);
+
+      const checkoutRes = await request(app.getHttpServer())
+        .post(`/offers/${offer.slug}/checkout`)
+        .set("Authorization", `Bearer ${buyer.body.accessToken}`)
+        .send({ paymentMethod: "CLICK", regionCode: "TAS", idempotencyKey: `buyerlinked-${suffix}`, customer: validCustomer("1000017") })
+        .expect(201);
+
+      const ordersRes = await request(app.getHttpServer())
+        .get("/buyer/orders")
+        .set("Authorization", `Bearer ${buyer.body.accessToken}`)
+        .expect(200);
+      expect(ordersRes.body.some((o: { publicToken: string }) => o.publicToken === checkoutRes.body.publicToken)).toBe(true);
+    });
+
+    it("guest checkout (no token at all) still works unchanged — @OptionalAuth() never requires one", async () => {
+      const offer = await makeOffer("guest-still-works");
+      await request(app.getHttpServer())
+        .post(`/offers/${offer.slug}/checkout`)
+        .send({ paymentMethod: "CLICK", regionCode: "TAS", idempotencyKey: `gueststillworks-${suffix}`, customer: validCustomer("1000018") })
+        .expect(201);
     });
   });
 });

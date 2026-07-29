@@ -15,7 +15,7 @@ function buildContext(user: AuthenticatedUser | undefined): ExecutionContext {
 
 const baseUser: AuthenticatedUser = {
   userId: "u1",
-  email: "a@rosti.uz",
+  email: "a@sofsavdo.com",
   phone: null,
   roleKeys: ["manager"],
   permissions: ["order.read", "order.update"],

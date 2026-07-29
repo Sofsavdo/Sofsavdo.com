@@ -5,7 +5,7 @@ implements it during Phase 6+ rather than deferred to a final "security phase".
 
 ## Repository isolation (verified 2026-07-16)
 
-- [x] Rosti is its own independent git repository, rooted at `Fidem/Blog`
+- [x] Sofsavdo is its own independent git repository, rooted at `Fidem/Blog`
       (`git rev-parse --show-toplevel` → `C:/Users/Acer/Fidem/Blog`), not nested inside the
       unrelated home-directory repo it used to live under.
 - [x] The outer repo was never modified: no file was committed to it, no `.gitignore` it tracks
@@ -17,7 +17,7 @@ implements it during Phase 6+ rather than deferred to a final "security phase".
 - [x] Full-tree secret scan (excluding `node_modules`) for live API keys, AWS keys, PEM private
       key headers, and inline password/secret literals — no matches. The only env-shaped file
       present is `.env.example`, and every value in it is blank.
-- [x] `git status` inside the new repo lists only Rosti's own files — no content from the parent
+- [x] `git status` inside the new repo lists only Sofsavdo's own files — no content from the parent
       directory tree, no dependency or build artifacts.
 
 See [PROJECT_STATUS.md](PROJECT_STATUS.md) "Phase 1.5 — Repository isolation" for the full
@@ -32,9 +32,13 @@ step-by-step verification log.
 - [x] Rate limiting per-IP on `/auth/login` and `/auth/register` (10/min), `/auth/forgot-password`
       (5/min) via `@Throttle()` — added in the 6A→6B architecture audit; global default
       (120/60s) was the only limit before this and was too permissive for auth endpoints
-- [ ] Per-account brute-force lockout with exponential backoff — **not implemented**, tracked as
-      technical debt in the architecture review; needs a failed-attempt counter (likely
-      Redis-backed) this phase doesn't have. Per-IP throttling above is a partial mitigation.
+- [x] Per-account brute-force lockout (Phase A) — `User.failedLoginCount`/`lockedUntil`,
+      enforced in `AuthService.login()` (checked, and rejects with `ACCOUNT_LOCKED`, *before* the
+      argon2 verify runs, so a locked account never pays that cost per retry). Threshold/duration
+      configurable (`AUTH_MAX_FAILED_LOGIN_ATTEMPTS`/`AUTH_LOCKOUT_DURATION_MINUTES`, default 5
+      attempts / 15 minutes). Uses the guarded-`updateMany` race-safety pattern already established
+      for the Phase 14 financial fixes, not a plain read-then-write. Per-IP throttling above
+      remains a sibling mitigation, not replaced by this.
 - [x] Secure (prod-only), HttpOnly, SameSite=Lax cookie for refresh token, scoped to `/auth`;
       access token returned once in the response body, held in memory by the frontend only
       (see DECISIONS.md ADR-008)
@@ -115,15 +119,16 @@ step-by-step verification log.
       path-traversal-safe storage keys, sanitized filenames. Campaign/content media is intentionally
       public (served for landing pages) — "signed URLs for private files" doesn't apply to this
       media, since none of it is meant to be private.
-- [ ] Creator-facing masking of customer info on `/creator/sales` — the frontend page and its
-      `Sale` type already design for this correctly (`sale.customerMasked`, never a raw phone/
-      address field), but `apiGetSales` is **still the Phase-1 mock implementation**
-      (`apps/web/src/mocks/store.ts`) — no real NestJS endpoint backs this page yet. Confirmed via
-      direct search: no `sales`-named controller exists anywhere in `apps/api/src`. This is a real,
-      specific gap (a feature apparently never migrated off mock data in any later phase), not an
-      Attribution-Engine-scope item — but building the real endpoint is new-feature work, out of
-      Phase 14's own scope ("not to add major product features"). Flagged here so it isn't
-      mistaken for done.
+- [x] Creator-facing masking of customer info on `/creator/sales` (Phase A) — real
+      `GET /creator/sales` endpoint (`CreatorSalesController`/`CommissionsService.listMySales`)
+      masks `Customer.fullName`/`phone` server-side (`common/masking/pii-mask.util.ts`) before the
+      response ever leaves the backend — the raw values are never serialized, not just hidden by
+      the frontend. Verified via e2e test asserting the raw name/phone strings never appear
+      anywhere in the response body.
+- [x] Cloud object storage adapter (Phase A) — `S3Storage implements StoragePort` (real
+      `@aws-sdk/client-s3`, covers S3/R2/GCS), `StorageModule` binding now env-driven
+      (`STORAGE_DRIVER=local|s3`). Still defaults to `local`; switching a real deployment to `s3`
+      is an operator action (see PRODUCTION_READINESS.md).
 
 ## Authorization
 - [x] RBAC checked via `PermissionsGuard`, registered as a global `APP_GUARD` — every route is

@@ -27,5 +27,13 @@ import { AnalyticsCacheService } from "./lib/analytics-cache.service";
     CustomerAnalyticsService,
     AnalyticsExportService,
   ],
+  // AnalyticsCacheService is exported so other domains needing the same "short-TTL, best-effort,
+  // fail-open Redis cache" shape (e.g. CreatorDashboardService, the creator leaderboard) can reuse
+  // it directly instead of standing up a third independent ioredis client for the same purpose —
+  // see DECISIONS.md ADR-029. Executive/Creator/Product analytics services are also exported so
+  // AdminDashboardService (Phase M) can compose the admin home page's real numbers from these
+  // already-correct, already-cached queries instead of re-deriving GMV/revenue/top-N logic a
+  // second time — see DECISIONS.md ADR-031.
+  exports: [AnalyticsCacheService, ExecutiveAnalyticsService, CreatorAnalyticsService, ProductAnalyticsService],
 })
 export class AnalyticsModule {}

@@ -23,7 +23,7 @@ describe("SmtpEmailAdapter", () => {
           "notifications.email.smtpPort": 587,
           "notifications.email.smtpUser": "user",
           "notifications.email.smtpPass": "pass",
-          "notifications.email.fromAddress": "no-reply@rosti.uz",
+          "notifications.email.fromAddress": "no-reply@sofsavdo.com",
         };
         return values[key];
       },

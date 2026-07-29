@@ -1,6 +1,6 @@
-import type { Sale } from "@rosti/types";
-import { formatMoneyMinor } from "@rosti/types";
-import { Badge, EmptyState, MobileDataCard } from "@rosti/ui";
+import type { Sale } from "@sofsavdo/types";
+import { formatMoneyMinor } from "@sofsavdo/types";
+import { Badge, EmptyState, MobileDataCard } from "@sofsavdo/ui";
 import { orderStatusMeta } from "@/lib/status";
 
 export function SalesTable({ sales, limit }: { sales: Sale[]; limit?: number }) {

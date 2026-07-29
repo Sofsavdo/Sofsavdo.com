@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import type { DeliveryRegionPublic } from "@rosti/types";
-import { formatMoneyMinor } from "@rosti/types";
-import { Skeleton } from "@rosti/ui";
+import type { DeliveryRegionPublic } from "@sofsavdo/types";
+import { formatMoneyMinor } from "@sofsavdo/types";
+import { Skeleton } from "@sofsavdo/ui";
 import { Truck } from "lucide-react";
 import { useOfferQuote } from "@/services/offer";
 

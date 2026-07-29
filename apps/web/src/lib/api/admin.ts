@@ -20,7 +20,7 @@ import type {
   Offer,
   Product,
   ProductStatus,
-} from "@rosti/types";
+} from "@sofsavdo/types";
 import * as mockAdmin from "../../mocks/store";
 import * as realAdmin from "./admin-real";
 import type { CreateCampaignInput, CreateLandingInput, CreateOfferInput } from "../../mocks/store";
@@ -103,8 +103,8 @@ export const previewLanding = (offerId: string) => (USE_REAL_API ? realAdmin.pre
 export const getLandingSections = (offerId: string): Promise<LandingSectionAdmin[]> =>
   USE_REAL_API ? realAdmin.getLandingSections(offerId) : mockAdmin.apiAdminGetLandingSections(offerId);
 
-export const addLandingSection = (offerId: string, type: LandingSectionType): Promise<LandingSectionAdmin> =>
-  USE_REAL_API ? realAdmin.addLandingSection(offerId, type) : mockAdmin.apiAdminAddLandingSection(offerId, type);
+export const addLandingSection = (offerId: string, type: LandingSectionType, content?: Record<string, unknown>): Promise<LandingSectionAdmin> =>
+  USE_REAL_API ? realAdmin.addLandingSection(offerId, type, content) : mockAdmin.apiAdminAddLandingSection(offerId, type, content);
 
 export const updateLandingSection = (
   id: string,
@@ -232,7 +232,7 @@ export type { OrderListQuery } from "./admin-real";
 export const getOrderReviewList = (query?: realAdmin.OrderListQuery) =>
   USE_REAL_API ? realAdmin.getOrderList(query) : Promise.resolve({ items: [], page: 1, pageSize: 20, total: 0, totalPages: 1 });
 export const getOrderReviewDetail = (id: string) => realAdmin.getOrderDetail(id);
-export const updateRealOrderStatus = (id: string, status: import("@rosti/types").RealOrderStatus, note?: string) => realAdmin.updateOrderStatusReal(id, status, note);
+export const updateRealOrderStatus = (id: string, status: import("@sofsavdo/types").RealOrderStatus, note?: string) => realAdmin.updateOrderStatusReal(id, status, note);
 export const updateRealOrderNotes = (id: string, notes: string) => realAdmin.updateOrderNotesReal(id, notes);
 export const createRealOrderRefund = (id: string, amountMinor: number, reason: string) => realAdmin.createOrderRefund(id, amountMinor, reason);
 
@@ -259,7 +259,7 @@ export const markAdminPayoutPaid = (id: string) => realAdmin.markAdminPayoutPaid
 export const markAdminPayoutFailed = (id: string, reason: string) => realAdmin.markAdminPayoutFailed(id, reason);
 
 // ---- Communication & Notification domain (Phase 10) — real backend only, no mock counterpart
-// (see @rosti/types' RealNotification comment). ----
+// (see @sofsavdo/types' RealNotification comment). ----
 export type { AdminNotificationQuery } from "./admin-real";
 export const getAdminNotificationList = (query?: realAdmin.AdminNotificationQuery) =>
   USE_REAL_API ? realAdmin.getAdminNotificationList(query) : Promise.resolve({ items: [], page: 1, pageSize: 20, total: 0, totalPages: 1 });
@@ -321,6 +321,8 @@ export const suspendRealCreator = (id: string, reason: string) => realAdmin.susp
 export const unsuspendRealCreator = (id: string) => realAdmin.unsuspendRealCreator(id);
 export const blockRealCreator = (id: string, reason: string) => realAdmin.blockRealCreator(id, reason);
 export const unblockRealCreator = (id: string) => realAdmin.unblockRealCreator(id);
+export const setCreatorBioCompliance = (id: string, status: import("@sofsavdo/types").BioComplianceStatus) => realAdmin.setCreatorBioCompliance(id, status);
+export const setCreatorTier = (id: string, tier: import("@sofsavdo/types").CreatorTier) => realAdmin.setCreatorTier(id, tier);
 
 export type { RealPaymentQuery } from "./admin-real";
 export const getRealPaymentList = (query?: realAdmin.RealPaymentQuery) => realAdmin.getRealPaymentList(query);
@@ -353,9 +355,48 @@ export const getRealRefundAnalytics = (filters: AnalyticsFilters) => realAdmin.g
 export const getRealCustomerAnalytics = (filters: AnalyticsFilters) => realAdmin.getRealCustomerAnalytics(filters);
 export const exportRealAnalyticsCsv = (view: string, filters: AnalyticsFilters) => realAdmin.exportRealAnalyticsCsv(view, filters);
 
-export {
-  apiAdminGetDashboard as getDashboard,
+// ---- Homepage CMS (Phase H) — real backend only, no mock counterpart, same precedent as
+// Analytics above: this is a brand-new admin surface with no legacy mock behavior to preserve. ----
+export type { HomepageSectionAdmin, HomepageSectionType } from "./admin-real";
+export const getHomepageSectionsAdmin = () => realAdmin.getHomepageSectionsAdmin();
+export const addHomepageSection = (type: realAdmin.HomepageSectionType) => realAdmin.addHomepageSection(type);
+export const updateHomepageSection = (id: string, patch: Parameters<typeof realAdmin.updateHomepageSection>[1]) =>
+  realAdmin.updateHomepageSection(id, patch);
+export const toggleHomepageSection = (id: string, nextIsActive: boolean) => realAdmin.toggleHomepageSection(id, nextIsActive);
+export const removeHomepageSection = (id: string) => realAdmin.removeHomepageSection(id);
+export const reorderHomepageSections = (orderedIds: string[]) => realAdmin.reorderHomepageSections(orderedIds);
 
+// ---- Competitions (Phase L) — real backend only, no mock counterpart. ----
+export type { CompetitionAdmin, CompetitionStatus, CompetitionAvailability, CreateCompetitionInput } from "./admin-real";
+export const getCompetitions = () => realAdmin.getCompetitions();
+export const getCompetition = (id: string) => realAdmin.getCompetition(id);
+export const createCompetition = (input: realAdmin.CreateCompetitionInput) => realAdmin.createCompetition(input);
+export const updateCompetition = (id: string, patch: Partial<realAdmin.CreateCompetitionInput>) => realAdmin.updateCompetition(id, patch);
+export const publishCompetition = (id: string) => realAdmin.publishCompetition(id);
+export const completeCompetition = (id: string) => realAdmin.completeCompetition(id);
+export const archiveCompetition = (id: string) => realAdmin.archiveCompetition(id);
+
+// ---- AI Product Creation Engine (Phase I) — real backend only, no mock counterpart. ----
+export type { ProductAiDraft, GenerateProductDraftInput } from "./admin-real";
+export const generateProductDraft = (input: realAdmin.GenerateProductDraftInput) => realAdmin.generateProductDraft(input);
+
+// ---- Admin executive dashboard (Phase M) — real backend only. Previously a bare, never-
+// USE_REAL_API-gated re-export of the mock function (a real gap — see DECISIONS.md ADR-031).
+export type { AdminDashboardResponse } from "./admin-real";
+export const getDashboard = () => realAdmin.getDashboard();
+
+// ---- Referral links / promo codes / visitors (Phase M) — real backend only, same "previously a
+// bare mock re-export" gap this pre-launch audit surfaced (see DECISIONS.md ADR-031).
+export const getReferralLinks = () => realAdmin.getReferralLinks();
+export const deactivateReferralLink = (code: string) => realAdmin.deactivateReferralLink(code);
+export const getPromoCodes = () => realAdmin.getPromoCodes();
+export const getVisitors = () => realAdmin.getVisitors();
+// overrideAttribution has no real implementation yet — rejects loudly rather than pretending
+// success (see admin-real.ts's own comment). Kept as a real function, not silently dropped, so a
+// future real implementation is a one-function change, not a re-discovery of this gap.
+export const overrideAttribution = (_orderId: string, _newCreatorId: string, _reason: string) => realAdmin.overrideAttribution();
+
+export {
   apiAdminGetCampaignApplications as getCampaignApplications,
   apiAdminApproveCampaignApplication as approveCampaignApplication,
   apiAdminRejectCampaignApplication as rejectCampaignApplication,
@@ -373,13 +414,6 @@ export {
   apiAdminApproveContent as approveContent,
   apiAdminRequestContentRevision as requestContentRevision,
   apiAdminRejectContent as rejectContent,
-
-  apiAdminGetReferralLinks as getReferralLinks,
-  apiAdminGetPromoCodes as getPromoCodes,
-  apiAdminDeactivateReferralLink as deactivateReferralLink,
-
-  apiAdminGetVisitors as getVisitors,
-  apiAdminOverrideAttribution as overrideAttribution,
 
   apiAdminGetOrders as getOrders,
   apiAdminGetOrder as getOrder,

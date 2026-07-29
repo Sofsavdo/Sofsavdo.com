@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { formatMoneyMinor } from "@rosti/types";
-import { Badge, DataTableShell, MobileDataCard } from "@rosti/ui";
+import { formatMoneyMinor } from "@sofsavdo/types";
+import { Badge, DataTableShell, MobileDataCard } from "@sofsavdo/ui";
 import { useRealRefundList } from "@/services/admin/orders";
 
 const STATUS_TONE: Record<string, "success" | "warning" | "error" | "neutral"> = {

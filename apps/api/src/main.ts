@@ -14,6 +14,7 @@ import { validateEnv } from "./config/env-validation";
 import type { ErrorReportingPort } from "./common/error-reporting/error-reporting.port";
 import { NoopErrorReportingAdapter } from "./common/error-reporting/noop-error-reporting.adapter";
 import { WebhookErrorReportingAdapter } from "./common/error-reporting/webhook-error-reporting.adapter";
+import { BRAND } from "./config/brand";
 
 // Optional by design: ERROR_REPORTING_WEBHOOK_URL is absent from env-validation.ts's required
 // list on purpose — an external error-reporting provider must never be a launch blocker. Unset
@@ -99,7 +100,7 @@ async function bootstrap() {
   const swaggerEnabled = process.env.NODE_ENV !== "production" || process.env.SWAGGER_ENABLED === "true";
   if (swaggerEnabled) {
     const swaggerConfig = new DocumentBuilder()
-      .setTitle("Rosti API")
+      .setTitle(`${BRAND.name} API`)
       .setDescription("Creator-affiliate commerce platform — backend contract")
       .setVersion("0.1")
       .addBearerAuth()
@@ -116,7 +117,7 @@ async function bootstrap() {
 
   const port = process.env.PORT ? Number(process.env.PORT) : 4000;
   await app.listen(port);
-  logger.log(`Rosti API listening on :${port}${swaggerEnabled ? " (docs at /docs)" : ""}`);
+  logger.log(`${BRAND.name} API listening on :${port}${swaggerEnabled ? " (docs at /docs)" : ""}`);
 }
 
 void bootstrap();

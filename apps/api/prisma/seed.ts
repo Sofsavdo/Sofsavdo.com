@@ -1,5 +1,5 @@
 // Realistic Uzbek seed data covering every entity the Phase 6 spec lists (§6). Run with
-// `npm run seed --workspace=@rosti/api`. Passwords below are DEVELOPMENT ONLY — see the loud
+// `npm run seed --workspace=@sofsavdo/api`. Passwords below are DEVELOPMENT ONLY — see the loud
 // warning at the bottom of this file; nothing here is fit for a staging/production database.
 import "reflect-metadata";
 import { PrismaClient, CommissionType, DiscountType, SocialPlatform, Prisma } from "@prisma/client";
@@ -9,17 +9,17 @@ import * as argon2 from "argon2";
 import { createWithUniqueCode, generatePromoCode, generateReferralCode, randomSuffix } from "../src/common/codes/code-generator";
 import { seedRolesAndPermissions } from "./lib/seed-roles-permissions";
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL ?? "postgresql://rosti:rosti@localhost:5432/rosti" });
+const pool = new Pool({ connectionString: process.env.DATABASE_URL ?? "postgresql://sofsavdo:sofsavdo@localhost:5432/sofsavdo" });
 const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
 
-const DEV_PASSWORD = "Rosti#2026dev";
+const DEV_PASSWORD = "Sofsavdo#2026dev";
 
 async function seedStaffUsers() {
   const passwordHash = await argon2.hash(DEV_PASSWORD);
   const staff = [
-    { email: "manager@rosti.uz", roleKey: "manager" as const },
-    { email: "admin@rosti.uz", roleKey: "admin" as const },
-    { email: "super@rosti.uz", roleKey: "super_admin" as const },
+    { email: "manager@sofsavdo.com", roleKey: "manager" as const },
+    { email: "admin@sofsavdo.com", roleKey: "admin" as const },
+    { email: "super@sofsavdo.com", roleKey: "super_admin" as const },
   ];
 
   for (const s of staff) {
@@ -35,7 +35,7 @@ async function seedStaffUsers() {
       create: { userId: user.id, roleId: role.id },
     });
   }
-  console.log("Seeded 3 staff accounts (manager/admin/super_admin @rosti.uz).");
+  console.log("Seeded 3 staff accounts (manager/admin/super_admin @sofsavdo.com).");
 }
 
 const CREATOR_SEED = [
@@ -110,8 +110,8 @@ async function seedCatalog() {
       type: "PHYSICAL_PRODUCT",
       shortDescription: "Vitamin C asosidagi tozalovchi serum",
       description: "Yuz terisini yorqinlashtiruvchi, kunlik parvarish uchun serum.",
-      brand: "Rosti Beauty",
-      sku: "RB-SERUM-30",
+      brand: "Sofsavdo Beauty",
+      sku: "SB-SERUM-30",
       status: "ACTIVE",
       images: ["/seed/serum-1.jpg", "/seed/serum-2.jpg"],
       currency: "UZS",

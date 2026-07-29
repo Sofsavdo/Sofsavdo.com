@@ -43,6 +43,7 @@ describe("ContentService", () => {
     notes: null,
     hashtags: [] as string[],
     metadata: null,
+    postUrl: null as string | null,
     currentVersionNumber: 0,
     rejectionReason: null,
     changesRequestedReason: null,
@@ -240,18 +241,33 @@ describe("ContentService", () => {
       await expect(service.submit("content1", "creator1", "user1")).rejects.toMatchObject({ code: "ATTACHMENT_REQUIRED" });
     });
 
+    it("throws POST_URL_REQUIRED when postUrl is missing, even with an attachment present", async () => {
+      prisma.content.findUnique.mockResolvedValue(withRelations({ status: "DRAFT", attachments: [{ id: "a1", role: "ATTACHMENT" }], postUrl: null }));
+      await expect(service.submit("content1", "creator1", "user1")).rejects.toMatchObject({ code: "POST_URL_REQUIRED" });
+    });
+
     it("throws CONTENT_DEADLINE_PASSED when the deadline has passed at submit time", async () => {
-      prisma.content.findUnique.mockResolvedValueOnce(withRelations({ status: "DRAFT", attachments: [{ id: "a1", role: "ATTACHMENT" }] }));
+      prisma.content.findUnique.mockResolvedValueOnce(
+        withRelations({ status: "DRAFT", attachments: [{ id: "a1", role: "ATTACHMENT" }], postUrl: "https://instagram.com/p/abc" }),
+      );
       prisma.campaign.findUniqueOrThrow.mockResolvedValue({ ...baseCampaign, contentDeadline: new Date("2000-01-01") });
       await expect(service.submit("content1", "creator1", "user1")).rejects.toMatchObject({ code: "CONTENT_DEADLINE_PASSED" });
     });
 
     it("creates version 1, sets SUBMITTED, and records an audit SUBMITTED entry", async () => {
       prisma.content.findUnique
-        .mockResolvedValueOnce(withRelations({ status: "DRAFT", attachments: [{ id: "a1", role: "ATTACHMENT", attachmentType: "IMAGE", publicUrl: "u", width: 1, height: 1, durationSeconds: null }] }))
+        .mockResolvedValueOnce(
+          withRelations({
+            status: "DRAFT",
+            attachments: [{ id: "a1", role: "ATTACHMENT", attachmentType: "IMAGE", publicUrl: "u", width: 1, height: 1, durationSeconds: null }],
+            postUrl: "https://instagram.com/p/abc",
+          }),
+        )
         .mockResolvedValue(withRelations({ status: "SUBMITTED", currentVersionNumber: 1 }));
       await service.submit("content1", "creator1", "user1");
-      expect(prisma.contentVersion.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ versionNumber: 1, submittedById: "user1" }) }));
+      expect(prisma.contentVersion.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ versionNumber: 1, submittedById: "user1", postUrl: "https://instagram.com/p/abc" }) }),
+      );
       expect(prisma.content.update).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ status: "SUBMITTED", currentVersionNumber: 1 }) }),
       );
@@ -265,10 +281,22 @@ describe("ContentService", () => {
       await expect(service.resubmit("content1", "creator1", "user1")).rejects.toMatchObject({ code: "INVALID_CONTENT_TRANSITION" });
     });
 
+    it("throws POST_URL_REQUIRED on resubmit too, not just first submit", async () => {
+      prisma.content.findUnique.mockResolvedValue(
+        withRelations({ status: "CHANGES_REQUESTED", attachments: [{ id: "a1", role: "ATTACHMENT" }], postUrl: null }),
+      );
+      await expect(service.resubmit("content1", "creator1", "user1")).rejects.toMatchObject({ code: "POST_URL_REQUIRED" });
+    });
+
     it("increments the version number on resubmit", async () => {
       prisma.content.findUnique
         .mockResolvedValueOnce(
-          withRelations({ status: "CHANGES_REQUESTED", currentVersionNumber: 1, attachments: [{ id: "a1", role: "ATTACHMENT", attachmentType: "IMAGE", publicUrl: "u", width: 1, height: 1, durationSeconds: null }] }),
+          withRelations({
+            status: "CHANGES_REQUESTED",
+            currentVersionNumber: 1,
+            attachments: [{ id: "a1", role: "ATTACHMENT", attachmentType: "IMAGE", publicUrl: "u", width: 1, height: 1, durationSeconds: null }],
+            postUrl: "https://instagram.com/p/abc",
+          }),
         )
         .mockResolvedValue(withRelations({ status: "SUBMITTED", currentVersionNumber: 2 }));
       await service.resubmit("content1", "creator1", "user1");

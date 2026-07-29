@@ -2,7 +2,7 @@
 // wired the same way through lib/api/index.ts behind NEXT_PUBLIC_API_MODE. Only getOfferPublic is
 // backed by a real endpoint so far (the Landing domain's `GET /offers/:slug/public` — see API.md);
 // checkout/orders/promo-code validation still throw until their own Phase 6B slices land.
-import type { DeliveryRegionPublic, LandingSectionAdmin, Offer, OfferQuote, ProductType } from "@rosti/types";
+import type { DeliveryRegionPublic, LandingSectionAdmin, Offer, OfferQuote, ProductType } from "@sofsavdo/types";
 import { apiRequest, ApiError } from "./http-client";
 
 interface BackendPublicOfferVariant {
@@ -111,4 +111,71 @@ export async function getOfferPublic(
 // Authoritative price computation — never create an Order (see delivery.service.ts's quote()).
 export async function getOfferQuote(slug: string, regionCode?: string): Promise<OfferQuote> {
   return apiRequest<OfferQuote>(`/offers/${slug}/quote`, { method: "POST", body: { regionCode } });
+}
+
+// Shape returned by OffersService.listFeaturedPublic() (apps/api/src/offers/offers.service.ts) —
+// deliberately narrower than Offer (no variants, no CTA/delivery config): this is a homepage
+// teaser card, not a full landing page.
+export interface FeaturedOffer {
+  id: string;
+  slug: string;
+  name: string;
+  headline: string;
+  priceMinor: number;
+  compareAtPriceMinor: number | null;
+  currency: string;
+  imageUrl: string | null;
+}
+
+// Real-backend only, like Content (Phase 7A) — this is a brand-new public surface (Phase C's
+// Commerce Home), so there's no legacy mock behavior to preserve behind NEXT_PUBLIC_API_MODE.
+export async function getFeaturedOffers(): Promise<FeaturedOffer[]> {
+  return apiRequest<FeaturedOffer[]>("/offers/featured");
+}
+
+// Shape returned by OffersService.listCatalog() (Phase E) — same public-safe shape as
+// FeaturedOffer plus productType, since /catalog lets a buyer filter by it.
+export interface CatalogOffer extends FeaturedOffer {
+  productType: string;
+}
+
+export interface CatalogQuery {
+  page?: number;
+  type?: string;
+  minPriceMinor?: number;
+  maxPriceMinor?: number;
+}
+
+export interface PaginatedCatalog {
+  items: CatalogOffer[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
+// Real-backend only — the catalog is a brand-new public surface, no legacy mock to preserve.
+export async function getCatalog(query: CatalogQuery = {}): Promise<PaginatedCatalog> {
+  const params = new URLSearchParams();
+  if (query.page) params.set("page", String(query.page));
+  if (query.type) params.set("type", query.type);
+  if (query.minPriceMinor != null) params.set("minPriceMinor", String(query.minPriceMinor));
+  if (query.maxPriceMinor != null) params.set("maxPriceMinor", String(query.maxPriceMinor));
+  const qs = params.toString();
+  return apiRequest<PaginatedCatalog>(`/offers/catalog${qs ? `?${qs}` : ""}`);
+}
+
+// Shape returned by HomepageSectionsService.listPublic() (Phase H) — already filtered to LIVE
+// (active + within any scheduling window) sections only, in display order. `type` is one of the
+// literal HomepageSectionType values; kept as `string` here rather than importing the Prisma enum
+// across the API boundary, same convention as CatalogOffer's `productType`.
+export interface HomepageSection {
+  type: string;
+  sortOrder: number;
+  content: Record<string, unknown>;
+}
+
+// Real-backend only — the Homepage CMS is a brand-new public surface, no legacy mock to preserve.
+export async function getHomepageSections(): Promise<HomepageSection[]> {
+  return apiRequest<HomepageSection[]>("/homepage");
 }

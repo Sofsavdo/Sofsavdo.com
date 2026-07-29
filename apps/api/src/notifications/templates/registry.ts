@@ -1,4 +1,5 @@
 import type { NotificationCategory } from "@prisma/client";
+import { BRAND } from "../../config/brand";
 import { formatMoney } from "./format";
 
 // Centralized templates (spec §6/§7) — every notification's copy for every channel lives here,
@@ -23,8 +24,8 @@ export interface NotificationTemplate<TVars> {
 
 function emailShell(title: string, bodyHtml: string, bodyText: string): { html: string; text: string } {
   return {
-    html: `<div style="font-family:sans-serif;max-width:480px;margin:0 auto"><h2>${title}</h2>${bodyHtml}<p style="color:#888;font-size:12px;margin-top:24px">Rosti — creator-affiliate platformasi</p></div>`,
-    text: `${title}\n\n${bodyText}\n\n—\nRosti`,
+    html: `<div style="font-family:sans-serif;max-width:480px;margin:0 auto"><h2>${title}</h2>${bodyHtml}<p style="color:#888;font-size:12px;margin-top:24px">${BRAND.name} — creator-affiliate platformasi</p></div>`,
+    text: `${title}\n\n${bodyText}\n\n—\n${BRAND.name}`,
   };
 }
 
@@ -236,11 +237,11 @@ export const paymentFailedAdmin: NotificationTemplate<{ orderPublicToken: string
 
 export const userRegisteredWelcome: NotificationTemplate<{ displayName: string }> = {
   category: "ACCOUNT",
-  inApp: (v) => ({ title: "Xush kelibsiz!", body: `Salom, ${v.displayName}! Rosti platformasiga xush kelibsiz.` }),
+  inApp: (v) => ({ title: "Xush kelibsiz!", body: `Salom, ${v.displayName}! ${BRAND.name} platformasiga xush kelibsiz.` }),
   telegram: (v) => `👋 <b>Xush kelibsiz, ${v.displayName}!</b>`,
   email: (v) => {
-    const body = `<p>Salom, ${v.displayName}!</p><p>Rosti — creator-affiliate platformasiga xush kelibsiz. Kampaniyalarga ariza topshirish va daromad olishni boshlashingiz mumkin.</p>`;
-    return { subject: "Rosti platformasiga xush kelibsiz!", ...emailShell("Xush kelibsiz!", body, `Salom, ${v.displayName}! Rosti platformasiga xush kelibsiz.`) };
+    const body = `<p>Salom, ${v.displayName}!</p><p>${BRAND.name} — creator-affiliate platformasiga xush kelibsiz. Kampaniyalarga ariza topshirish va daromad olishni boshlashingiz mumkin.</p>`;
+    return { subject: `${BRAND.name} platformasiga xush kelibsiz!`, ...emailShell("Xush kelibsiz!", body, `Salom, ${v.displayName}! ${BRAND.name} platformasiga xush kelibsiz.`) };
   },
 };
 
@@ -269,7 +270,7 @@ export const onboardingApproved: NotificationTemplate<OnboardingVars> = {
   inApp: () => ({ title: "Creator sifatida tasdiqlandingiz!", body: "Tabriklaymiz — endi platformaning barcha creator imkoniyatlaridan foydalanishingiz mumkin." }),
   telegram: () => `✅ <b>Tabriklaymiz!</b>\nSiz creator sifatida tasdiqlandingiz. Endi barcha imkoniyatlardan foydalanishingiz mumkin.`,
   email: (v) => {
-    const body = `<p>Salom, ${v.creatorName}!</p><p>Tabriklaymiz — arizangiz tasdiqlandi va siz endi Rosti platformasida creator sifatida faoliyat yuritishingiz mumkin.</p>`;
+    const body = `<p>Salom, ${v.creatorName}!</p><p>Tabriklaymiz — arizangiz tasdiqlandi va siz endi ${BRAND.name} platformasida creator sifatida faoliyat yuritishingiz mumkin.</p>`;
     return { subject: "Creator sifatida tasdiqlandingiz!", ...emailShell("Tabriklaymiz!", body, `Salom, ${v.creatorName}! Siz creator sifatida tasdiqlandingiz.`) };
   },
 };

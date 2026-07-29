@@ -2,9 +2,9 @@
 
 import { use, useState } from "react";
 import Link from "next/link";
-import { formatMoneyMinor } from "@rosti/types";
+import { formatMoneyMinor } from "@sofsavdo/types";
 import { Archive } from "lucide-react";
-import { Alert, Badge, Button, Card, CardHeader, CardTitle, ConfirmModal, Skeleton, StatusBadge } from "@rosti/ui";
+import { Alert, Badge, Button, Card, CardHeader, CardTitle, ConfirmModal, Skeleton, StatusBadge } from "@sofsavdo/ui";
 import { useAdminOffers, useAdminProduct, useArchiveProduct } from "@/services/admin/catalog";
 import { ProductForm } from "@/components/admin/ProductForm";
 import { productStatusMeta, offerStatusMeta } from "@/lib/status";

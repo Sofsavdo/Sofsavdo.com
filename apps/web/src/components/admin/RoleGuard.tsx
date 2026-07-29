@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import type { AdminRole } from "@rosti/types";
+import type { AdminRole } from "@sofsavdo/types";
 import { useAdminSession } from "@/services/adminSession";
 import { hasRole } from "@/lib/adminRouting";
 

@@ -2,15 +2,15 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: rosti
-      POSTGRES_PASSWORD: rosti
-      POSTGRES_DB: rosti
+      POSTGRES_USER: sofsavdo
+      POSTGRES_PASSWORD: sofsavdo
+      POSTGRES_DB: sofsavdo
     ports:
       - "5432:5432"
     volumes:
-      - rosti_postgres_data:/var/lib/postgresql/data
+      - sofsavdo_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U rosti"]
+      test: ["CMD-SHELL", "pg_isready -U sofsavdo"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -26,4 +26,4 @@ services:
       retries: 10
 
 volumes:
-  rosti_postgres_data:
+  sofsavdo_postgres_data:

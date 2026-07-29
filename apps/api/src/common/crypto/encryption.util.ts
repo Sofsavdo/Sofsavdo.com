@@ -8,7 +8,7 @@ import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "node:
 const ALGORITHM = "aes-256-gcm";
 
 function deriveKey(secret: string): Buffer {
-  return scryptSync(secret, "rosti-payout-methods", 32);
+  return scryptSync(secret, "sofsavdo-payout-methods", 32);
 }
 
 export function encryptSecret(plaintext: string, secret: string): string {

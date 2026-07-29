@@ -2,7 +2,7 @@
 // counterpart to public-real.ts (which only covers the read-only offer/landing/quote endpoints).
 // Everything here was 100% mock before this phase (see lib/api/index.ts's validatePromoCode/
 // createOrder/getOrderPublic, which had zero real branch at all until now).
-import type { CheckoutOrderResult, CreateOrderInput, PromoValidationResult, TrackVisitResult } from "@rosti/types";
+import type { CheckoutOrderResult, CreateOrderInput, PromoValidationResult, TrackVisitResult } from "@sofsavdo/types";
 import { apiRequest } from "./http-client";
 
 export async function trackVisit(offerSlug: string, refCode?: string): Promise<TrackVisitResult> {

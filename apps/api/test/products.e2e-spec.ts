@@ -38,13 +38,13 @@ describe("Products (e2e)", () => {
       data: perms.map((p) => ({ roleId: role.id, permissionId: p.id })),
       skipDuplicates: true,
     });
-    const adminUser = await prisma.user.create({ data: { email: `admin-${suffix}@rosti.uz`, passwordHash: "x" } });
+    const adminUser = await prisma.user.create({ data: { email: `admin-${suffix}@sofsavdo.com`, passwordHash: "x" } });
     await prisma.userRole.create({ data: { userId: adminUser.id, roleId: role.id } });
     adminAccessToken = tokens.signAccessToken(adminUser.id);
 
     const creatorUser = await prisma.user.create({
       data: {
-        email: `creator-${suffix}@rosti.uz`,
+        email: `creator-${suffix}@sofsavdo.com`,
         passwordHash: "x",
         creatorProfile: { create: { displayName: "Test Creator", contentNiches: [], referralCode: suffix } },
       },

@@ -72,7 +72,7 @@ describe("Campaign Media (e2e)", () => {
     await prisma.rolePermission.createMany({
       data: [writePerm!, readPerm!].map((p) => ({ roleId: adminRole.id, permissionId: p.id })),
     });
-    const adminUser = await prisma.user.create({ data: { email: `cmedia-admin-${suffix}@rosti.uz`, passwordHash: "x" } });
+    const adminUser = await prisma.user.create({ data: { email: `cmedia-admin-${suffix}@sofsavdo.com`, passwordHash: "x" } });
     await prisma.userRole.create({ data: { userId: adminUser.id, roleId: adminRole.id } });
     adminAccessToken = tokens.signAccessToken(adminUser.id);
 

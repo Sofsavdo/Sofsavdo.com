@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { AnalyticsCompareMode, AnalyticsFilters, AnalyticsRangePreset } from "@rosti/types";
+import type { AnalyticsCompareMode, AnalyticsFilters, AnalyticsRangePreset } from "@sofsavdo/types";
 
 // Shared local filter-state management for every analytics page (§6/§14 of ANALYTICS.md) — one
 // hook instead of the same useState boilerplate repeated on 10 pages. Extra entity filters

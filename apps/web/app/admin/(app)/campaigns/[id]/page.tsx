@@ -2,8 +2,8 @@
 
 import { use, useState } from "react";
 import Link from "next/link";
-import { formatMoneyMinor } from "@rosti/types";
-import { Alert, Badge, Button, Card, CardHeader, CardTitle, ConfirmModal, Skeleton, StatusBadge } from "@rosti/ui";
+import { formatMoneyMinor } from "@sofsavdo/types";
+import { Alert, Badge, Button, Card, CardHeader, CardTitle, ConfirmModal, Skeleton, StatusBadge } from "@sofsavdo/ui";
 import { Archive, CheckCircle2, Pause, Play } from "lucide-react";
 import {
   useActivateCampaign,

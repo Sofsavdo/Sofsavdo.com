@@ -8,7 +8,7 @@ import { AuditService } from "../common/audit/audit.service";
 describe("AdminCreatorsService (Phase 12)", () => {
   let service: AdminCreatorsService;
   let prisma: {
-    creatorProfile: { findMany: jest.Mock; count: jest.Mock; findUnique: jest.Mock };
+    creatorProfile: { findMany: jest.Mock; count: jest.Mock; findUnique: jest.Mock; update: jest.Mock };
     creatorCampaign: { findMany: jest.Mock };
     commission: { groupBy: jest.Mock };
     payout: { groupBy: jest.Mock };
@@ -22,14 +22,16 @@ describe("AdminCreatorsService (Phase 12)", () => {
     displayName: "Test Creator",
     city: "Toshkent",
     createdAt: new Date(),
-    user: { id: "user1", email: "creator@rosti.uz", phone: null, status: "ACTIVE" },
+    bioComplianceStatus: "PENDING",
+    tier: "STANDARD",
+    user: { id: "user1", email: "creator@sofsavdo.com", phone: null, status: "ACTIVE" },
     applications: [{ status: "APPROVED", currentStep: 8, submittedAt: new Date(), reviewedAt: new Date() }],
     ...over,
   });
 
   beforeEach(async () => {
     prisma = {
-      creatorProfile: { findMany: jest.fn(), count: jest.fn(), findUnique: jest.fn() },
+      creatorProfile: { findMany: jest.fn(), count: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
       creatorCampaign: { findMany: jest.fn() },
       commission: { groupBy: jest.fn() },
       payout: { groupBy: jest.fn() },
@@ -139,6 +141,36 @@ describe("AdminCreatorsService (Phase 12)", () => {
     it("unblock rejects a creator that isn't BLOCKED", async () => {
       prisma.creatorProfile.findUnique.mockResolvedValue(creatorRow());
       await expect(service.unblock("creator1", "actor1")).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+    });
+  });
+
+  describe("bio compliance + tier (Phase Q)", () => {
+    it("setBioCompliance updates the status and records an audit entry with before/after", async () => {
+      prisma.creatorProfile.findUnique.mockResolvedValue(creatorRow({ bioComplianceStatus: "PENDING" }));
+      await service.setBioCompliance("creator1", "NON_COMPLIANT", "actor1");
+      expect(prisma.creatorProfile.update).toHaveBeenCalledWith({ where: { id: "creator1" }, data: { bioComplianceStatus: "NON_COMPLIANT" } });
+      expect(audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          actorId: "actor1",
+          action: "CREATOR_BIO_COMPLIANCE_SET",
+          before: { bioComplianceStatus: "PENDING" },
+          after: { bioComplianceStatus: "NON_COMPLIANT" },
+        }),
+      );
+    });
+
+    it("setBioCompliance has no ALLOWED_FROM guard — any status can move to any other", async () => {
+      prisma.creatorProfile.findUnique.mockResolvedValue(creatorRow({ bioComplianceStatus: "NON_COMPLIANT" }));
+      await expect(service.setBioCompliance("creator1", "COMPLIANT", "actor1")).resolves.toBeDefined();
+    });
+
+    it("setTier updates the tier and records an audit entry with before/after", async () => {
+      prisma.creatorProfile.findUnique.mockResolvedValue(creatorRow({ tier: "STANDARD" }));
+      await service.setTier("creator1", "PREMIUM", "actor1");
+      expect(prisma.creatorProfile.update).toHaveBeenCalledWith({ where: { id: "creator1" }, data: { tier: "PREMIUM" } });
+      expect(audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({ actorId: "actor1", action: "CREATOR_TIER_SET", before: { tier: "STANDARD" }, after: { tier: "PREMIUM" } }),
+      );
     });
   });
 });

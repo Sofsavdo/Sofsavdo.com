@@ -1,6 +1,6 @@
 import Link from "next/link";
-import type { Campaign } from "@rosti/types";
-import { Badge, Card } from "@rosti/ui";
+import type { Campaign } from "@sofsavdo/types";
+import { Badge, Card } from "@sofsavdo/ui";
 import { Gift, Repeat } from "lucide-react";
 import { formatCommission, formatDeadline, platformLabel } from "@/lib/commission-display";
 

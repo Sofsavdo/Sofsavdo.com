@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Badge, Button, ConfirmModal, DataTableShell, MobileDataCard } from "@rosti/ui";
+import { Badge, Button, ConfirmModal, DataTableShell, MobileDataCard } from "@sofsavdo/ui";
 import { useAdminSession } from "@/services/adminSession";
 import { hasRole } from "@/lib/adminRouting";
 import { useAdminVisitors, useOverrideAttribution } from "@/services/admin/marketing";

@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
-import type { CreatorApplicationData, SocialPlatform } from "@rosti/types";
-import { Button, Card, CardHeader, CardTitle, TextField, TextAreaField, SelectField, Alert, ProgressBar, cn } from "@rosti/ui";
+import type { CreatorApplicationData, SocialPlatform } from "@sofsavdo/types";
+import { Button, Card, CardHeader, CardTitle, TextField, TextAreaField, SelectField, Alert, ProgressBar, cn } from "@sofsavdo/ui";
 import { Plus, Trash2 } from "lucide-react";
 import { useResubmitApplication, useSubmitApplication, useUpdateApplication } from "@/services/application";
 

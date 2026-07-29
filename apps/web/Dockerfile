@@ -1,14 +1,14 @@
-# Build context MUST be the monorepo root (see docker-compose.yml / CI workflow) — @rosti/web
-# depends on the workspace-internal @rosti/config, @rosti/types, @rosti/ui packages (transpiled
+# Build context MUST be the monorepo root (see docker-compose.yml / CI workflow) — @sofsavdo/web
+# depends on the workspace-internal @sofsavdo/config, @sofsavdo/types, @sofsavdo/ui packages (transpiled
 # from their TS source directly, see next.config.ts's transpilePackages), so the whole monorepo
 # needs to be present for the install/build steps, not just apps/web.
 
 FROM node:22-alpine AS deps
 WORKDIR /app
 # Every workspace's package.json must be present (see apps/api/Dockerfile's deps stage comment
-# for why) — this is doubly true here since @rosti/web actually depends on the workspace-internal
+# for why) — this is doubly true here since @sofsavdo/web actually depends on the workspace-internal
 # packages below, and a plain, unscoped `npm ci` is what reliably reproduces the exact same
-# node_modules layout (including where each @rosti/* symlink ends up) as everyone's local install.
+# node_modules layout (including where each @sofsavdo/* symlink ends up) as everyone's local install.
 COPY package.json package-lock.json ./
 COPY apps/api/package.json ./apps/api/package.json
 COPY apps/web/package.json ./apps/web/package.json
@@ -34,19 +34,19 @@ ARG NEXT_PUBLIC_API_MODE=real
 ARG NEXT_PUBLIC_API_URL=http://localhost:4000
 ENV NEXT_PUBLIC_API_MODE=$NEXT_PUBLIC_API_MODE
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
-RUN npm run build --workspace=@rosti/web
+RUN npm run build --workspace=@sofsavdo/web
 
 # Minimal runtime — output:"standalone" (next.config.ts) traces only the dependencies this build
 # actually needs into .next/standalone, so the image doesn't need the full node_modules tree.
 FROM node:22-alpine AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
-RUN addgroup -S rosti && adduser -S rosti -G rosti
+RUN addgroup -S sofsavdo && adduser -S sofsavdo -G sofsavdo
 COPY --from=build /app/apps/web/.next/standalone ./
 # Static assets are deliberately excluded from the standalone trace and must be copied separately
 # — the one Next.js Docker step it's easy to forget and get a 404-riddled production build from.
 COPY --from=build /app/apps/web/.next/static ./apps/web/.next/static
-USER rosti
+USER sofsavdo
 WORKDIR /app/apps/web
 EXPOSE 3000
 ENV PORT=3000

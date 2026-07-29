@@ -1,13 +1,23 @@
 "use client";
 
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import type { Product } from "@rosti/types";
-import { Alert, Button, Card, CardHeader, CardTitle, SelectField, TextAreaField, TextField } from "@rosti/ui";
+import type { Product } from "@sofsavdo/types";
+import { Alert, Button, Card, CardHeader, CardTitle, SelectField, TextAreaField, TextField } from "@sofsavdo/ui";
 import { productSchema, type ProductInput } from "@/lib/schemas-admin";
 import { useCreateProduct, useUpdateProduct } from "@/services/admin/catalog";
 import { ApiError } from "@/lib/api/admin";
+
+// Only title/shortDescription — the two ProductAiDraft fields that actually have a home in this
+// form today. `description`/features/benefits/etc have nowhere to go here (ProductForm doesn't
+// expose a `description` field at all yet); see ProductAiDraftPanel's own review panel for those,
+// and DECISIONS.md ADR-028 for why this is a disclosed scoping choice, not an oversight.
+export interface ProductAiPrefill {
+  title: string;
+  shortDescription: string;
+}
 
 const PRODUCT_TYPES = [
   { value: "PHYSICAL_PRODUCT", label: "Fizik mahsulot" },
@@ -17,7 +27,15 @@ const PRODUCT_TYPES = [
   { value: "CONSULTATION", label: "Konsultatsiya" },
 ] as const;
 
-export function ProductForm({ existing }: { existing?: Product }) {
+export function ProductForm({
+  existing,
+  onCreated,
+  aiPrefill,
+}: {
+  existing?: Product;
+  onCreated?: (created: Product) => void;
+  aiPrefill?: ProductAiPrefill;
+}) {
   const router = useRouter();
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
@@ -25,6 +43,7 @@ export function ProductForm({ existing }: { existing?: Product }) {
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<ProductInput>({
     resolver: zodResolver(productSchema),
@@ -40,6 +59,14 @@ export function ProductForm({ existing }: { existing?: Product }) {
         }
       : { type: "PHYSICAL_PRODUCT" },
   });
+
+  // Explicit "Ishlatish" click in ProductAiDraftPanel is what triggers this, never automatic —
+  // still just fills the form, the admin reviews/edits normally and clicks Save themselves.
+  useEffect(() => {
+    if (!aiPrefill) return;
+    setValue("name", aiPrefill.title);
+    setValue("shortDescription", aiPrefill.shortDescription);
+  }, [aiPrefill, setValue]);
 
   const mutation = existing ? updateProduct : createProduct;
 
@@ -60,7 +87,8 @@ export function ProductForm({ existing }: { existing?: Product }) {
       router.push(`/admin/products/${existing.id}`);
     } else {
       const created = await createProduct.mutateAsync(payload);
-      router.push(`/admin/products/${created.id}`);
+      if (onCreated) onCreated(created);
+      else router.push(`/admin/products/${created.id}`);
     }
   }
 

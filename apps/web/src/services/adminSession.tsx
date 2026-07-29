@@ -2,7 +2,7 @@
 
 import { createContext, useContext, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { AdminRole, AdminUser } from "@rosti/types";
+import type { AdminRole, AdminUser } from "@sofsavdo/types";
 import * as adminApi from "../lib/api/admin";
 
 interface AdminSessionContextValue {

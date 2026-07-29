@@ -1,6 +1,6 @@
-# Rosti — Closed Creator Affiliate Commerce Platform
+# Sofsavdo — Closed Creator Affiliate Commerce Platform
 
-Rosti is **not** an online store, not a marketplace, and not a public product catalog.
+Sofsavdo is **not** an online store, not a marketplace, and not a public product catalog.
 It is a closed system that lets one business owner sell their own physical products,
 courses, and services through approved creators (bloggers/influencers), each with an
 individual referral link and promo code, with automatic attribution, commission
@@ -10,7 +10,7 @@ The rule that drives every design decision in this repo:
 
 > **Creators see a catalog of campaigns. Buyers see exactly one offer.**
 
-A buyer who lands on `rosti.uz/o/serum?ref=malika` can only see and buy that one
+A buyer who lands on `sofsavdo.com/o/serum?ref=malika` can only see and buy that one
 offer. There is no public catalog, no search, no cart, no cross-sell, no way to
 navigate to any other product, course, or service. See [PRODUCT_MODEL.md](PRODUCT_MODEL.md)
 and [docs/PROHIBITED.md](docs/PROHIBITED.md) for the full list of things this platform
@@ -18,13 +18,13 @@ deliberately does not do.
 
 ## Repository audit (Phase 0 — done 2026-07-16)
 
-- Working directory (`Fidem/Blog`) was empty prior to this build — no prior Rosti code exists here.
+- Working directory (`Fidem/Blog`) was empty prior to this build — no prior Sofsavdo code exists here.
 - The enclosing git repository is rooted at `C:\Users\Acer` (the whole user home directory), not at
   this folder. It contains unrelated projects (a Yandex Market seller tool under
   `Desktop/SellerCloudX`-style commits, Cursor editor extension binaries, etc.) and a separate,
   earlier project at `Desktop/mukammal CRM` ("AFFILIMART") that models a similar
   blogger/affiliate/merchant marketplace on a Node/Express/Knex stack. Per explicit user decision,
-  Rosti is a **clean, independent build in this directory** — AFFILIMART is not reused or migrated.
+  Sofsavdo is a **clean, independent build in this directory** — AFFILIMART is not reused or migrated.
 - Runtime available: Node v22.17.1, npm 10.9.2, Docker Desktop. No `pnpm`, no local `psql` client
   (Postgres will run via Docker for local dev).
 - MCP/integrations checked: no Figma MCP connection is currently authorized in this session

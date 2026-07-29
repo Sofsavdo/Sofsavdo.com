@@ -2,7 +2,7 @@
 
 import { use, useRef, useState } from "react";
 import Link from "next/link";
-import { Alert, Badge, Button, Card, CardHeader, CardTitle, Skeleton, TextAreaField, TextField } from "@rosti/ui";
+import { Alert, Badge, Button, Card, CardHeader, CardTitle, Skeleton, TextAreaField, TextField } from "@sofsavdo/ui";
 import { ArrowLeft, Paperclip, Trash2 } from "lucide-react";
 import {
   useContentDetail,
@@ -14,7 +14,7 @@ import {
 } from "@/services/content";
 import { realContentStatusMeta, contentReviewActionMeta } from "@/lib/status";
 import { ApiError } from "@/lib/api";
-import type { ContentAttachmentRole } from "@rosti/types";
+import type { ContentAttachmentRole } from "@sofsavdo/types";
 
 const EDITABLE_STATUSES = new Set(["DRAFT", "CHANGES_REQUESTED"]);
 
@@ -30,6 +30,7 @@ export default function ContentDetailPage({ params }: { params: Promise<{ id: st
   const [caption, setCaption] = useState<string | null>(null);
   const [notes, setNotes] = useState<string | null>(null);
   const [hashtags, setHashtags] = useState<string | null>(null);
+  const [postUrl, setPostUrl] = useState<string | null>(null);
   const [attachmentRole, setAttachmentRole] = useState<ContentAttachmentRole>("ATTACHMENT");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -60,6 +61,7 @@ export default function ContentDetailPage({ params }: { params: Promise<{ id: st
   const captionValue = caption ?? content.caption ?? "";
   const notesValue = notes ?? content.notes ?? "";
   const hashtagsValue = hashtags ?? content.hashtags.join(", ");
+  const postUrlValue = postUrl ?? content.postUrl ?? "";
 
   function saveDraft() {
     updateMutation.mutate({
@@ -71,6 +73,7 @@ export default function ContentDetailPage({ params }: { params: Promise<{ id: st
           .split(",")
           .map((h) => h.trim())
           .filter(Boolean),
+        postUrl: postUrlValue || undefined,
       },
     });
   }
@@ -121,6 +124,13 @@ export default function ContentDetailPage({ params }: { params: Promise<{ id: st
                   onChange={(e) => setHashtags(e.target.value)}
                   placeholder="#ad, #beauty"
                 />
+                <TextField
+                  label="Post havolasi (ijtimoiy tarmoqdagi joylangan post)"
+                  type="url"
+                  value={postUrlValue}
+                  onChange={(e) => setPostUrl(e.target.value)}
+                  placeholder="https://instagram.com/p/..."
+                />
                 <Button variant="outline" size="sm" className="w-fit" disabled={updateMutation.isPending} onClick={saveDraft}>
                   {updateMutation.isPending ? "Saqlanmoqda..." : "Saqlash"}
                 </Button>
@@ -137,6 +147,14 @@ export default function ContentDetailPage({ params }: { params: Promise<{ id: st
                       </Badge>
                     ))}
                   </div>
+                ) : null}
+                {content.postUrl ? (
+                  <p>
+                    Post havolasi:{" "}
+                    <a href={content.postUrl} target="_blank" rel="noopener noreferrer" className="text-accent underline">
+                      {content.postUrl}
+                    </a>
+                  </p>
                 ) : null}
               </div>
             )}
@@ -207,12 +225,12 @@ export default function ContentDetailPage({ params }: { params: Promise<{ id: st
                 <CardTitle>Yuborish</CardTitle>
               </CardHeader>
               <p className="mb-3 font-body text-sm text-text-secondary">
-                Yuborishdan oldin kamida bitta fayl biriktirilgan bo&apos;lishi kerak ({requiredAttachmentCount} ta fayl mavjud).
+                Yuborishdan oldin kamida bitta fayl biriktirilgan ({requiredAttachmentCount} ta fayl mavjud) va post havolasi kiritilgan bo&apos;lishi kerak.
               </p>
               {submitError ? <Alert tone="error" className="mb-3">{submitError}</Alert> : null}
               {resubmitError ? <Alert tone="error" className="mb-3">{resubmitError}</Alert> : null}
               <Button
-                disabled={submitMutation.isPending || resubmitMutation.isPending || requiredAttachmentCount === 0}
+                disabled={submitMutation.isPending || resubmitMutation.isPending || requiredAttachmentCount === 0 || !content.postUrl}
                 onClick={() => (content.status === "CHANGES_REQUESTED" ? resubmitMutation.mutate(id) : submitMutation.mutate(id))}
               >
                 {submitMutation.isPending || resubmitMutation.isPending

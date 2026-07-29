@@ -1,31 +1,63 @@
-import Link from "next/link";
-import { Button } from "@rosti/ui";
-import { BRAND } from "@rosti/config/brand";
+import type { Metadata } from "next";
+import { BRAND } from "@sofsavdo/config/brand";
+import { getFeaturedOffers, getHomepageSections } from "@/lib/api";
+import { Hero } from "@/components/home/Hero";
+import { WhySofsavdo } from "@/components/home/WhySofsavdo";
+import { FeaturedProducts } from "@/components/home/FeaturedProducts";
+import { CreatorProgramBlurb } from "@/components/home/CreatorProgramBlurb";
+import { BenefitsGrid } from "@/components/home/BenefitsGrid";
+import { FAQ } from "@/components/home/FAQ";
+import { SupportSection } from "@/components/home/SupportSection";
+import { Footer } from "@/components/home/Footer";
+import { HomepageSectionRenderer } from "@/components/home/HomepageSectionRenderer";
 
-// Minimal corporate root page (spec §7 / ARCHITECTURE.md route map): brand, creator-program CTA,
-// login, support. Deliberately not a marketplace/catalog homepage — there is nothing here for a
-// buyer to browse, and no link exists from this page to any offer, product, or course listing.
-export default function HomePage() {
+export const metadata: Metadata = {
+  title: BRAND.name,
+  description: `${BRAND.name} — tanlangan mahsulotlar, ishonchli to'lov va tez yetkazib berish.`,
+};
+
+// Non-personalized and safe to cache briefly — this page never reads a cookie or any per-visitor
+// state, unlike /o/[offerSlug] (force-dynamic there for its per-request `?ref=` attribution).
+export const revalidate = 60;
+
+// Premium Commerce Home (Sofsavdo pivot, Phase C), now CMS-driven (Phase H — see DECISIONS.md
+// ADR-027). Deliberately still NOT a catalog itself: FeaturedProducts loads only a small,
+// server-capped set of offers (OffersService.listFeaturedPublic, FEATURED_OFFERS_LIMIT), never the
+// full product list — the full, paginated list lives at /catalog (Phase E), reachable from this
+// page only via the Footer's one deliberate link. A plain Server Component, not a client-fetched
+// dashboard: everything below renders from data already available at request time, with zero
+// client-side `useQuery` — see docs/PROHIBITED.md for what this page still deliberately does not do.
+//
+// GET /homepage returning zero rows (a fresh/unconfigured environment, or the backend being
+// unreachable — same defensive `.catch(() => [])` pattern as /catalog) falls back to exactly the
+// original fixed Phase C composition below, so there is never a visually empty homepage and no
+// risky pre-seeded data migration was needed to ship this feature (see the Phase H migration's own
+// comment). Once an admin has added at least one HomepageSection row, every section (including
+// which of these seven appear, and in what order) is driven by that data instead.
+export default async function HomePage() {
+  const [featuredOffers, sections] = await Promise.all([getFeaturedOffers().catch(() => []), getHomepageSections().catch(() => [])]);
+
+  if (sections.length === 0) {
+    return (
+      <main>
+        <Hero />
+        <WhySofsavdo />
+        <FeaturedProducts offers={featuredOffers} />
+        <CreatorProgramBlurb />
+        <BenefitsGrid />
+        <FAQ />
+        <SupportSection />
+        <Footer />
+      </main>
+    );
+  }
+
   return (
-    <main className="mx-auto flex min-h-screen max-w-page flex-col items-center justify-center gap-8 px-pad-mobile text-center md:px-pad-desktop">
-      <div className="space-y-3">
-        <h1 className="font-heading text-4xl font-bold text-text-primary md:text-5xl">{BRAND.name}</h1>
-        <p className="max-w-md text-balance font-body text-text-secondary">
-          Creator hamkorlik dasturi — o&apos;z auditoriyangizni tanlangan kampaniyalarga
-          yo&apos;naltiring va daromad oling.
-        </p>
-      </div>
-      <div className="flex flex-col gap-3 sm:flex-row">
-        <Button asChild size="lg">
-          <Link href="/creator/register">Creator sifatida qo&apos;shilish</Link>
-        </Button>
-        <Button asChild variant="outline" size="lg">
-          <Link href="/creator/login">Kirish</Link>
-        </Button>
-      </div>
-      <Link href="/support" className="font-body text-sm text-text-muted underline">
-        Yordam kerakmi?
-      </Link>
+    <main>
+      {sections.map((section) => (
+        <HomepageSectionRenderer key={`${section.type}-${section.sortOrder}`} section={section} featuredOffers={featuredOffers} />
+      ))}
+      <Footer />
     </main>
   );
 }

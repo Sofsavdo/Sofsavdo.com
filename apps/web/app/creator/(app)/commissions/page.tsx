@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import type { CommissionStatus } from "@rosti/types";
-import { formatMoneyMinor } from "@rosti/types";
-import { Alert, Badge, EmptyState, MobileDataCard, SelectField, Skeleton } from "@rosti/ui";
+import type { CommissionStatus } from "@sofsavdo/types";
+import { formatMoneyMinor } from "@sofsavdo/types";
+import { Alert, Badge, EmptyState, MobileDataCard, SelectField, Skeleton } from "@sofsavdo/ui";
 import { useCommissions } from "@/services/finance";
 import { commissionStatusMeta } from "@/lib/status";
 

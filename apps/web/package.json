@@ -1,5 +1,5 @@
 {
-  "name": "@rosti/web",
+  "name": "@sofsavdo/web",
   "version": "0.0.1",
   "private": true,
   "scripts": {
@@ -11,9 +11,9 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
-    "@rosti/config": "*",
-    "@rosti/types": "*",
-    "@rosti/ui": "*",
+    "@sofsavdo/config": "*",
+    "@sofsavdo/types": "*",
+    "@sofsavdo/ui": "*",
     "@tanstack/react-query": "^5.101.2",
     "framer-motion": "^12.42.2",
     "lucide-react": "^1.24.0",

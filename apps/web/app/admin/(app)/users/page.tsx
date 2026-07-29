@@ -3,9 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { RoleGuard } from "@/components/admin/RoleGuard";
-import { Badge, Button, DataTableShell, MobileDataCard } from "@rosti/ui";
+import { Badge, Button, DataTableShell, MobileDataCard } from "@sofsavdo/ui";
 import { useStaffUserList } from "@/services/admin/staff";
-import type { RealUserStatus } from "@rosti/types";
+import type { RealUserStatus } from "@sofsavdo/types";
 
 const STATUS_TONE: Record<RealUserStatus, "success" | "warning" | "error" | "neutral"> = {
   ACTIVE: "success",

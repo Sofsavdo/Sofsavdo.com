@@ -75,7 +75,7 @@ describe("RBAC (e2e)", () => {
   let callCounter = 0;
   async function makeStaffUser(roleKey: "manager" | "admin" | "super_admin") {
     callCounter += 1;
-    const user = await prisma.user.create({ data: { email: `${roleKey}-${callCounter}-${suffix}@rosti.uz`, passwordHash: "x" } });
+    const user = await prisma.user.create({ data: { email: `${roleKey}-${callCounter}-${suffix}@sofsavdo.com`, passwordHash: "x" } });
     const role = await prisma.role.findUniqueOrThrow({ where: { key: `${roleKey}-${suffix}` } });
     await prisma.userRole.create({ data: { userId: user.id, roleId: role.id } });
     return user;
@@ -102,7 +102,7 @@ describe("RBAC (e2e)", () => {
   it("a plain creator (no UserRole at all) has zero permissions — would be rejected by PermissionsGuard", async () => {
     const user = await prisma.user.create({
       data: {
-        email: `creator-${suffix}@rosti.uz`,
+        email: `creator-${suffix}@sofsavdo.com`,
         passwordHash: "x",
         creatorProfile: { create: { displayName: "Test Creator", contentNiches: [], referralCode: suffix } },
       },

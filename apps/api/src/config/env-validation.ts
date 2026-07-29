@@ -27,9 +27,16 @@ const REQUIRED_IN_PRODUCTION = [
 // Present in .env.example with a name suggesting they matter, but the app degrades gracefully
 // without them (documented here so "optional" is a deliberate list, not silence-by-omission):
 // REDIS_URL (best-effort cache + health signal only — see AnalyticsCacheService/HealthController),
-// STORAGE_* (falls back to the local-disk adapter), TELEGRAM_BOT_TOKEN/SMTP_* (notification
-// delivery fails loudly per-send into a FAILED row rather than blocking anything), SENTRY_DSN/
-// POSTHOG_* (monitoring is additive, never required for the app to run).
+// STORAGE_* when STORAGE_DRIVER=local — the default, dev/test-appropriate adapter (STORAGE_S3_*
+// becomes required below when STORAGE_DRIVER=s3, since that's not a safe silent-fallback
+// situation — a production deploy pointed at "s3" with blank credentials would upload to nothing),
+// TELEGRAM_BOT_TOKEN/SMTP_* (notification delivery fails loudly per-send into a FAILED row rather
+// than blocking anything), SENTRY_DSN/POSTHOG_* (monitoring is additive, never required to run),
+// ANTHROPIC_API_KEY/ANTHROPIC_MODEL (the AI Product Creation Engine fails loudly per-call with
+// AI_NOT_CONFIGURED when unset — see DECISIONS.md ADR-028 — an admin can always fall back to
+// manual product entry, so this is never launch-blocking).
+
+const REQUIRED_FOR_S3_STORAGE = ["STORAGE_BUCKET", "STORAGE_ACCESS_KEY_ID", "STORAGE_SECRET_ACCESS_KEY"] as const;
 
 // Values that must never appear as the *actual* configured secret in production — every one of
 // these is a real fallback string that exists elsewhere in this codebase (configuration.ts) for
@@ -100,6 +107,17 @@ export function validateEnv(env: NodeJS.ProcessEnv): void {
 
   if (env.WEB_APP_URL && !env.WEB_APP_URL.startsWith("https://")) {
     problems.push("WEB_APP_URL must be an https:// origin in production (cookies are marked Secure and will never reach an http:// frontend)");
+  }
+
+  // STORAGE_DRIVER=local (the default) is dev/test-appropriate only, but this validator doesn't
+  // force a production deploy off of it — that's PRODUCTION_READINESS.md's job to flag as an
+  // operational decision. What it does enforce: if an operator has explicitly opted into "s3",
+  // the credentials to actually use it must be real, not silently blank.
+  if (env.STORAGE_DRIVER === "s3") {
+    for (const key of REQUIRED_FOR_S3_STORAGE) {
+      const value = env[key];
+      if (!value || value.trim() === "") problems.push(`STORAGE_DRIVER=s3 but missing required environment variable: ${key}`);
+    }
   }
 
   if (problems.length > 0) throw new EnvironmentValidationError(problems);

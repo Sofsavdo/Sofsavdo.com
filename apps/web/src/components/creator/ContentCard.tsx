@@ -3,8 +3,8 @@
 import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import type { CreatorContent, CreatorCampaign } from "@rosti/types";
-import { Alert, Badge, Button, Card, CardHeader, CardTitle, SelectField, TextAreaField, TextField } from "@rosti/ui";
+import type { CreatorContent, CreatorCampaign } from "@sofsavdo/types";
+import { Alert, Badge, Button, Card, CardHeader, CardTitle, SelectField, TextAreaField, TextField } from "@sofsavdo/ui";
 import { Paperclip, X } from "lucide-react";
 import { contentStatusMeta } from "@/lib/status";
 import { contentSubmitSchema, type ContentSubmitInput } from "@/lib/schemas";

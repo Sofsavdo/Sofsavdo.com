@@ -2,8 +2,8 @@
 
 import { use, useState } from "react";
 import Link from "next/link";
-import { formatMoneyMinor } from "@rosti/types";
-import { Alert, Badge, Button, Card, CardHeader, CardTitle, ConfirmModal, Skeleton, StatusBadge } from "@rosti/ui";
+import { formatMoneyMinor } from "@sofsavdo/types";
+import { Alert, Badge, Button, Card, CardHeader, CardTitle, ConfirmModal, Skeleton, StatusBadge } from "@sofsavdo/ui";
 import { ArrowLeft } from "lucide-react";
 import { useAdminReferral, useApproveReferralReward, useDisqualifyReferral, useRejectReferralReward } from "@/services/admin/referrals";
 import { referralActivityMeta } from "@/lib/status";

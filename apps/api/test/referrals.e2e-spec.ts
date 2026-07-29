@@ -39,7 +39,7 @@ describe("Referrals (e2e)", () => {
   async function makeCreator(label: string) {
     const user = await prisma.user.create({
       data: {
-        email: `ref-${label}-${suffix}@rosti.uz`,
+        email: `ref-${label}-${suffix}@sofsavdo.com`,
         passwordHash: "x",
         creatorProfile: {
           create: {
@@ -70,12 +70,12 @@ describe("Referrals (e2e)", () => {
     const adminRole = await prisma.role.create({ data: { key: `ref-admin-${suffix}`, name: "Referral Admin" } });
     const perms = await prisma.permission.findMany({ where: { key: { in: ["referral.read", "referral.manage", "referral.review", "referral.disqualify"] } } });
     await prisma.rolePermission.createMany({ data: perms.map((p) => ({ roleId: adminRole.id, permissionId: p.id })) });
-    const adminUser = await prisma.user.create({ data: { email: `ref-admin-${suffix}@rosti.uz`, passwordHash: "x" } });
+    const adminUser = await prisma.user.create({ data: { email: `ref-admin-${suffix}@sofsavdo.com`, passwordHash: "x" } });
     await prisma.userRole.create({ data: { userId: adminUser.id, roleId: adminRole.id } });
     adminAccessToken = tokens.signAccessToken(adminUser.id);
 
     const noPermsRole = await prisma.role.create({ data: { key: `ref-noperm-${suffix}`, name: "No perms" } });
-    const noPermsUser = await prisma.user.create({ data: { email: `ref-noperm-${suffix}@rosti.uz`, passwordHash: "x" } });
+    const noPermsUser = await prisma.user.create({ data: { email: `ref-noperm-${suffix}@sofsavdo.com`, passwordHash: "x" } });
     await prisma.userRole.create({ data: { userId: noPermsUser.id, roleId: noPermsRole.id } });
     noPermsStaffToken = tokens.signAccessToken(noPermsUser.id);
 
@@ -163,10 +163,10 @@ describe("Referrals (e2e)", () => {
       const a = await makeCreator("attr-a");
       const res = await request(app.getHttpServer())
         .post("/auth/register")
-        .send({ email: `ref-attr-b-${suffix}@rosti.uz`, password: "TestPass#2026", displayName: "Referred B", referralCode: a.referralCode })
+        .send({ email: `ref-attr-b-${suffix}@sofsavdo.com`, password: "TestPass#2026", displayName: "Referred B", referralCode: a.referralCode })
         .expect(201);
 
-      const bUser = await prisma.user.findUnique({ where: { email: `ref-attr-b-${suffix}@rosti.uz` }, include: { creatorProfile: true } });
+      const bUser = await prisma.user.findUnique({ where: { email: `ref-attr-b-${suffix}@sofsavdo.com` }, include: { creatorProfile: true } });
       const referral = await prisma.creatorReferral.findUnique({ where: { referredCreatorId: bUser!.creatorProfile!.id } });
       expect(referral).not.toBeNull();
       expect(referral!.referrerCreatorId).toBe(a.creatorId);
@@ -177,10 +177,10 @@ describe("Referrals (e2e)", () => {
     it("registration with an unknown/invalid referral code still succeeds, with no attribution created", async () => {
       const res = await request(app.getHttpServer())
         .post("/auth/register")
-        .send({ email: `ref-badcode-${suffix}@rosti.uz`, password: "TestPass#2026", displayName: "No Referrer", referralCode: "TOTALLYFAKE" })
+        .send({ email: `ref-badcode-${suffix}@sofsavdo.com`, password: "TestPass#2026", displayName: "No Referrer", referralCode: "TOTALLYFAKE" })
         .expect(201);
       expect(res.status).toBe(201);
-      const user = await prisma.user.findUnique({ where: { email: `ref-badcode-${suffix}@rosti.uz` }, include: { creatorProfile: true } });
+      const user = await prisma.user.findUnique({ where: { email: `ref-badcode-${suffix}@sofsavdo.com` }, include: { creatorProfile: true } });
       const referral = await prisma.creatorReferral.findUnique({ where: { referredCreatorId: user!.creatorProfile!.id } });
       expect(referral).toBeNull();
     });
@@ -188,10 +188,10 @@ describe("Referrals (e2e)", () => {
     it("a creator with no referrer registers successfully with no CreatorReferral row at all", async () => {
       const res = await request(app.getHttpServer())
         .post("/auth/register")
-        .send({ email: `ref-noref-${suffix}@rosti.uz`, password: "TestPass#2026", displayName: "Organic Signup" })
+        .send({ email: `ref-noref-${suffix}@sofsavdo.com`, password: "TestPass#2026", displayName: "Organic Signup" })
         .expect(201);
       void res;
-      const user = await prisma.user.findUnique({ where: { email: `ref-noref-${suffix}@rosti.uz` }, include: { creatorProfile: true } });
+      const user = await prisma.user.findUnique({ where: { email: `ref-noref-${suffix}@sofsavdo.com` }, include: { creatorProfile: true } });
       const referral = await prisma.creatorReferral.findUnique({ where: { referredCreatorId: user!.creatorProfile!.id } });
       expect(referral).toBeNull();
     });
@@ -226,7 +226,7 @@ describe("Referrals (e2e)", () => {
       const referrer = await makeCreator("noreward-referrer");
       await request(app.getHttpServer())
         .post("/auth/register")
-        .send({ email: `ref-noreward-b-${suffix}@rosti.uz`, password: "TestPass#2026", displayName: "Fresh Referred", referralCode: referrer.referralCode })
+        .send({ email: `ref-noreward-b-${suffix}@sofsavdo.com`, password: "TestPass#2026", displayName: "Fresh Referred", referralCode: referrer.referralCode })
         .expect(201);
 
       const rewards = await request(app.getHttpServer()).get("/creator/referral-rewards").set("Authorization", `Bearer ${referrer.accessToken}`).expect(200);
@@ -237,12 +237,12 @@ describe("Referrals (e2e)", () => {
       const referrer = await makeCreator("approved-alone-referrer");
       const referredUser = await request(app.getHttpServer())
         .post("/auth/register")
-        .send({ email: `ref-approved-alone-${suffix}@rosti.uz`, password: "TestPass#2026", displayName: "Approved Alone", referralCode: referrer.referralCode })
+        .send({ email: `ref-approved-alone-${suffix}@sofsavdo.com`, password: "TestPass#2026", displayName: "Approved Alone", referralCode: referrer.referralCode })
         .expect(201);
       void referredUser;
       // Directly approve their onboarding (real endpoint doesn't exist yet — same known
       // limitation documented for the Creator Application domain) and confirm no reward appears.
-      const user = await prisma.user.findUnique({ where: { email: `ref-approved-alone-${suffix}@rosti.uz` }, include: { creatorProfile: true } });
+      const user = await prisma.user.findUnique({ where: { email: `ref-approved-alone-${suffix}@sofsavdo.com` }, include: { creatorProfile: true } });
       await prisma.creatorApplication.updateMany({ where: { creatorId: user!.creatorProfile!.id }, data: { status: "APPROVED" } });
 
       const rewards = await request(app.getHttpServer()).get("/creator/referral-rewards").set("Authorization", `Bearer ${referrer.accessToken}`).expect(200);
@@ -266,10 +266,10 @@ describe("Referrals (e2e)", () => {
       const referrerA = await makeCreator("milestone-a");
       const registerRes = await request(app.getHttpServer())
         .post("/auth/register")
-        .send({ email: `ref-milestone-b-${suffix}@rosti.uz`, password: "TestPass#2026", displayName: "Milestone B", referralCode: referrerA.referralCode })
+        .send({ email: `ref-milestone-b-${suffix}@sofsavdo.com`, password: "TestPass#2026", displayName: "Milestone B", referralCode: referrerA.referralCode })
         .expect(201);
       const bAccessToken = registerRes.body.accessToken;
-      await approveOnboarding(`ref-milestone-b-${suffix}@rosti.uz`);
+      await approveOnboarding(`ref-milestone-b-${suffix}@sofsavdo.com`);
 
       // requiresApproval: false on the fixture campaign — submit() instant-approves.
       const created = await request(app.getHttpServer())
@@ -286,7 +286,7 @@ describe("Referrals (e2e)", () => {
 
     it("does not pay the milestone reward twice when Creator B's second application is approved (one-time, not per-application)", async () => {
       const referrerA = await prisma.creatorProfile.findFirst({ where: { displayName: "Referral Creator milestone-a" } });
-      const bUser = await prisma.user.findUniqueOrThrow({ where: { email: `ref-milestone-b-${suffix}@rosti.uz` } });
+      const bUser = await prisma.user.findUniqueOrThrow({ where: { email: `ref-milestone-b-${suffix}@sofsavdo.com` } });
       const bAccessToken = tokens.signAccessToken(bUser.id);
 
       // A genuinely different qualifying event (a different applicationId, on a different
@@ -312,10 +312,10 @@ describe("Referrals (e2e)", () => {
       const referrer = await makeCreator("visibility-referrer");
       const registerRes = await request(app.getHttpServer())
         .post("/auth/register")
-        .send({ email: `ref-visibility-b-${suffix}@rosti.uz`, password: "TestPass#2026", displayName: "Visibility Friend", referralCode: referrer.referralCode })
+        .send({ email: `ref-visibility-b-${suffix}@sofsavdo.com`, password: "TestPass#2026", displayName: "Visibility Friend", referralCode: referrer.referralCode })
         .expect(201);
       const friendToken = registerRes.body.accessToken;
-      await approveOnboarding(`ref-visibility-b-${suffix}@rosti.uz`);
+      await approveOnboarding(`ref-visibility-b-${suffix}@sofsavdo.com`);
       await request(app.getHttpServer()).post(`/creator/campaigns/${campaignId}/applications`).set("Authorization", `Bearer ${friendToken}`).send({}).expect(201);
 
       const list = await request(app.getHttpServer()).get("/creator/referrals").set("Authorization", `Bearer ${referrer.accessToken}`).expect(200);
@@ -329,12 +329,12 @@ describe("Referrals (e2e)", () => {
       const referrer = await makeCreator("privacy-referrer");
       await request(app.getHttpServer())
         .post("/auth/register")
-        .send({ email: `ref-privacy-b-${suffix}@rosti.uz`, password: "TestPass#2026", displayName: "Privacy Friend", referralCode: referrer.referralCode })
+        .send({ email: `ref-privacy-b-${suffix}@sofsavdo.com`, password: "TestPass#2026", displayName: "Privacy Friend", referralCode: referrer.referralCode })
         .expect(201);
 
       const list = await request(app.getHttpServer()).get("/creator/referrals").set("Authorization", `Bearer ${referrer.accessToken}`).expect(200);
       const bodyStr = JSON.stringify(list.body);
-      expect(bodyStr).not.toContain(`ref-privacy-b-${suffix}@rosti.uz`);
+      expect(bodyStr).not.toContain(`ref-privacy-b-${suffix}@sofsavdo.com`);
     });
 
     it("a creator cannot see another referrer's referrals — ownership-scoped, not just role-scoped", async () => {
@@ -342,7 +342,7 @@ describe("Referrals (e2e)", () => {
       const referrerY = await makeCreator("ownership-y");
       await request(app.getHttpServer())
         .post("/auth/register")
-        .send({ email: `ref-ownership-friend-${suffix}@rosti.uz`, password: "TestPass#2026", displayName: "X's Friend", referralCode: referrerX.referralCode })
+        .send({ email: `ref-ownership-friend-${suffix}@sofsavdo.com`, password: "TestPass#2026", displayName: "X's Friend", referralCode: referrerX.referralCode })
         .expect(201);
 
       const xList = await request(app.getHttpServer()).get("/creator/referrals").set("Authorization", `Bearer ${referrerX.accessToken}`).expect(200);
@@ -355,7 +355,7 @@ describe("Referrals (e2e)", () => {
       const referrerX = await makeCreator("guess-x");
       const registerRes = await request(app.getHttpServer())
         .post("/auth/register")
-        .send({ email: `ref-guess-friend-${suffix}@rosti.uz`, password: "TestPass#2026", displayName: "Guess Friend", referralCode: referrerX.referralCode })
+        .send({ email: `ref-guess-friend-${suffix}@sofsavdo.com`, password: "TestPass#2026", displayName: "Guess Friend", referralCode: referrerX.referralCode })
         .expect(201);
       void registerRes;
       const xList = await request(app.getHttpServer()).get("/creator/referrals").set("Authorization", `Bearer ${referrerX.accessToken}`).expect(200);
@@ -405,7 +405,7 @@ describe("Referrals (e2e)", () => {
       const referrerZ = await makeCreator("disqualify-z");
       const registerRes = await request(app.getHttpServer())
         .post("/auth/register")
-        .send({ email: `ref-disqualify-friend-${suffix}@rosti.uz`, password: "TestPass#2026", displayName: "Disqualify Friend", referralCode: referrerZ.referralCode })
+        .send({ email: `ref-disqualify-friend-${suffix}@sofsavdo.com`, password: "TestPass#2026", displayName: "Disqualify Friend", referralCode: referrerZ.referralCode })
         .expect(201);
       void registerRes;
       const list = await request(app.getHttpServer()).get("/creator/referrals").set("Authorization", `Bearer ${referrerZ.accessToken}`).expect(200);

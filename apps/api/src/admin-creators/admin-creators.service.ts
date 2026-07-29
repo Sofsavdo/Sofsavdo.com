@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { Prisma, type UserStatus } from "@prisma/client";
+import { Prisma, type UserStatus, type BioComplianceStatus, type CreatorTier } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditService } from "../common/audit/audit.service";
 import { DomainException } from "../common/errors/domain-error";
@@ -13,6 +13,8 @@ const CREATOR_LIST_SELECT = {
   displayName: true,
   city: true,
   createdAt: true,
+  bioComplianceStatus: true,
+  tier: true,
   user: { select: { id: true, email: true, phone: true, status: true } },
   applications: { orderBy: { createdAt: "desc" as const }, take: 1, select: { status: true, currentStep: true, submittedAt: true, reviewedAt: true } },
 } satisfies Prisma.CreatorProfileSelect;
@@ -28,6 +30,8 @@ export interface CreatorAdminListItem {
   createdAt: Date;
   accountStatus: UserStatus;
   onboardingStatus: string;
+  bioComplianceStatus: BioComplianceStatus;
+  tier: CreatorTier;
 }
 
 export interface CreatorAdminDetail extends CreatorAdminListItem {
@@ -101,6 +105,8 @@ export class AdminCreatorsService {
       createdAt: row.createdAt,
       accountStatus: row.user.status,
       onboardingStatus: app?.status ?? "DRAFT",
+      bioComplianceStatus: row.bioComplianceStatus,
+      tier: row.tier,
     };
   }
 
@@ -220,5 +226,40 @@ export class AdminCreatorsService {
 
   unblock(id: string, actorId: string) {
     return this.transitionAccountStatus(id, "ACTIVE", UNBLOCK_FROM, "CREATOR_UNBLOCKED", actorId);
+  }
+
+  // Phase Q — a manual admin spot-check (no automated bio-scraping exists, see DECISIONS.md
+  // ADR-034), not a state-machine transition: any status can be reset to any other at any time
+  // (a creator can update their bio after being marked NON_COMPLIANT, an admin re-checks and marks
+  // COMPLIANT again), so this has no ALLOWED_FROM guard the way suspend/block do.
+  async setBioCompliance(id: string, status: BioComplianceStatus, actorId: string): Promise<CreatorAdminDetail> {
+    const row = await this.findRowOrThrow(id);
+    await this.prisma.creatorProfile.update({ where: { id }, data: { bioComplianceStatus: status } });
+    await this.audit.record({
+      actorId,
+      action: "CREATOR_BIO_COMPLIANCE_SET",
+      entityType: "CreatorProfile",
+      entityId: id,
+      before: { bioComplianceStatus: row.bioComplianceStatus },
+      after: { bioComplianceStatus: status },
+    });
+    return this.findOneOrThrow(id);
+  }
+
+  // Grants/revokes the Premium exemption — see PayoutsService.requestPayout's own comment for
+  // what this actually changes (STANDARD + NON_COMPLIANT blocks new payout requests; PREMIUM never
+  // does, regardless of bioComplianceStatus).
+  async setTier(id: string, tier: CreatorTier, actorId: string): Promise<CreatorAdminDetail> {
+    const row = await this.findRowOrThrow(id);
+    await this.prisma.creatorProfile.update({ where: { id }, data: { tier } });
+    await this.audit.record({
+      actorId,
+      action: "CREATOR_TIER_SET",
+      entityType: "CreatorProfile",
+      entityId: id,
+      before: { tier: row.tier },
+      after: { tier },
+    });
+    return this.findOneOrThrow(id);
   }
 }

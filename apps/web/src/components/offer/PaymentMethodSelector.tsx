@@ -1,5 +1,5 @@
 import { forwardRef, type InputHTMLAttributes } from "react";
-import { cn } from "@rosti/ui";
+import { cn } from "@sofsavdo/ui";
 import { PAYMENT_METHOD_CATEGORY_META, groupPaymentMethods } from "@/lib/payment-methods";
 
 export interface PaymentMethodSelectorProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "type" | "value" | "onChange"> {

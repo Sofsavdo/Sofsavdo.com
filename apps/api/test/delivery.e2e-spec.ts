@@ -38,7 +38,7 @@ describe("Delivery (e2e)", () => {
     const adminRole = await prisma.role.create({ data: { key: `delivery-admin-${suffix}`, name: "Delivery Admin" } });
     const writePerm = await prisma.permission.findFirst({ where: { key: "offer.write" } });
     await prisma.rolePermission.create({ data: { roleId: adminRole.id, permissionId: writePerm!.id } });
-    const adminUser = await prisma.user.create({ data: { email: `delivery-admin-${suffix}@rosti.uz`, passwordHash: "x" } });
+    const adminUser = await prisma.user.create({ data: { email: `delivery-admin-${suffix}@sofsavdo.com`, passwordHash: "x" } });
     await prisma.userRole.create({ data: { userId: adminUser.id, roleId: adminRole.id } });
     adminAccessToken = tokens.signAccessToken(adminUser.id);
 

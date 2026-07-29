@@ -148,6 +148,11 @@ export class CreateOfferDto {
   @IsBoolean()
   isIndexable?: boolean;
 
+  @ApiPropertyOptional({ description: "Shown on the public homepage's featured-products section." })
+  @IsOptional()
+  @IsBoolean()
+  isFeatured?: boolean;
+
   @ApiPropertyOptional({ type: [OfferVariantDto] })
   @IsOptional()
   @IsArray()

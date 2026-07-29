@@ -48,7 +48,7 @@ import type {
   ReferralContext,
   Sale,
   SocialPlatform,
-} from "@rosti/types";
+} from "@sofsavdo/types";
 import {
   CAMPAIGNS,
   CREATORS,
@@ -66,7 +66,7 @@ import { ADMIN_USERS, LANDING_SECTIONS, OFFERS, PRODUCTS } from "./admin-seed";
 // can fail, returns/mutates plain data), so lib/api/*.ts call sites don't change when the mock
 // is swapped for `fetch`.
 
-const STORAGE_KEY = "rosti_mock_state_v1";
+const STORAGE_KEY = "sofsavdo_mock_state_v1";
 const NETWORK_DELAY_MS = [280, 620] as const;
 
 function delay(): Promise<void> {
@@ -368,8 +368,8 @@ function generateReferralAssets(creatorSlug: string, campaign: Campaign) {
   return {
     referralLink: {
       code,
-      fullUrl: `https://rosti.uz/o/${campaign.offer.slug}?ref=${code}`,
-      shortUrl: `https://rosti.uz/r/${code}`,
+      fullUrl: `https://sofsavdo.com/o/${campaign.offer.slug}?ref=${code}`,
+      shortUrl: `https://sofsavdo.com/r/${code}`,
       clicks: 0,
       createdAt: new Date().toISOString(),
     },
@@ -545,44 +545,55 @@ export async function apiRequestPayout(
 
 // ---- Dashboard (creator) ----
 
+// Shape matches CreatorDashboardStats exactly (apps/api/src/creator-dashboard/creator-dashboard.
+// service.ts) — reshaped from this function's own pre-Phase-J shape (which had a top-level
+// pendingCommissionMinor/approvedCommissionMinor/availableBalanceMinor, an epcMinor field, and
+// three fake series7d/30d/90d) so mock mode and real mode share one type. Still entirely
+// randomly-generated demo data — only the *shape* changed, not "how real" this is.
 export async function apiGetDashboardStats(userId: string) {
   await delay();
   const isMalika = userId === "user_malika";
   const sales = await apiGetSales(userId);
-  const genSeries = (days: number) =>
-    Array.from({ length: days }, (_, i) => {
-      const clicks = isMalika ? Math.round(20 + Math.random() * 60) : Math.round(Math.random() * 3);
-      const orders = Math.round(clicks * (isMalika ? 0.04 + Math.random() * 0.03 : 0.01));
-      return {
-        date: new Date(Date.now() - (days - i) * 86_400_000).toISOString().slice(0, 10),
-        clicks,
-        orders,
-        revenueMinor: orders * 1_890_00,
-      };
-    });
-  const series30d = genSeries(30);
-  const series7d = series30d.slice(-7);
-  const series90d = genSeries(90);
+  const dailyRevenue30d = Array.from({ length: 30 }, (_, i) => {
+    const orders = isMalika ? Math.round(Math.random() * 3) : Math.round(Math.random() * 0.3);
+    return {
+      date: new Date(Date.now() - (29 - i) * 86_400_000).toISOString().slice(0, 10),
+      revenueMinor: orders * 1_890_00,
+    };
+  });
   const todaySales = sales.filter((s) => new Date(s.createdAt).toDateString() === new Date().toDateString());
   const balance = await apiGetBalance(userId);
+  const monthSalesMinor = sales.reduce((a, s) => a + s.amountMinor, 0);
+  const monthCommissionMinor = sales.reduce((a, s) => a + s.commissionMinor, 0);
   return {
     today: {
+      ordersCount: todaySales.length,
+      salesMinor: todaySales.reduce((a, s) => a + s.amountMinor, 0),
+      commissionMinor: todaySales.reduce((a, s) => a + s.commissionMinor, 0),
       clicks: isMalika ? 34 : 0,
-      orders: todaySales.length,
-      revenueMinor: todaySales.reduce((a, s) => a + s.amountMinor, 0),
+      conversionRate: isMalika ? 0.048 : 0,
     },
-    monthToDate: {
-      salesMinor: sales.reduce((a, s) => a + s.amountMinor, 0),
-      commissionMinor: sales.reduce((a, s) => a + s.commissionMinor, 0),
+    monthToDate: { ordersCount: sales.length, salesMinor: monthSalesMinor, commissionMinor: monthCommissionMinor },
+    lifetime: { ordersCount: sales.length, salesMinor: monthSalesMinor, commissionMinor: monthCommissionMinor },
+    wallet: {
+      pendingMinor: balance.pendingMinor,
+      availableMinor: balance.availableMinor,
+      lockedMinor: balance.payoutRequestedMinor,
+      paidMinor: balance.paidMinor,
+      reversedMinor: 0,
+      donatedMinor: 0,
+      currency: "UZS",
+      minimumPayoutMinor: balance.minimumPayoutMinor,
     },
-    pendingCommissionMinor: balance.pendingMinor,
-    approvedCommissionMinor: balance.approvedMinor,
-    availableBalanceMinor: balance.availableMinor,
-    conversionRate: isMalika ? 0.048 : 0,
-    epcMinor: isMalika ? 1_240_00 : 0,
-    series7d,
-    series30d,
-    series90d,
+    dailyRevenue30d,
+    funnel: {
+      period: "this_month" as const,
+      clicks: isMalika ? 340 : 0,
+      orders: sales.length,
+      paidOrders: sales.length,
+      conversionRate: isMalika && sales.length > 0 ? sales.length / 340 : 0,
+    },
+    compliance: { bioComplianceStatus: "PENDING" as const, tier: "STANDARD" as const },
   };
 }
 
@@ -1171,7 +1182,7 @@ export async function apiAdminGetLandingSections(offerId: string): Promise<Landi
   return (load().landingSections[offerId] ?? []).sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
-export async function apiAdminAddLandingSection(offerId: string, type: LandingSectionType): Promise<LandingSectionAdmin> {
+export async function apiAdminAddLandingSection(offerId: string, type: LandingSectionType, content?: Record<string, unknown>): Promise<LandingSectionAdmin> {
   await delay();
   const s = load();
   const list = s.landingSections[offerId] ?? [];
@@ -1181,7 +1192,7 @@ export async function apiAdminAddLandingSection(offerId: string, type: LandingSe
     type,
     sortOrder: list.length + 1,
     isActive: true,
-    content: {},
+    content: content ?? {},
   };
   s.landingSections[offerId] = [...list, section];
   save();

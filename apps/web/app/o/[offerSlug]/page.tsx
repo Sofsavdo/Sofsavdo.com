@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { getOfferPublic } from "@/lib/api";
-import { BRAND } from "@rosti/config/brand";
+import { BRAND } from "@sofsavdo/config/brand";
 import { OfferLandingPageClient } from "@/components/offer/OfferLandingPageClient";
 
 // Public, buyer-facing — will be server-rendered against real data in Phase 6/7 once this reads

@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import type { CreatorCampaignStatus } from "@rosti/types";
-import { Badge, EmptyState, Skeleton, cn } from "@rosti/ui";
+import type { CreatorCampaignStatus } from "@sofsavdo/types";
+import { Badge, EmptyState, Skeleton, cn } from "@sofsavdo/ui";
 import { useMyCampaigns } from "@/services/campaigns";
 import { creatorCampaignStatusMeta } from "@/lib/status";
 

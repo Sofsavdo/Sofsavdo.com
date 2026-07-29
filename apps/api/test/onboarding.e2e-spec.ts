@@ -34,7 +34,7 @@ describe("Onboarding — creator application lifecycle (e2e)", () => {
   async function makeCreator(label: string, opts: { referredBy?: string } = {}) {
     const user = await prisma.user.create({
       data: {
-        email: `onb-${label}-${suffix}@rosti.uz`,
+        email: `onb-${label}-${suffix}@sofsavdo.com`,
         passwordHash: "x",
         creatorProfile: {
           create: {
@@ -79,19 +79,19 @@ describe("Onboarding — creator application lifecycle (e2e)", () => {
     });
     approvePermissionId = adminPerms.find((p) => p.key === "onboarding.approve")!.id;
     await prisma.rolePermission.createMany({ data: adminPerms.map((p) => ({ roleId: adminRole.id, permissionId: p.id })), skipDuplicates: true });
-    const adminUser = await prisma.user.create({ data: { email: `onb-admin-${suffix}@rosti.uz`, passwordHash: "x" } });
+    const adminUser = await prisma.user.create({ data: { email: `onb-admin-${suffix}@sofsavdo.com`, passwordHash: "x" } });
     await prisma.userRole.create({ data: { userId: adminUser.id, roleId: adminRole.id } });
     adminAccessToken = tokens.signAccessToken(adminUser.id);
 
     const readOnlyRole = await prisma.role.create({ data: { key: `onb-readonly-${suffix}`, name: "Onboarding Read-only" } });
     const readPerm = await prisma.permission.findFirst({ where: { key: "onboarding.read" } });
     await prisma.rolePermission.create({ data: { roleId: readOnlyRole.id, permissionId: readPerm!.id } });
-    const readOnlyUser = await prisma.user.create({ data: { email: `onb-readonly-${suffix}@rosti.uz`, passwordHash: "x" } });
+    const readOnlyUser = await prisma.user.create({ data: { email: `onb-readonly-${suffix}@sofsavdo.com`, passwordHash: "x" } });
     await prisma.userRole.create({ data: { userId: readOnlyUser.id, roleId: readOnlyRole.id } });
     readOnlyStaffToken = tokens.signAccessToken(readOnlyUser.id);
 
     const noPermsRole = await prisma.role.create({ data: { key: `onb-noperm-${suffix}`, name: "No perms" } });
-    const noPermsUser = await prisma.user.create({ data: { email: `onb-noperm-${suffix}@rosti.uz`, passwordHash: "x" } });
+    const noPermsUser = await prisma.user.create({ data: { email: `onb-noperm-${suffix}@sofsavdo.com`, passwordHash: "x" } });
     await prisma.userRole.create({ data: { userId: noPermsUser.id, roleId: noPermsRole.id } });
     noPermsStaffToken = tokens.signAccessToken(noPermsUser.id);
   });

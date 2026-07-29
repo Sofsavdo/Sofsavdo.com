@@ -2,7 +2,7 @@
 
 import { use, useState } from "react";
 import Link from "next/link";
-import { Alert, Badge, Button, Card, CardHeader, CardTitle, ConfirmModal, Skeleton } from "@rosti/ui";
+import { Alert, Badge, Button, Card, CardHeader, CardTitle, ConfirmModal, Skeleton } from "@sofsavdo/ui";
 import { ArrowLeft } from "lucide-react";
 import {
   useContentReviewDetail,
@@ -90,6 +90,19 @@ export default function AdminContentDetailPage({ params }: { params: Promise<{ i
                   ))}
                 </div>
               ) : null}
+              {/* Phase P — the live link an admin clicks through to confirm the post actually
+                  exists, alongside the screenshot attachment as the permanent evidence archive
+                  independent of the link's future fate — see DECISIONS.md ADR-033. */}
+              {content.postUrl ? (
+                <p>
+                  Post havolasi:{" "}
+                  <a href={content.postUrl} target="_blank" rel="noopener noreferrer" className="text-accent underline">
+                    {content.postUrl}
+                  </a>
+                </p>
+              ) : (
+                <p className="text-warning">Post havolasi kiritilmagan.</p>
+              )}
             </div>
           </Card>
 

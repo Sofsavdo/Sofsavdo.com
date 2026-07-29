@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Button, DataTableShell, StatusBadge } from "@rosti/ui";
+import { Button, DataTableShell, StatusBadge } from "@sofsavdo/ui";
 import { useAdminReferrals } from "@/services/admin/referrals";
 import { referralActivityMeta } from "@/lib/status";
 import type { ReferralActivityClass } from "@/lib/api/admin";

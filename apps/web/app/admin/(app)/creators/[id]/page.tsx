@@ -2,8 +2,8 @@
 
 import { use, useState } from "react";
 import Link from "next/link";
-import { formatMoneyMinor } from "@rosti/types";
-import { Alert, Badge, Button, Card, CardHeader, CardTitle, ConfirmModal, Skeleton, StatTile, StatusBadge } from "@rosti/ui";
+import { formatMoneyMinor } from "@sofsavdo/types";
+import { Alert, Badge, Button, Card, CardHeader, CardTitle, ConfirmModal, Skeleton, StatTile, StatusBadge } from "@sofsavdo/ui";
 import { ArrowLeft } from "lucide-react";
 import {
   useRealCreatorDetail,
@@ -15,8 +15,10 @@ import {
   useUnsuspendRealCreator,
   useBlockRealCreator,
   useUnblockRealCreator,
+  useSetCreatorBioCompliance,
+  useSetCreatorTier,
 } from "@/services/admin/creators";
-import { applicationStatusMeta, creatorAccountStatusMeta, creatorCampaignStatusMeta } from "@/lib/status";
+import { applicationStatusMeta, creatorAccountStatusMeta, creatorCampaignStatusMeta, bioComplianceStatusMeta, creatorTierMeta } from "@/lib/status";
 import { ApiError } from "@/lib/api/admin";
 
 function CreatorDetailContent({ id }: { id: string }) {
@@ -29,6 +31,8 @@ function CreatorDetailContent({ id }: { id: string }) {
   const unsuspend = useUnsuspendRealCreator();
   const block = useBlockRealCreator();
   const unblock = useUnblockRealCreator();
+  const setBioCompliance = useSetCreatorBioCompliance();
+  const setTier = useSetCreatorTier();
   const [modal, setModal] = useState<"suspend" | "block" | null>(null);
 
   if (creatorQuery.isLoading) {
@@ -67,10 +71,12 @@ function CreatorDetailContent({ id }: { id: string }) {
             {creator.email} · {creator.city ?? "—"}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {creator.verified ? <Badge tone="success">Tasdiqlangan</Badge> : null}
           <StatusBadge tone={applicationStatusMeta[creator.onboardingStatus].tone} label={applicationStatusMeta[creator.onboardingStatus].label} />
           <StatusBadge tone={accountMeta.tone} label={accountMeta.label} />
+          <StatusBadge tone={bioComplianceStatusMeta[creator.bioComplianceStatus].tone} label={bioComplianceStatusMeta[creator.bioComplianceStatus].label} />
+          <StatusBadge tone={creatorTierMeta[creator.tier].tone} label={creatorTierMeta[creator.tier].label} />
         </div>
       </div>
 
@@ -120,6 +126,44 @@ function CreatorDetailContent({ id }: { id: string }) {
             ))}
           </ul>
         )}
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Bio talabi va tarif</CardTitle>
+        </CardHeader>
+        <p className="mb-3 font-body text-sm text-text-secondary">
+          Creatorning ijtimoiy tarmoq bio&apos;sida sofsavdo.com havolasi borligini qo&apos;lda tekshiring. Premium tarifdagi creatorlar bu talabdan
+          mustasno.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={setBioCompliance.isPending || creator.bioComplianceStatus === "COMPLIANT"}
+            onClick={() => setBioCompliance.mutate({ id, status: "COMPLIANT" })}
+          >
+            Talabga javob beradi deb belgilash
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="border-error text-error"
+            disabled={setBioCompliance.isPending || creator.bioComplianceStatus === "NON_COMPLIANT"}
+            onClick={() => setBioCompliance.mutate({ id, status: "NON_COMPLIANT" })}
+          >
+            Talabga javob bermaydi deb belgilash
+          </Button>
+          {creator.tier === "STANDARD" ? (
+            <Button variant="outline" size="sm" disabled={setTier.isPending} onClick={() => setTier.mutate({ id, tier: "PREMIUM" })}>
+              Premium tarif berish
+            </Button>
+          ) : (
+            <Button variant="outline" size="sm" disabled={setTier.isPending} onClick={() => setTier.mutate({ id, tier: "STANDARD" })}>
+              Premiumni bekor qilish
+            </Button>
+          )}
+        </div>
       </Card>
 
       {creator.accountStatus !== "BLOCKED" ? (

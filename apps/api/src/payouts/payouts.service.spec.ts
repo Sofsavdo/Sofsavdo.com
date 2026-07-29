@@ -10,6 +10,7 @@ describe("PayoutsService", () => {
   let prisma: {
     payout: { findUnique: jest.Mock; findMany: jest.Mock; count: jest.Mock; update: jest.Mock; updateMany: jest.Mock };
     payoutMethod: { findUnique: jest.Mock };
+    creatorProfile: { findUniqueOrThrow: jest.Mock };
     $transaction: jest.Mock;
   };
   let tx: { payout: { create: jest.Mock; update: jest.Mock; updateMany: jest.Mock } };
@@ -39,6 +40,7 @@ describe("PayoutsService", () => {
     prisma = {
       payout: { findUnique: jest.fn(), findMany: jest.fn(), count: jest.fn(), update: jest.fn(), updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
       payoutMethod: { findUnique: jest.fn() },
+      creatorProfile: { findUniqueOrThrow: jest.fn().mockResolvedValue({ bioComplianceStatus: "PENDING", tier: "STANDARD" }) },
       $transaction: jest.fn(),
     };
     tx = { payout: { create: jest.fn(), update: jest.fn(), updateMany: jest.fn().mockResolvedValue({ count: 1 }) } };
@@ -72,6 +74,30 @@ describe("PayoutsService", () => {
     it("rejects an inactive (removed) payout method", async () => {
       prisma.payoutMethod.findUnique.mockResolvedValue({ ...activeMethod, isActive: false });
       await expect(service.requestPayout("creator1", "user1", { amountMinor: 200_000_00, payoutMethodId: "pm1" })).rejects.toMatchObject({ code: "PAYOUT_METHOD_INACTIVE" });
+    });
+
+    it("blocks a STANDARD-tier creator marked NON_COMPLIANT", async () => {
+      prisma.creatorProfile.findUniqueOrThrow.mockResolvedValue({ bioComplianceStatus: "NON_COMPLIANT", tier: "STANDARD" });
+      await expect(service.requestPayout("creator1", "user1", { amountMinor: 200_000_00, payoutMethodId: "pm1" })).rejects.toMatchObject({
+        code: "BIO_COMPLIANCE_REQUIRED",
+      });
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it("never blocks a PENDING (never-reviewed) creator", async () => {
+      prisma.payoutMethod.findUnique.mockResolvedValue(activeMethod);
+      tx.payout.create.mockResolvedValue({ id: "payout1" });
+      prisma.payout.findUnique.mockResolvedValue(fullPayoutLookup);
+      prisma.creatorProfile.findUniqueOrThrow.mockResolvedValue({ bioComplianceStatus: "PENDING", tier: "STANDARD" });
+      await expect(service.requestPayout("creator1", "user1", { amountMinor: 200_000_00, payoutMethodId: "pm1" })).resolves.toBeDefined();
+    });
+
+    it("never blocks a PREMIUM-tier creator, even when NON_COMPLIANT", async () => {
+      prisma.payoutMethod.findUnique.mockResolvedValue(activeMethod);
+      tx.payout.create.mockResolvedValue({ id: "payout1" });
+      prisma.payout.findUnique.mockResolvedValue(fullPayoutLookup);
+      prisma.creatorProfile.findUniqueOrThrow.mockResolvedValue({ bioComplianceStatus: "NON_COMPLIANT", tier: "PREMIUM" });
+      await expect(service.requestPayout("creator1", "user1", { amountMinor: 200_000_00, payoutMethodId: "pm1" })).resolves.toBeDefined();
     });
 
     it("creates a REQUESTED Payout and locks commissions inside the same transaction", async () => {

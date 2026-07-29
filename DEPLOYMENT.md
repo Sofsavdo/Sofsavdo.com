@@ -69,8 +69,8 @@ error). See PROJECT_STATUS.md's Phase 14 entry for the full confirmation detail.
 working Docker engine (a developer machine, or simply by triggering `deploy.yml` against `staging`
 — its `build-and-push` job runs on GitHub-hosted runners, which do have Docker):
 ```bash
-docker build -f apps/api/Dockerfile -t rosti-api:test .
-docker build -f apps/web/Dockerfile -t rosti-web:test .
+docker build -f apps/api/Dockerfile -t sofsavdo-api:test .
+docker build -f apps/web/Dockerfile -t sofsavdo-web:test .
 ```
 Both must be built with the **repo root** as the build context (`.`), not `apps/api`/`apps/web` —
 see each Dockerfile's own header comment for why (npm workspaces).
@@ -88,8 +88,8 @@ the monorepo root** (`/`), not `apps/api`/`apps/web` — each service's `railway
 managed offerings, or any Postgres/Redis reachable via `DATABASE_URL`/`REDIS_URL`).
 
 ```
-rosti-api    → apps/api/railway.toml → healthcheckPath /health/ready
-rosti-web    → apps/web/railway.toml → healthcheckPath /
+sofsavdo-api → apps/api/railway.toml → healthcheckPath /health/ready
+sofsavdo-web → apps/web/railway.toml → healthcheckPath /
 ```
 
 Configure every required environment variable per [ENVIRONMENT.md](ENVIRONMENT.md) directly in
@@ -100,7 +100,7 @@ Railway's dashboard for each service — never in a committed file.
 - **Never** run `prisma migrate dev` against a real environment — that command can generate a new
   migration interactively and is meant for local development only.
 - Production/staging always run `prisma migrate deploy` (`npm run prisma:migrate:deploy
-  --workspace=@rosti/api`), which only applies migrations already committed and code-reviewed —
+  --workspace=@sofsavdo/api`), which only applies migrations already committed and code-reviewed —
   it never creates or edits one.
 - Write every migration to be additive/backward-compatible where realistically possible (add a
   column nullable or with a default, don't rename in the same migration you also change application

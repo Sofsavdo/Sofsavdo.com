@@ -4,16 +4,10 @@ import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import { Alert, Button, Card, CardHeader, CardTitle, TextField } from "@rosti/ui";
-import { BRAND } from "@rosti/config/brand";
+import { Alert, Button, Card, CardHeader, CardTitle, TextField } from "@sofsavdo/ui";
+import { BRAND } from "@sofsavdo/config/brand";
 import { useAdminSession } from "@/services/adminSession";
 import { loginSchema, type LoginInput } from "@/lib/schemas";
-
-const DEMO_ACCOUNTS = [
-  { email: "manager@rosti.uz", label: "Ozoda — Manager" },
-  { email: "admin@rosti.uz", label: "Sherzod — Admin" },
-  { email: "super@rosti.uz", label: "Kamron — Super Admin" },
-];
 
 export function AdminLoginPageClient() {
   const router = useRouter();
@@ -22,7 +16,6 @@ export function AdminLoginPageClient() {
   const {
     register,
     handleSubmit,
-    setValue,
     formState: { errors },
   } = useForm<LoginInput>({ resolver: zodResolver(loginSchema) });
 
@@ -55,21 +48,6 @@ export function AdminLoginPageClient() {
               {loginPending ? "Tekshirilmoqda..." : "Kirish"}
             </Button>
           </form>
-          <div className="mt-6 flex flex-col gap-2 border-t border-border pt-4">
-            <p className="font-body text-xs text-text-muted">Demo hisoblar (parol: istalgan 6+ belgi):</p>
-            <div className="flex flex-wrap gap-2">
-              {DEMO_ACCOUNTS.map((acc) => (
-                <button
-                  key={acc.email}
-                  type="button"
-                  onClick={() => setValue("email", acc.email)}
-                  className="rounded-full border border-border px-3 py-1 font-body text-xs text-text-secondary hover:border-accent hover:text-accent"
-                >
-                  {acc.label}
-                </button>
-              ))}
-            </div>
-          </div>
         </Card>
       </div>
     </div>

@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { OrderStatus } from "@rosti/types";
-import { Alert, SelectField, Skeleton } from "@rosti/ui";
+import type { OrderStatus } from "@sofsavdo/types";
+import { Alert, SelectField, Skeleton } from "@sofsavdo/ui";
 import { useSales } from "@/services/finance";
 import { orderStatusMeta } from "@/lib/status";
 import { SalesTable } from "@/components/creator/SalesTable";

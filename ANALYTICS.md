@@ -163,7 +163,7 @@ Three tiers, chosen specifically because of Finding #1 (no time-series indexes y
 This mirrors, at small scale, how every real analytics system is built (OLTP tables feed a rollup
 layer feeds a cache), while adding **zero new infrastructure** — Postgres, Redis, and
 `@nestjs/schedule` are all already in the stack. Nothing here requires a data warehouse, a
-message queue, or a separate analytics database. That would be over-engineering for Rosti's actual
+message queue, or a separate analytics database. That would be over-engineering for Sofsavdo's actual
 current scale (a single-business platform, not a multi-tenant SaaS with per-tenant analytics).
 
 ---

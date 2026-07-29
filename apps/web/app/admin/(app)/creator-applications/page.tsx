@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import type { CreatorApplicationStatus } from "@rosti/types";
-import { Button, ConfirmModal, DataTableShell, StatusBadge } from "@rosti/ui";
+import type { CreatorApplicationStatus } from "@sofsavdo/types";
+import { Button, ConfirmModal, DataTableShell, StatusBadge } from "@sofsavdo/ui";
 import { useAdminCreators, useApproveCreatorApplication, useRejectCreatorApplication, useRequestCreatorRevision } from "@/services/admin/creators";
 import { useOnboardingApplicationList } from "@/services/admin/onboarding";
 import { applicationStatusMeta } from "@/lib/status";

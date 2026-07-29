@@ -1,4 +1,4 @@
-import type { AdminRole } from "@rosti/types";
+import type { AdminRole } from "@sofsavdo/types";
 
 const ROLE_RANK: Record<AdminRole, number> = { MANAGER: 1, ADMIN: 2, SUPER_ADMIN: 3 };
 

@@ -1,7 +1,7 @@
 "use client";
 
-import { formatMoneyMinor } from "@rosti/types";
-import { AnalyticsFilterBar, Skeleton, StatTile } from "@rosti/ui";
+import { formatMoneyMinor } from "@sofsavdo/types";
+import { AnalyticsFilterBar, Skeleton, StatTile } from "@sofsavdo/ui";
 import { useAnalyticsFilters } from "@/lib/useAnalyticsFilters";
 import { useCustomerAnalytics } from "@/services/admin/analytics";
 import { CampaignFilterSelect, CreatorFilterSelect, ProductFilterSelect, RegionFilterInput } from "@/components/admin/AnalyticsEntityFilters";

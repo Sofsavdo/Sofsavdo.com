@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import type { CreatorContentStatus, ContentStatus } from "@rosti/types";
-import { Alert, Badge, Button, ConfirmModal, DataTableShell, StatusBadge } from "@rosti/ui";
+import type { CreatorContentStatus, ContentStatus } from "@sofsavdo/types";
+import { Alert, Badge, Button, ConfirmModal, DataTableShell, StatusBadge } from "@sofsavdo/ui";
 import { Paperclip } from "lucide-react";
 import { useAdminContent, useApproveContent, useRejectContent, useRequestContentRevision } from "@/services/admin/content";
 import { contentStatusMeta, realContentStatusMeta } from "@/lib/status";

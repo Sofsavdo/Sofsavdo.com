@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { formatMoneyMinor } from "@rosti/types";
-import { Alert, Badge, Button, Card, CardHeader, CardTitle, Skeleton, TextField } from "@rosti/ui";
+import { formatMoneyMinor } from "@sofsavdo/types";
+import { Alert, Badge, Button, Card, CardHeader, CardTitle, Skeleton, TextField } from "@sofsavdo/ui";
 import { Plus } from "lucide-react";
 import {
   useActivateReferralRule,

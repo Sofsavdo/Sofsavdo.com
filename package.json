@@ -1,5 +1,5 @@
 {
-  "name": "rosti-platform",
+  "name": "sofsavdo-platform",
   "version": "0.0.1",
   "private": true,
   "workspaces": [
@@ -7,9 +7,9 @@
     "packages/*"
   ],
   "scripts": {
-    "dev:api": "npm run dev --workspace=@rosti/api",
-    "dev:web": "npm run dev --workspace=@rosti/web",
-    "prisma:validate": "npm run prisma:validate --workspace=@rosti/api",
-    "prisma:generate": "npm run prisma:generate --workspace=@rosti/api"
+    "dev:api": "npm run dev --workspace=@sofsavdo/api",
+    "dev:web": "npm run dev --workspace=@sofsavdo/web",
+    "prisma:validate": "npm run prisma:validate --workspace=@sofsavdo/api",
+    "prisma:generate": "npm run prisma:generate --workspace=@sofsavdo/api"
   }
 }

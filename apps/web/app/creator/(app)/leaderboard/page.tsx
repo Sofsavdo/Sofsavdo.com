@@ -1,0 +1,109 @@
+"use client";
+
+import { formatMoneyMinor } from "@sofsavdo/types";
+import { Badge, Card, CardHeader, CardTitle, EmptyState, Skeleton, cn } from "@sofsavdo/ui";
+import { Trophy } from "lucide-react";
+import { useLeaderboard } from "@/services/leaderboard";
+
+export default function LeaderboardPage() {
+  const leaderboard = useLeaderboard();
+
+  if (leaderboard.isLoading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-8 w-56" />
+        <Skeleton className="h-96 w-full" />
+      </div>
+    );
+  }
+
+  const data = leaderboard.data;
+  const top = data?.top ?? [];
+  const me = data?.me ?? null;
+  const meInTop = me ? top.some((r) => r.creatorId === me.creatorId) : false;
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="flex items-center gap-2 font-heading text-2xl font-bold text-text-primary">
+          <Trophy className="size-6 text-accent" /> Reyting
+        </h1>
+        <p className="mt-1 font-body text-sm text-text-secondary">
+          Shu oy davomida eng ko&apos;p komissiya ishlab topgan creatorlar. Har 30 soniyada yangilanadi.
+        </p>
+      </div>
+
+      {top.length === 0 ? (
+        <EmptyState
+          title="Reyting hali bo'sh"
+          description="Shu oy hali hech kim sotuv qilmagan — birinchi bo'ling!"
+        />
+      ) : (
+        <Card>
+          <div className="flex flex-col divide-y divide-border">
+            {top.map((entry) => (
+              <div
+                key={entry.creatorId}
+                className={cn(
+                  "flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0",
+                  me && entry.creatorId === me.creatorId ? "rounded-input bg-accent/5 px-3" : "",
+                )}
+              >
+                <div className="flex items-center gap-3">
+                  <span
+                    className={cn(
+                      "flex size-8 shrink-0 items-center justify-center rounded-full font-numeric text-sm font-bold tabular-nums",
+                      entry.rank === 1
+                        ? "bg-accent text-white"
+                        : entry.rank <= 3
+                          ? "bg-accent/15 text-accent"
+                          : "bg-bg text-text-muted",
+                    )}
+                  >
+                    {entry.rank}
+                  </span>
+                  <div>
+                    <p className="font-body text-sm font-medium text-text-primary">
+                      {entry.displayName}
+                      {me && entry.creatorId === me.creatorId ? (
+                        <Badge tone="accent" className="ml-2">
+                          Siz
+                        </Badge>
+                      ) : null}
+                    </p>
+                    <p className="font-body text-xs text-text-muted">{entry.ordersCount} ta sotuv</p>
+                  </div>
+                </div>
+                <span className="font-numeric text-sm font-semibold tabular-nums text-text-primary">
+                  {formatMoneyMinor(entry.commissionMinor)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {me && !meInTop ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Sizning o&apos;rningiz</CardTitle>
+          </CardHeader>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-bg font-numeric text-sm font-bold tabular-nums text-text-muted">
+                {me.rank}
+              </span>
+              <div>
+                <p className="font-body text-sm font-medium text-text-primary">{me.displayName}</p>
+                <p className="font-body text-xs text-text-muted">{me.ordersCount} ta sotuv</p>
+              </div>
+            </div>
+            <span className="font-numeric text-sm font-semibold tabular-nums text-text-primary">
+              {formatMoneyMinor(me.commissionMinor)}
+            </span>
+          </div>
+        </Card>
+      ) : null}
+    </div>
+  );
+}

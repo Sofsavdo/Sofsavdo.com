@@ -1,7 +1,8 @@
 import { Test } from "@nestjs/testing";
-import { OffersService } from "./offers.service";
+import { OffersService, FEATURED_OFFERS_LIMIT, CATALOG_MAX_PAGE_SIZE } from "./offers.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { PaginationQueryDto } from "../common/pagination/pagination.dto";
+import { CatalogQueryDto } from "./dto/catalog-query.dto";
 
 describe("OffersService", () => {
   let service: OffersService;
@@ -274,6 +275,163 @@ describe("OffersService", () => {
       await service.list(query);
 
       expect(prisma.offer.findMany.mock.calls[0][0].where.archivedAt).toEqual({ not: null });
+    });
+  });
+
+  describe("listFeaturedPublic", () => {
+    const featuredOffer = {
+      id: "offer1",
+      slug: "test-offer",
+      name: "Test Offer",
+      headline: "Headline",
+      priceMinor: 100_000,
+      compareAtPriceMinor: null,
+      currency: "UZS",
+      product: { images: ["https://cdn.example.com/a.jpg"] },
+    };
+
+    it("always caps the query at FEATURED_OFFERS_LIMIT, never a caller-supplied value", async () => {
+      prisma.offer.findMany.mockResolvedValue([featuredOffer]);
+      await service.listFeaturedPublic();
+      expect(prisma.offer.findMany).toHaveBeenCalledWith(expect.objectContaining({ take: FEATURED_OFFERS_LIMIT }));
+    });
+
+    it("filters to isFeatured + ACTIVE only — never DRAFT/PAUSED/ARCHIVED", async () => {
+      prisma.offer.findMany.mockResolvedValue([]);
+      await service.listFeaturedPublic();
+      expect(prisma.offer.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ isFeatured: true, status: "ACTIVE" }) }),
+      );
+    });
+
+    it("returns a public-safe projection with the product's first image", async () => {
+      prisma.offer.findMany.mockResolvedValue([featuredOffer]);
+      const result = await service.listFeaturedPublic();
+      expect(result).toEqual([
+        {
+          id: "offer1",
+          slug: "test-offer",
+          name: "Test Offer",
+          headline: "Headline",
+          priceMinor: 100_000,
+          compareAtPriceMinor: null,
+          currency: "UZS",
+          imageUrl: "https://cdn.example.com/a.jpg",
+        },
+      ]);
+    });
+
+    it("returns null imageUrl when the product has no images", async () => {
+      prisma.offer.findMany.mockResolvedValue([{ ...featuredOffer, product: { images: [] } }]);
+      const result = await service.listFeaturedPublic();
+      expect(result[0]?.imageUrl).toBeNull();
+    });
+  });
+
+  describe("feature / unfeature", () => {
+    it("throws NOT_FOUND when the offer doesn't exist", async () => {
+      prisma.offer.findUnique.mockResolvedValue(null);
+      await expect(service.feature("missing", "actor1")).rejects.toMatchObject({ code: "NOT_FOUND" });
+    });
+
+    it("sets isFeatured to true regardless of the offer's current status", async () => {
+      prisma.offer.findUnique.mockResolvedValueOnce({ ...baseOffer }).mockResolvedValueOnce({ ...baseOffer, isFeatured: true });
+      await service.feature("offer1", "actor1");
+      expect(prisma.offer.update).toHaveBeenCalledWith({
+        where: { id: "offer1" },
+        data: { isFeatured: true, updatedById: "actor1" },
+      });
+    });
+
+    it("sets isFeatured to false on unfeature", async () => {
+      prisma.offer.findUnique.mockResolvedValueOnce({ ...baseOffer, isFeatured: true }).mockResolvedValueOnce({ ...baseOffer, isFeatured: false });
+      await service.unfeature("offer1", "actor1");
+      expect(prisma.offer.update).toHaveBeenCalledWith({
+        where: { id: "offer1" },
+        data: { isFeatured: false, updatedById: "actor1" },
+      });
+    });
+  });
+
+  describe("listCatalog (Phase E)", () => {
+    const catalogOffer = {
+      id: "offer1",
+      slug: "serum",
+      name: "Serum",
+      headline: "Headline",
+      priceMinor: 100_000,
+      compareAtPriceMinor: null,
+      currency: "UZS",
+      product: { images: ["https://cdn.example.com/a.jpg"], type: "PHYSICAL_PRODUCT" },
+    };
+
+    it("never returns more than CATALOG_MAX_PAGE_SIZE, even when the client requests more", async () => {
+      prisma.offer.findMany.mockResolvedValue([]);
+      prisma.offer.count.mockResolvedValue(0);
+      const query = Object.assign(new CatalogQueryDto(), { page: 1, pageSize: 100 });
+
+      await service.listCatalog(query);
+
+      expect(prisma.offer.findMany).toHaveBeenCalledWith(expect.objectContaining({ take: CATALOG_MAX_PAGE_SIZE }));
+    });
+
+    it("filters to ACTIVE offers on non-archived products only — never DRAFT/PAUSED/ARCHIVED", async () => {
+      prisma.offer.findMany.mockResolvedValue([]);
+      prisma.offer.count.mockResolvedValue(0);
+      const query = Object.assign(new CatalogQueryDto(), { page: 1, pageSize: 20 });
+
+      await service.listCatalog(query);
+
+      const args = prisma.offer.findMany.mock.calls[0][0];
+      expect(args.where.status).toBe("ACTIVE");
+      expect(args.where.product.status).toEqual({ not: "ARCHIVED" });
+    });
+
+    it("applies a product-type filter when given", async () => {
+      prisma.offer.findMany.mockResolvedValue([]);
+      prisma.offer.count.mockResolvedValue(0);
+      const query = Object.assign(new CatalogQueryDto(), { page: 1, pageSize: 20, type: "COURSE" });
+
+      await service.listCatalog(query);
+
+      expect(prisma.offer.findMany.mock.calls[0][0].where.product.type).toBe("COURSE");
+    });
+
+    it("applies a min/max price range filter when given", async () => {
+      prisma.offer.findMany.mockResolvedValue([]);
+      prisma.offer.count.mockResolvedValue(0);
+      const query = Object.assign(new CatalogQueryDto(), { page: 1, pageSize: 20, minPriceMinor: 10_000, maxPriceMinor: 50_000 });
+
+      await service.listCatalog(query);
+
+      expect(prisma.offer.findMany.mock.calls[0][0].where.priceMinor).toEqual({ gte: 10_000, lte: 50_000 });
+    });
+
+    it("has no search field on the query DTO at all (docs/PROHIBITED.md still bans public search)", () => {
+      expect("search" in new CatalogQueryDto()).toBe(false);
+    });
+
+    it("returns the public-safe projection with product type and first image", async () => {
+      prisma.offer.findMany.mockResolvedValue([catalogOffer]);
+      prisma.offer.count.mockResolvedValue(1);
+      const query = Object.assign(new CatalogQueryDto(), { page: 1, pageSize: 20 });
+
+      const result = await service.listCatalog(query);
+
+      expect(result.items).toEqual([
+        {
+          id: "offer1",
+          slug: "serum",
+          name: "Serum",
+          headline: "Headline",
+          priceMinor: 100_000,
+          compareAtPriceMinor: null,
+          currency: "UZS",
+          imageUrl: "https://cdn.example.com/a.jpg",
+          productType: "PHYSICAL_PRODUCT",
+        },
+      ]);
+      expect(result.total).toBe(1);
     });
   });
 });

@@ -9,7 +9,7 @@
 //
 // Usage (see RUNBOOK.md for the full launch procedure):
 //   BOOTSTRAP_ADMIN_EMAIL=you@company.com BOOTSTRAP_ADMIN_PASSWORD='...' \
-//     npm run bootstrap:admin --workspace=@rosti/api
+//     npm run bootstrap:admin --workspace=@sofsavdo/api
 //
 // Safe to run more than once: seeding roles/permissions is idempotent (upserts), and if a
 // super_admin user already exists, this refuses to create another one unless

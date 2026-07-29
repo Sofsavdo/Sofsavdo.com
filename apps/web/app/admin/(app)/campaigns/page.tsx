@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Plus } from "lucide-react";
-import { Button, DataTableShell, MobileDataCard, StatusBadge } from "@rosti/ui";
+import { Button, DataTableShell, MobileDataCard, StatusBadge } from "@sofsavdo/ui";
 import { useAdminCampaigns } from "@/services/admin/campaigns";
 import { campaignStatusMeta } from "@/lib/status";
 import { formatCommission } from "@/lib/commission-display";

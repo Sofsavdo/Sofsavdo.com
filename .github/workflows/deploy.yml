@@ -42,7 +42,7 @@ jobs:
         # string in this file. `migrate deploy` only ever applies already-committed, already-
         # reviewed migrations; it never generates or edits one (that's `migrate dev`, a local-only
         # command — see DEPLOYMENT.md's "Safe migration process").
-        run: npm run prisma:migrate:deploy --workspace=@rosti/api
+        run: npm run prisma:migrate:deploy --workspace=@sofsavdo/api
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 

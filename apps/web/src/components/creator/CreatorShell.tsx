@@ -4,8 +4,8 @@ import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X, LogOut } from "lucide-react";
-import { cn } from "@rosti/ui";
-import { BRAND } from "@rosti/config/brand";
+import { cn } from "@sofsavdo/ui";
+import { BRAND } from "@sofsavdo/config/brand";
 import { useSession } from "@/services/session";
 import { CREATOR_NAV_ITEMS } from "./nav-items";
 

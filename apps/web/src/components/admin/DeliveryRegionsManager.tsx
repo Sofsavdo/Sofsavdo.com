@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { formatMoneyMinor } from "@rosti/types";
-import { Alert, Badge, Button, Card, CardHeader, CardTitle, TextField } from "@rosti/ui";
+import { formatMoneyMinor } from "@sofsavdo/types";
+import { Alert, Badge, Button, Card, CardHeader, CardTitle, TextField } from "@sofsavdo/ui";
 import { Plus, Trash2 } from "lucide-react";
 import type { DeliveryRegionInput } from "@/lib/api/admin";
 import { useCreateDeliveryRegion, useDeleteDeliveryRegion, useDeliveryRegions, useUpdateDeliveryRegion } from "@/services/admin/delivery";

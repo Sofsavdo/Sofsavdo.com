@@ -3,8 +3,8 @@
 import { use, useState } from "react";
 import Link from "next/link";
 import { Archive, ExternalLink, LayoutTemplate, Pause, Play } from "lucide-react";
-import { formatMoneyMinor } from "@rosti/types";
-import { Alert, Badge, Button, Card, CardHeader, CardTitle, ConfirmModal, Skeleton, StatusBadge } from "@rosti/ui";
+import { formatMoneyMinor } from "@sofsavdo/types";
+import { Alert, Badge, Button, Card, CardHeader, CardTitle, ConfirmModal, Skeleton, StatusBadge } from "@sofsavdo/ui";
 import { useAdminCampaigns } from "@/services/admin/campaigns";
 import { useActivateOffer, useAdminOffer, useAdminProduct, useArchiveOffer, usePauseOffer } from "@/services/admin/catalog";
 import { OfferForm } from "@/components/admin/OfferForm";

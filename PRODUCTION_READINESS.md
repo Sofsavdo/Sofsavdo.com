@@ -1,6 +1,6 @@
 # Production Readiness — Phase 14 master checklist
 
-One consolidated view of "is Rosti actually ready for real creators, real customers, and real Click
+One consolidated view of "is Sofsavdo actually ready for real creators, real customers, and real Click
 payments" — the detail behind each line lives in the linked document. This file is the index;
 update it as items move, don't duplicate their detail here.
 
@@ -52,25 +52,46 @@ Full detail in PROJECT_STATUS.md's Phase 14 entry. Headline items found and fixe
 - Zero CI/CD, zero Dockerfiles, zero Railway config existed. **Fixed** at the file/workflow level —
   see Blockers above for what's still unverified in a real environment.
 
+## Resolved this phase (Phase A — production-hardening pass, post-Sofsavdo-pivot kickoff)
+
+- **`/creator/sales` real backend** — previously ran entirely on Phase-1 mock data
+  (`apps/web/src/lib/api/index.ts`'s `getSales` unconditionally re-exported the mock
+  `apiGetSales`). Now backed by a real `GET /creator/sales` endpoint
+  (`CreatorSalesController`/`CommissionsService.listMySales`), server-side masked
+  (`common/masking/pii-mask.util.ts`), ownership-scoped to the authenticated creator. Verified via
+  3 new e2e tests against real Postgres (masking, ownership isolation, auth) plus unit tests, and
+  confirmed in-browser (Network tab shows the real request, not a mock fallback).
+- **Per-account brute-force lockout** — previously per-IP throttling only. `User` gained
+  `failedLoginCount`/`lockedUntil`; `AuthService.login()` now locks an account for a configurable
+  window (`AUTH_MAX_FAILED_LOGIN_ATTEMPTS`/`AUTH_LOCKOUT_DURATION_MINUTES`, default 5/15) after
+  consecutive failures, using the same guarded-`updateMany` race-safety pattern as the Phase 14
+  financial fixes. Verified via unit tests (threshold, reset-on-success, locked-before-password-
+  check) and e2e tests against real Postgres.
+- **Cloud object storage adapter** — `S3Storage implements StoragePort` added (real
+  `@aws-sdk/client-s3`, covers AWS S3/Cloudflare R2/GCS via their S3-compatible endpoints).
+  `StorageModule`'s binding is now env-driven (`STORAGE_DRIVER=local|s3`) instead of hardcoded to
+  `LocalDiskStorage`. **Still defaults to `local`** — actually moving a real deployment onto S3/R2
+  is an operator action (set `STORAGE_DRIVER=s3` + the credential env vars), not something this
+  phase could do from inside a sandbox with no real bucket to point at. Production startup now
+  refuses to boot with `STORAGE_DRIVER=s3` and missing bucket/credentials (env-validation.ts).
+- **Creator profile page** — the backend (`GET /creator/profile`) already existed; only the
+  frontend page was missing. Added `apps/web/app/creator/(app)/profile/page.tsx` (read-only,
+  reuses data already in the session object — no new fetch) + a nav entry.
+
 ## Non-critical issues — deferred, documented, not launch blockers
 
 - Docker image build verification (blocker #1 above) is the only *must-fix-before-launch* item from
   this list; everything else here is a genuine "known and acceptable to launch without" gap.
-- `/creator/sales` still runs on Phase-1 mock data (`apps/web/src/mocks/store.ts`'s `apiGetSales`)
-  — no real backend endpoint exists. The frontend already designs correctly for PII masking
-  (`sale.customerMasked`), so building the real endpoint later is a data-wiring task, not a
-  design fix. Out of Phase 14's scope to build (new feature, not hardening) — see SECURITY.md's
-  PII section.
 - Fraud detection (self-referral/shared-IP/high-velocity flags) — Attribution Engine scope,
   explicitly out of scope for every phase so far, not a regression.
 - Manual attribution override — permission defined in the RBAC catalog, no implementing feature
   exists yet (same out-of-scope reasoning).
-- Per-account brute-force lockout with exponential backoff — per-IP throttling on auth routes is a
-  partial mitigation; a real counter-based lockout is tracked as technical debt (see SECURITY.md).
 - Data retention policy — no table has an age-based deletion/archival policy yet; see
   [BACKUP_RESTORE.md](BACKUP_RESTORE.md#data-retention).
-- A cloud storage adapter (S3/R2/GCS) — `LocalDiskStorage` is dev/test-appropriate only; moving off
-  it before a real launch is strongly recommended but not this phase's scope to build.
+- Actually provisioning a real S3/R2 bucket and switching `STORAGE_DRIVER` to `s3` in production —
+  the adapter exists and is tested; pointing it at a real bucket is an operator action, same
+  category as the 4 blockers above but not added to that list since local-disk storage, while not
+  production-ideal, doesn't block a first launch the way an unbootstrapped database would.
 
 ## Financial integrity — verification summary
 
@@ -112,7 +133,8 @@ this phase built the checklist and the infrastructure it depends on, not the lau
 
 ## Test results
 
-**Backend unit suite: 691/691 passing (51 suites), clean.**
+**Backend unit suite: 714/714 passing (53 suites), clean** (691 baseline + 23 new: sales/masking/
+lockout/S3-storage/env-validation tests from Phase A).
 
 **Backend e2e suite: the one real pre-existing bug found (`rbac`/`roles` specs missing
 `AuditModule`) is fixed and confirmed** — verified across two full-suite runs against the real
@@ -140,6 +162,11 @@ DEPLOYMENT.md (rewritten — the previous version was pre-implementation specula
 ENVIRONMENT.md (new), RUNBOOK.md (new), BACKUP_RESTORE.md (new), SECURITY.md (brought from a mostly-
 unchecked stale state to an accurate, verified one), PROJECT_STATUS.md (Phase 14 entry),
 PRODUCTION_READINESS.md (this file, new).
+
+**Phase A update**: SECURITY.md's brute-force-lockout line updated (was "not implemented," now
+implemented+tested), PII section's `/creator/sales` gap note removed (resolved), a new "Cloud
+storage" line added; PROJECT_STATUS.md gained a Phase A entry; this file's Blockers/Resolved split
+above.
 
 ## Remaining blockers before real production launch
 

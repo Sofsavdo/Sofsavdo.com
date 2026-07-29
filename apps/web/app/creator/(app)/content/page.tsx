@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { EmptyState, Skeleton, Badge, Card, StatTile } from "@rosti/ui";
+import { EmptyState, Skeleton, Badge, Card, StatTile } from "@sofsavdo/ui";
 import { useMyCampaigns } from "@/services/campaigns";
 import { useContent } from "@/services/content";
 import { useMyContents, useMyContentDashboardCounts } from "@/services/content";
 import { ContentCard } from "@/components/creator/ContentCard";
 import { realContentStatusMeta } from "@/lib/status";
-import type { ContentStatus } from "@rosti/types";
+import type { ContentStatus } from "@sofsavdo/types";
 
 const ELIGIBLE_STATUSES = new Set(["CONTENT_REQUIRED", "CONTENT_REVIEW", "ACTIVE", "COMPLETED"]);
 const USE_REAL_API = process.env.NEXT_PUBLIC_API_MODE === "real";

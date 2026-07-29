@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { RoleGuard } from "@/components/admin/RoleGuard";
-import { Badge, Button, Card, CardHeader, CardTitle, Skeleton } from "@rosti/ui";
+import { Badge, Button, Card, CardHeader, CardTitle, Skeleton } from "@sofsavdo/ui";
 import { useRoleList } from "@/services/admin/roleManagement";
 
 function RolesPageContent() {

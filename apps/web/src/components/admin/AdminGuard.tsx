@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Skeleton } from "@rosti/ui";
+import { Skeleton } from "@sofsavdo/ui";
 import { useAdminSession } from "@/services/adminSession";
 import { AdminShell } from "./AdminShell";
 

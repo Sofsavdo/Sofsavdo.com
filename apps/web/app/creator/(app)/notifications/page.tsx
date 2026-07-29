@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import type { RealNotificationChannel } from "@rosti/types";
-import { Alert, Badge, Button, Card, EmptyState, Skeleton } from "@rosti/ui";
+import type { RealNotificationChannel } from "@sofsavdo/types";
+import { Alert, Badge, Button, Card, EmptyState, Skeleton } from "@sofsavdo/ui";
 import { useMarkAllNotificationsRead, useMarkNotificationRead, useNotifications } from "@/services/notifications";
 import { notificationChannelMeta, notificationDeliveryStatusMeta, notificationTypeMeta } from "@/lib/status";
 

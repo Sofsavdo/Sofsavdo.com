@@ -12,7 +12,7 @@ import Redis from "ioredis";
 // if Redis is actually unreachable).
 describe("Redis (e2e)", () => {
   let redis: Redis;
-  const testKey = `rosti:test:${Date.now()}`;
+  const testKey = `sofsavdo:test:${Date.now()}`;
 
   beforeAll(() => {
     redis = new Redis(process.env.REDIS_URL!, {
@@ -46,9 +46,9 @@ describe("Redis (e2e)", () => {
   });
 
   it("SET then GET round-trips a real value", async () => {
-    await redis.set(testKey, "rosti-phase-6a-smoke-test");
+    await redis.set(testKey, "sofsavdo-phase-6a-smoke-test");
     const value = await redis.get(testKey);
-    expect(value).toBe("rosti-phase-6a-smoke-test");
+    expect(value).toBe("sofsavdo-phase-6a-smoke-test");
   });
 
   it("DEL actually removes the key", async () => {

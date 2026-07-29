@@ -15,8 +15,8 @@ import type {
   OfferQuote,
   ProductType,
   ReferralContext,
-} from "@rosti/types";
-import type { CheckoutOrderResult, CreateOrderInput, PromoValidationResult, TrackVisitResult } from "@rosti/types";
+} from "@sofsavdo/types";
+import type { CheckoutOrderResult, CreateOrderInput, PromoValidationResult, Sale, TrackVisitResult } from "@sofsavdo/types";
 import * as mockApi from "../../mocks/store";
 import * as publicRealApi from "./public-real";
 import * as creatorRealApi from "./creator-real";
@@ -38,6 +38,19 @@ export const getOfferPublic = async (
 
 export const getOfferQuote = (slug: string, regionCode?: string): Promise<OfferQuote> =>
   USE_REAL_API ? publicRealApi.getOfferQuote(slug, regionCode) : mockApi.apiGetOfferQuote(slug);
+
+// Sofsavdo Commerce Home (Phase C) — real backend only, same convention as Content (Phase 7A)
+// above: this is a brand-new public surface with no legacy mock behavior to preserve.
+export type { FeaturedOffer } from "./public-real";
+export { getFeaturedOffers } from "./public-real";
+
+// Product/Offer Catalog (Phase E) — same convention: real backend only, brand-new public surface.
+export type { CatalogOffer, CatalogQuery, PaginatedCatalog } from "./public-real";
+export { getCatalog } from "./public-real";
+
+// Homepage CMS (Phase H) — same convention: real backend only, brand-new public surface.
+export type { HomepageSection } from "./public-real";
+export { getHomepageSections } from "./public-real";
 
 export const getCampaigns = (): Promise<Campaign[]> => (USE_REAL_API ? creatorRealApi.getCampaigns() : mockApi.apiGetCampaigns());
 
@@ -142,7 +155,7 @@ export {
 // simply delegates to it there.
 export const updateApplication = (
   userId: string,
-  patch: Partial<import("@rosti/types").CreatorApplicationData>,
+  patch: Partial<import("@sofsavdo/types").CreatorApplicationData>,
   step: number,
 ): Promise<CreatorUser["application"]> =>
   USE_REAL_API ? creatorRealApi.updateOnboardingApplication(step, patch) : mockApi.apiUpdateApplication(userId, patch, step);
@@ -153,17 +166,78 @@ export const submitApplication = (userId: string): Promise<CreatorUser["applicat
 export const resubmitApplication = (userId: string): Promise<CreatorUser["application"]> =>
   USE_REAL_API ? creatorRealApi.resubmitOnboardingApplication() : mockApi.apiSubmitApplication(userId);
 
+export const getSales = (userId: string): Promise<Sale[]> =>
+  USE_REAL_API ? creatorRealApi.getMySales() : mockApi.apiGetSales(userId);
+
+// Real backend (Phase J) — previously a bare, never-USE_REAL_API-gated re-export of the mock
+// function (a real gap the Sofsavdo architecture review surfaced — see DECISIONS.md ADR-029).
+export type { DashboardStats } from "./creator-real";
+export const getDashboardStats = (userId: string): Promise<creatorRealApi.DashboardStats> =>
+  USE_REAL_API ? creatorRealApi.getDashboardStats() : mockApi.apiGetDashboardStats(userId);
+
+// ---- Leaderboard (Phase K) — real backend only, no mock counterpart (brand-new surface, same
+// precedent as Content above): mock mode resolves to an empty/unranked leaderboard rather than a
+// mock re-implementation of monthly Commission ranking.
+export type { LeaderboardEntry, LeaderboardResponse } from "./creator-real";
+export const getLeaderboard = (): Promise<creatorRealApi.LeaderboardResponse> =>
+  USE_REAL_API ? creatorRealApi.getLeaderboard() : Promise.resolve({ period: "this_month", top: [], me: null });
+
+// ---- Competitions (Phase L) — real backend only, no mock counterpart: mock mode resolves to no
+// active competitions / an empty leaderboard rather than a mock reimplementation.
+export type { CreatorCompetition, CompetitionLeaderboardEntry, CompetitionLeaderboardResponse } from "./creator-real";
+export const getMyCompetitions = (): Promise<creatorRealApi.CreatorCompetition[]> =>
+  USE_REAL_API ? creatorRealApi.getMyCompetitions() : Promise.resolve([]);
+export const getCompetitionLeaderboard = (competitionId: string): Promise<creatorRealApi.CompetitionLeaderboardResponse> =>
+  USE_REAL_API ? creatorRealApi.getCompetitionLeaderboard(competitionId) : Promise.resolve({ competitionId, top: [], me: null });
+
+// ---- Activity ticker (Phase N) — real backend only, no mock counterpart: mock mode resolves to
+// an empty feed rather than a mock reimplementation of the sale/payout/contribution merge.
+export type { ActivityEvent, ActivityEventType, ActivityTickerResponse } from "./creator-real";
+export const getActivityTicker = (): Promise<creatorRealApi.ActivityTickerResponse> =>
+  USE_REAL_API ? creatorRealApi.getActivityTicker() : Promise.resolve({ events: [] });
+
+// ---- Creator Fund (Phase N) — real backend only, no mock counterpart: mock mode resolves to a
+// zeroed/empty fund rather than a mock reimplementation of the guarded contribute-and-lock flow.
+export type { CreatorFundContributionResponse, CreatorFundStatsResponse, CreatorFundLeaderboardEntry, CreatorFundLeaderboardResponse } from "./creator-real";
+export const getFundStats = (): Promise<creatorRealApi.CreatorFundStatsResponse> =>
+  USE_REAL_API ? creatorRealApi.getFundStats() : Promise.resolve({ totalMinor: 0, currency: "UZS", myTotalMinor: 0 });
+export const getFundLeaderboard = (): Promise<creatorRealApi.CreatorFundLeaderboardResponse> =>
+  USE_REAL_API ? creatorRealApi.getFundLeaderboard() : Promise.resolve({ top: [], me: null });
+export const contributeToFund = (amountMinor: number, message?: string): Promise<creatorRealApi.CreatorFundContributionResponse> => {
+  if (!USE_REAL_API) throw new Error("Creator Fund is only available in real-API mode.");
+  return creatorRealApi.contributeToFund(amountMinor, message);
+};
+
+// Real backend (Phase M) — previously a bare, never-USE_REAL_API-gated re-export of the mock
+// function (a real gap the pre-launch audit surfaced — see DECISIONS.md ADR-031). Mock mode's
+// `Commission` shape (saleId/payableAt/paidAt) predates the real CreatorCommissionResponse
+// contract (orderPublicToken/commissionType/currency) and is also relied on internally by
+// apiGetBalance, so it's reshaped at this boundary rather than changed at its source.
+export type { CreatorCommission } from "./creator-real";
+export const getCommissions = async (userId: string): Promise<creatorRealApi.CreatorCommission[]> => {
+  if (USE_REAL_API) return creatorRealApi.getMyCommissions();
+  const mockCommissions = await mockApi.apiGetCommissions(userId);
+  return mockCommissions.map((c) => ({
+    id: c.id,
+    orderPublicToken: c.saleId,
+    campaignName: c.campaignName,
+    commissionType: "PERCENTAGE",
+    baseAmountMinor: c.baseAmountMinor,
+    amountMinor: c.amountMinor,
+    currency: "UZS",
+    status: c.status,
+    createdAt: c.createdAt,
+  }));
+};
+
 export {
   apiGetContent as getContent,
   apiSubmitContent as submitContent,
-  apiGetSales as getSales,
-  apiGetCommissions as getCommissions,
   apiGetBalance as getBalance,
   apiGetPayoutMethods as getPayoutMethods,
   apiAddPayoutMethod as addPayoutMethod,
   apiGetPayouts as getPayouts,
   apiRequestPayout as requestPayout,
-  apiGetDashboardStats as getDashboardStats,
   MockApiError as ApiError,
 } from "../../mocks/store";
 
@@ -205,7 +279,7 @@ export {
 } from "./wallet-real";
 
 // ---- Communication & Notification domain (Phase 10) — real backend only, no mock counterpart
-// (see @rosti/types' RealNotification comment). ----
+// (see @sofsavdo/types' RealNotification comment). ----
 export type { NotificationListQuery } from "./notifications-real";
 export {
   getNotifications,

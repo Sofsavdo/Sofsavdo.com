@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { formatMoneyMinor } from "@rosti/types";
-import { Alert, Badge, Button, Card, CardHeader, CardTitle, EmptyState, Skeleton, StatTile } from "@rosti/ui";
+import { formatMoneyMinor } from "@sofsavdo/types";
+import { Alert, Badge, Button, Card, CardHeader, CardTitle, EmptyState, Skeleton, StatTile } from "@sofsavdo/ui";
 import { useBalance, useWalletBalance, useWalletTransactions } from "@/services/finance";
 
 const USE_REAL_API = process.env.NEXT_PUBLIC_API_MODE === "real";

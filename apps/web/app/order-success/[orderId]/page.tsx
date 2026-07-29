@@ -2,13 +2,13 @@
 
 import { use } from "react";
 import Link from "next/link";
-import { formatMoneyMinor } from "@rosti/types";
-import { Card, CardHeader, CardTitle, Skeleton } from "@rosti/ui";
-import { BRAND } from "@rosti/config/brand";
+import { formatMoneyMinor } from "@sofsavdo/types";
+import { Card, CardHeader, CardTitle, Skeleton } from "@sofsavdo/ui";
+import { BRAND } from "@sofsavdo/config/brand";
 import { CheckCircle2 } from "lucide-react";
 import { useOrderPublic } from "@/services/offer";
 
-// Real-mode-only (see CheckoutOrderResult in @rosti/types) — mock mode's OrderPublic has no
+// Real-mode-only (see CheckoutOrderResult in @sofsavdo/types) — mock mode's OrderPublic has no
 // status field, so this renders nothing there, exactly as before this phase.
 const PAYMENT_RESULT_LABELS: Record<string, string> = {
   PAYMENT_PENDING: "To'lov kutilmoqda",

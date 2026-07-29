@@ -1,3 +1,5 @@
+import { BRAND } from "../config/brand";
+
 // The full catalog of platform settings this admin domain understands (Phase 12's 7 required
 // categories) — the single source of truth for "what keys exist, what type each is, and what the
 // default is when no `Setting` row exists yet" (same lazy-default convention as
@@ -22,8 +24,8 @@ export const SETTING_CATEGORIES = ["general", "commission", "creatorDefaults", "
 export type SettingCategory = (typeof SETTING_CATEGORIES)[number];
 
 export const SETTINGS_CATALOG: Record<string, SettingDefinition> = {
-  "general.platformName": { category: "general", type: "string", default: "Rosti", label: "Platforma nomi" },
-  "general.supportEmail": { category: "general", type: "string", default: "support@rosti.uz", label: "Qo'llab-quvvatlash emaili" },
+  "general.platformName": { category: "general", type: "string", default: BRAND.name, label: "Platforma nomi" },
+  "general.supportEmail": { category: "general", type: "string", default: BRAND.supportEmail, label: "Qo'llab-quvvatlash emaili" },
   "general.supportPhone": { category: "general", type: "string", default: "+998 71 200 00 00", label: "Qo'llab-quvvatlash telefoni" },
 
   "commission.defaultCommissionRateBps": { category: "commission", type: "number", default: 2000, label: "Standart komissiya stavkasi (bazis punkt)" },

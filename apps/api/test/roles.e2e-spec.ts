@@ -46,7 +46,7 @@ describe("RolesService (e2e)", () => {
 
   it("returns no roles/permissions for a user with none assigned", async () => {
     const user = await prisma.user.create({
-      data: { email: `bare-${suffix}@rosti.uz`, passwordHash: "x" },
+      data: { email: `bare-${suffix}@sofsavdo.com`, passwordHash: "x" },
     });
     const result = await roles.getRoleKeysAndPermissionsForUser(user.id);
     expect(result.roleKeys).toEqual([]);
@@ -62,7 +62,7 @@ describe("RolesService (e2e)", () => {
     await prisma.rolePermission.create({ data: { roleId: roleA.id, permissionId: permA.id } });
     await prisma.rolePermission.create({ data: { roleId: roleB.id, permissionId: permB.id } });
 
-    const user = await prisma.user.create({ data: { email: `dual-${suffix}@rosti.uz`, passwordHash: "x" } });
+    const user = await prisma.user.create({ data: { email: `dual-${suffix}@sofsavdo.com`, passwordHash: "x" } });
     await prisma.userRole.create({ data: { userId: user.id, roleId: roleA.id } });
     await prisma.userRole.create({ data: { userId: user.id, roleId: roleB.id } });
 

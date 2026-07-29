@@ -84,3 +84,12 @@ export const payoutRequestSchema = z.object({
   payoutMethodId: z.string().min(1, "To'lov usulini tanlang"),
 });
 export type PayoutRequestInput = z.infer<typeof payoutRequestSchema>;
+
+export const fundContributionSchema = z.object({
+  amount: z
+    .string()
+    .min(1, "Miqdorni kiriting")
+    .refine((v) => Number(v) > 0, "Miqdor musbat bo'lishi kerak"),
+  message: z.string().max(200, "Xabar 200 belgidan oshmasligi kerak").optional(),
+});
+export type FundContributionInput = z.infer<typeof fundContributionSchema>;

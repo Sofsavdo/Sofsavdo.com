@@ -11,6 +11,10 @@ import {
   Banknote,
   Gift,
   Bell,
+  User,
+  Trophy,
+  Award,
+  HeartHandshake,
 } from "lucide-react";
 
 export interface CreatorNavItem {
@@ -24,6 +28,8 @@ export interface CreatorNavItem {
 // never silently drift out of sync with each other.
 export const CREATOR_NAV_ITEMS: CreatorNavItem[] = [
   { href: "/creator/dashboard", label: "Dashboard", icon: LayoutDashboard, bottomNav: true },
+  { href: "/creator/leaderboard", label: "Reyting", icon: Trophy },
+  { href: "/creator/competitions", label: "Musobaqalar", icon: Award },
   { href: "/creator/notifications", label: "Bildirishnomalar", icon: Bell },
   { href: "/creator/campaigns", label: "Kampaniyalar", icon: Megaphone, bottomNav: true },
   { href: "/creator/my-campaigns", label: "Mening kampaniyalarim", icon: ListChecks },
@@ -33,5 +39,7 @@ export const CREATOR_NAV_ITEMS: CreatorNavItem[] = [
   { href: "/creator/commissions", label: "Komissiyalar", icon: Percent },
   { href: "/creator/balance", label: "Balans", icon: Wallet, bottomNav: true },
   { href: "/creator/payouts", label: "Payout", icon: Banknote },
+  { href: "/creator/fund", label: "Creator Fund", icon: HeartHandshake },
   { href: "/creator/referrals", label: "Do'stlarni taklif qilish", icon: Gift },
+  { href: "/creator/profile", label: "Profil", icon: User },
 ];

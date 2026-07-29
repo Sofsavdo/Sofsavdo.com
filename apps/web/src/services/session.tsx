@@ -2,7 +2,7 @@
 
 import { createContext, useContext, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { CreatorUser } from "@rosti/types";
+import type { CreatorUser } from "@sofsavdo/types";
 import * as api from "../lib/api";
 
 interface SessionContextValue {

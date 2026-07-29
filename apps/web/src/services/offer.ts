@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery } from "@tanstack/react-query";
-import type { CreateOrderInput } from "@rosti/types";
+import type { CreateOrderInput } from "@sofsavdo/types";
 import * as api from "../lib/api";
 
 export function useOfferPublic(slug: string, refCode?: string) {

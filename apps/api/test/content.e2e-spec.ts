@@ -31,7 +31,7 @@ describe("Content (e2e)", () => {
   async function makeCreator(label: string) {
     const user = await prisma.user.create({
       data: {
-        email: `content-creator-${label}-${suffix}@rosti.uz`,
+        email: `content-creator-${label}-${suffix}@sofsavdo.com`,
         passwordHash: "x",
         creatorProfile: {
           create: {
@@ -93,19 +93,19 @@ describe("Content (e2e)", () => {
       where: { key: { in: ["content.read", "content.review", "content.approve", "content.reject", "content.revise"] } },
     });
     await prisma.rolePermission.createMany({ data: adminPerms.map((p) => ({ roleId: adminRole.id, permissionId: p.id })), skipDuplicates: true });
-    const adminUser = await prisma.user.create({ data: { email: `content-admin-${suffix}@rosti.uz`, passwordHash: "x" } });
+    const adminUser = await prisma.user.create({ data: { email: `content-admin-${suffix}@sofsavdo.com`, passwordHash: "x" } });
     await prisma.userRole.create({ data: { userId: adminUser.id, roleId: adminRole.id } });
     adminAccessToken = tokens.signAccessToken(adminUser.id);
 
     const readOnlyRole = await prisma.role.create({ data: { key: `content-readonly-${suffix}`, name: "Content Read-only" } });
     const readPerm = await prisma.permission.findFirst({ where: { key: "content.read" } });
     await prisma.rolePermission.create({ data: { roleId: readOnlyRole.id, permissionId: readPerm!.id } });
-    const readOnlyUser = await prisma.user.create({ data: { email: `content-readonly-${suffix}@rosti.uz`, passwordHash: "x" } });
+    const readOnlyUser = await prisma.user.create({ data: { email: `content-readonly-${suffix}@sofsavdo.com`, passwordHash: "x" } });
     await prisma.userRole.create({ data: { userId: readOnlyUser.id, roleId: readOnlyRole.id } });
     readOnlyStaffToken = tokens.signAccessToken(readOnlyUser.id);
 
     const noPermsRole = await prisma.role.create({ data: { key: `content-noperm-${suffix}`, name: "No perms" } });
-    const noPermsUser = await prisma.user.create({ data: { email: `content-noperm-${suffix}@rosti.uz`, passwordHash: "x" } });
+    const noPermsUser = await prisma.user.create({ data: { email: `content-noperm-${suffix}@sofsavdo.com`, passwordHash: "x" } });
     await prisma.userRole.create({ data: { userId: noPermsUser.id, roleId: noPermsRole.id } });
     noPermsStaffToken = tokens.signAccessToken(noPermsUser.id);
 
@@ -461,7 +461,7 @@ describe("Content (e2e)", () => {
       const tempRole = await prisma.role.create({ data: { key: `content-temp-${suffix}`, name: "Temp Content Admin" } });
       const perms = await prisma.permission.findMany({ where: { key: { in: ["content.read", "content.review", "content.approve"] } } });
       await prisma.rolePermission.createMany({ data: perms.map((p) => ({ roleId: tempRole.id, permissionId: p.id })) });
-      const tempUser = await prisma.user.create({ data: { email: `content-temp-${suffix}@rosti.uz`, passwordHash: "x" } });
+      const tempUser = await prisma.user.create({ data: { email: `content-temp-${suffix}@sofsavdo.com`, passwordHash: "x" } });
       await prisma.userRole.create({ data: { userId: tempUser.id, roleId: tempRole.id } });
       const tempToken = tokens.signAccessToken(tempUser.id);
 

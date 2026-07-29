@@ -30,9 +30,10 @@ export const PAYMENT_METHOD_CATEGORY_META: Record<PaymentMethodCategory, { icon:
 // no further UI work.
 //
 // Descriptions for COD/PAY_LATER/UZUM_NASIYA deliberately say an operator contacts the customer
-// to complete the arrangement — only CLICK is a real self-service online payment integration
-// (see OrdersService.resolvePaymentProvider); the other three only create an order/request, so
-// their copy must never imply the platform processes payment automatically.
+// to complete the arrangement — their copy must never imply the platform processes payment
+// automatically. CLICK and COD (Phase F) are the two providers with a real adapter in
+// PaymentsModule's registry today; PAYME/CARD/UZUM_NASIYA still only create an order/request with
+// no adapter behind them at all (see OrdersService.resolvePaymentProvider).
 export const PAYMENT_METHOD_CATALOG: Record<string, PaymentMethodMeta> = {
   CLICK: { id: "CLICK", category: "ONLINE", displayName: "Click", description: "Click orqali hozir onlayn to'lang." },
   PAYME: { id: "PAYME", category: "ONLINE", displayName: "Payme", description: "Onlayn to'lov" },

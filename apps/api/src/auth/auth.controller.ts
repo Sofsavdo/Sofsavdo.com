@@ -5,6 +5,7 @@ import type { Request, Response } from "express";
 import { ConfigService } from "@nestjs/config";
 import { AuthService } from "./auth.service";
 import { RegisterDto } from "./dto/register.dto";
+import { RegisterBuyerDto } from "./dto/register-buyer.dto";
 import { LoginDto } from "./dto/login.dto";
 import { ForgotPasswordDto } from "./dto/forgot-password.dto";
 import { ResetPasswordDto } from "./dto/reset-password.dto";
@@ -49,6 +50,18 @@ export class AuthController {
   @Post("register")
   async register(@Body() dto: RegisterDto, @Res({ passthrough: true }) res: Response) {
     const result = await this.auth.register(dto);
+    this.setRefreshCookie(res, result.refreshToken);
+    return { accessToken: result.accessToken, user: result.user };
+  }
+
+  // Deliberately a separate route from /auth/register, not a `role` field on one endpoint — see
+  // AuthService.registerBuyer's own comment for why (register() unconditionally creates a
+  // CreatorProfile, which a buyer must never get).
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Public()
+  @Post("register-buyer")
+  async registerBuyer(@Body() dto: RegisterBuyerDto, @Res({ passthrough: true }) res: Response) {
+    const result = await this.auth.registerBuyer(dto);
     this.setRefreshCookie(res, result.refreshToken);
     return { accessToken: result.accessToken, user: result.user };
   }

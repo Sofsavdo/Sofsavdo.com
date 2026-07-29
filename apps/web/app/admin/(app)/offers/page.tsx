@@ -3,8 +3,8 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Plus } from "lucide-react";
-import { formatMoneyMinor } from "@rosti/types";
-import { Button, DataTableShell, MobileDataCard, StatusBadge } from "@rosti/ui";
+import { formatMoneyMinor } from "@sofsavdo/types";
+import { Button, DataTableShell, MobileDataCard, StatusBadge } from "@sofsavdo/ui";
 import { useAdminOffers, useAdminProducts } from "@/services/admin/catalog";
 import { offerStatusMeta } from "@/lib/status";
 

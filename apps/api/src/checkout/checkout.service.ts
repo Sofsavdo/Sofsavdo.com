@@ -73,8 +73,8 @@ export class CheckoutService {
     return this.promoCodes.validate(offerSlug, dto.code, dto.baseAmountMinor);
   }
 
-  async checkout(offerSlug: string, dto: CreateCheckoutDto): Promise<PublicOrderResponse> {
-    const created = await this.orders.createOrder(offerSlug, dto);
+  async checkout(offerSlug: string, dto: CreateCheckoutDto, buyerUserId?: string): Promise<PublicOrderResponse> {
+    const created = await this.orders.createOrder(offerSlug, dto, buyerUserId);
     const { redirectUrl } = await this.payments.initiatePayment(created.orderId, created.paymentProvider);
     // Re-fetch rather than trust `created`'s embedded status — that snapshot was taken before
     // initiatePayment() transitioned CREATED -> PAYMENT_PENDING, so it's already stale by now.

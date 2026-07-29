@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { RoleGuard } from "@/components/admin/RoleGuard";
-import { Alert, Button, Card, CardHeader, CardTitle, TextAreaField, TextField } from "@rosti/ui";
+import { Alert, Button, Card, CardHeader, CardTitle, TextAreaField, TextField } from "@sofsavdo/ui";
 import { useCreateRole } from "@/services/admin/roleManagement";
 import { ApiError } from "@/lib/api/admin";
 

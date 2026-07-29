@@ -1,9 +1,9 @@
-import { Body, Controller, HttpCode, Inject, Post, Res } from "@nestjs/common";
+import { Body, Controller, HttpCode, Post, Res } from "@nestjs/common";
 import { ApiExcludeController } from "@nestjs/swagger";
 import { SkipThrottle } from "@nestjs/throttler";
 import type { Response } from "express";
 import { PaymentsService } from "./payments.service";
-import { PAYMENT_PORT, type PaymentPort } from "./payment.port";
+import { ClickPaymentAdapter } from "./click-payment.adapter";
 import { Public } from "../common/decorators/public.decorator";
 import { DomainException } from "../common/errors/domain-error";
 
@@ -25,9 +25,12 @@ import { DomainException } from "../common/errors/domain-error";
 @ApiExcludeController()
 @Controller("payments/click")
 export class ClickCallbackController {
+  // Injects the concrete ClickPaymentAdapter directly, not the Phase F provider registry — this
+  // controller is permanently, structurally Click-specific (its own route prefix, Click's own
+  // exact reply shape), unlike PaymentsService which genuinely needs to be provider-agnostic.
   constructor(
     private payments: PaymentsService,
-    @Inject(PAYMENT_PORT) private paymentPort: PaymentPort,
+    private paymentPort: ClickPaymentAdapter,
   ) {}
 
   private async handle(action: "PREPARE" | "COMPLETE", body: Record<string, unknown>, res: Response): Promise<void> {

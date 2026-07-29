@@ -3,7 +3,7 @@
 import { use, useMemo, useState } from "react";
 import Link from "next/link";
 import { RoleGuard } from "@/components/admin/RoleGuard";
-import { Alert, Badge, Button, Card, CardHeader, CardTitle, Skeleton, TextField } from "@rosti/ui";
+import { Alert, Badge, Button, Card, CardHeader, CardTitle, Skeleton, TextField } from "@sofsavdo/ui";
 import { ArrowLeft } from "lucide-react";
 import { useRoleDetail, useAllPermissionKeys, useUpdateRole, useAssignRolePermission, useRemoveRolePermission } from "@/services/admin/roleManagement";
 import { ApiError } from "@/lib/api/admin";

@@ -35,7 +35,7 @@ describe("Wallet/Commission Settlement/Payouts (e2e)", () => {
   async function makeCreator(label: string) {
     const user = await prisma.user.create({
       data: {
-        email: `wallet-creator-${label}-${suffix}@rosti.uz`,
+        email: `wallet-creator-${label}-${suffix}@sofsavdo.com`,
         passwordHash: "x",
         creatorProfile: {
           create: {
@@ -105,12 +105,12 @@ describe("Wallet/Commission Settlement/Payouts (e2e)", () => {
     const adminRole = await prisma.role.create({ data: { key: `wallet-admin-${suffix}`, name: "Wallet Admin" } });
     const adminPerms = await prisma.permission.findMany({ where: { key: { in: ["commission.read", "commission.adjust", "payout.read", "payout.approve", "payout.pay"] } } });
     await prisma.rolePermission.createMany({ data: adminPerms.map((p) => ({ roleId: adminRole.id, permissionId: p.id })), skipDuplicates: true });
-    const adminUser = await prisma.user.create({ data: { email: `wallet-admin-${suffix}@rosti.uz`, passwordHash: "x" } });
+    const adminUser = await prisma.user.create({ data: { email: `wallet-admin-${suffix}@sofsavdo.com`, passwordHash: "x" } });
     await prisma.userRole.create({ data: { userId: adminUser.id, roleId: adminRole.id } });
     adminAccessToken = tokens.signAccessToken(adminUser.id);
 
     const noPermsRole = await prisma.role.create({ data: { key: `wallet-noperm-${suffix}`, name: "No perms" } });
-    const noPermsUser = await prisma.user.create({ data: { email: `wallet-noperm-${suffix}@rosti.uz`, passwordHash: "x" } });
+    const noPermsUser = await prisma.user.create({ data: { email: `wallet-noperm-${suffix}@sofsavdo.com`, passwordHash: "x" } });
     await prisma.userRole.create({ data: { userId: noPermsUser.id, roleId: noPermsRole.id } });
     noPermsStaffToken = tokens.signAccessToken(noPermsUser.id);
 

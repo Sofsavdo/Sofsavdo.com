@@ -3,8 +3,8 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Alert, Button, Card, CardHeader, CardTitle, Skeleton } from "@rosti/ui";
-import { BRAND } from "@rosti/config/brand";
+import { Alert, Button, Card, CardHeader, CardTitle, Skeleton } from "@sofsavdo/ui";
+import { BRAND } from "@sofsavdo/config/brand";
 import { useSession } from "@/services/session";
 import { applicationStatusMeta } from "@/lib/status";
 import { OnboardingWizard } from "./OnboardingWizard";

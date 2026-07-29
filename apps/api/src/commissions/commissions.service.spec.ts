@@ -148,6 +148,7 @@ describe("CommissionsService", () => {
         { status: "PAID", _sum: { amountMinor: 30_000_00 } },
         { status: "REJECTED", _sum: { amountMinor: 5_000_00 } },
         { status: "REFUNDED", _sum: { amountMinor: 7_000_00 } },
+        { status: "DONATED", _sum: { amountMinor: 8_000_00 } },
       ]);
       prisma.commission.aggregate.mockResolvedValueOnce({ _sum: { amountMinor: 15_000_00 } }).mockResolvedValueOnce({ _sum: { amountMinor: 40_000_00 } });
 
@@ -159,6 +160,7 @@ describe("CommissionsService", () => {
         availableMinor: 40_000_00,
         paidMinor: 30_000_00,
         reversedMinor: 12_000_00, // REJECTED + REFUNDED
+        donatedMinor: 8_000_00,
         minimumPayoutMinor: 100_000_00,
       });
     });
@@ -167,7 +169,7 @@ describe("CommissionsService", () => {
       prisma.commission.groupBy.mockResolvedValue([]);
       prisma.commission.aggregate.mockResolvedValue({ _sum: { amountMinor: null } });
       const balance = await service.getWalletBalance("creator-new");
-      expect(balance).toMatchObject({ pendingMinor: 0, availableMinor: 0, lockedMinor: 0, paidMinor: 0, reversedMinor: 0 });
+      expect(balance).toMatchObject({ pendingMinor: 0, availableMinor: 0, lockedMinor: 0, paidMinor: 0, reversedMinor: 0, donatedMinor: 0 });
     });
   });
 
@@ -233,6 +235,39 @@ describe("CommissionsService", () => {
     });
   });
 
+  describe("contributeToFund", () => {
+    it("locks the oldest PAYABLE/unlocked commissions up to the requested amount, marks them DONATED, and writes a DONATION ledger entry each", async () => {
+      tx.commission.findMany.mockResolvedValue([
+        { id: "c1", amountMinor: 5_000_00 },
+        { id: "c2", amountMinor: 5_000_00 },
+        { id: "c3", amountMinor: 5_000_00 },
+      ]);
+      tx.commission.updateMany.mockResolvedValue({ count: 2 });
+      await service.contributeToFund(tx as never, "creator1", 10_000_00, "fund1");
+      expect(tx.commission.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { creatorId: "creator1", status: "PAYABLE", payoutId: null, fundContributionId: null } }));
+      expect(tx.commission.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: ["c1", "c2"] }, payoutId: null, fundContributionId: null },
+        data: { status: "DONATED", donatedAt: expect.any(Date), fundContributionId: "fund1" },
+      });
+      expect(tx.commissionLedger.create).toHaveBeenCalledWith({ data: { commissionId: "c1", type: "DONATION", amountMinor: -5_000_00, reason: "Creator Fund contribution fund1" } });
+      expect(tx.commissionLedger.create).toHaveBeenCalledWith({ data: { commissionId: "c2", type: "DONATION", amountMinor: -5_000_00, reason: "Creator Fund contribution fund1" } });
+    });
+
+    it("throws INSUFFICIENT_BALANCE when PAYABLE commissions don't cover the requested amount", async () => {
+      tx.commission.findMany.mockResolvedValue([{ id: "c1", amountMinor: 5_000_00 }]);
+      await expect(service.contributeToFund(tx as never, "creator1", 10_000_00, "fund1")).rejects.toMatchObject({ code: "INSUFFICIENT_BALANCE" });
+    });
+
+    it("throws INSUFFICIENT_BALANCE when a concurrent request already claimed one of the selected rows", async () => {
+      tx.commission.findMany.mockResolvedValue([
+        { id: "c1", amountMinor: 5_000_00 },
+        { id: "c2", amountMinor: 5_000_00 },
+      ]);
+      tx.commission.updateMany.mockResolvedValue({ count: 1 });
+      await expect(service.contributeToFund(tx as never, "creator1", 10_000_00, "fund1")).rejects.toMatchObject({ code: "INSUFFICIENT_BALANCE" });
+    });
+  });
+
   describe("settleLockedCommissions / releaseLockedCommissions", () => {
     it("settles every locked commission to PAID with a PAYOUT ledger entry each", async () => {
       tx.commission.findMany.mockResolvedValue([{ id: "c1", amountMinor: 5_000_00 }, { id: "c2", amountMinor: 5_000_00 }]);
@@ -244,6 +279,97 @@ describe("CommissionsService", () => {
     it("releases locked commissions back to unlocked PAYABLE with no ledger entry", async () => {
       await service.releaseLockedCommissions(tx as never, "payout1");
       expect(tx.commission.updateMany).toHaveBeenCalledWith({ where: { payoutId: "payout1" }, data: { payoutId: null } });
+    });
+  });
+
+  describe("listMySales", () => {
+    const row = {
+      id: "commission1",
+      baseAmountMinor: 90_000_00,
+      amountMinor: 18_000_00,
+      order: {
+        publicToken: "public-token-1",
+        status: "DELIVERED",
+        createdAt: new Date("2026-01-15"),
+        subtotalMinor: 100_000_00,
+        discountMinor: 10_000_00,
+        customer: { fullName: "Aziz Karimov", phone: "+998901234512" },
+        offer: { name: "Glow Serum" },
+        attribution: { source: "PROMO_CODE" },
+      },
+      commissionRule: { campaign: { name: "Yoz kampaniyasi" } },
+    };
+
+    it("scopes to the given creator, orders by newest first, and masks customer PII", async () => {
+      prisma.commission.findMany.mockResolvedValueOnce([row]);
+      const result = await service.listMySales("creator1");
+      expect(prisma.commission.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { creatorId: "creator1" }, orderBy: { createdAt: "desc" } }),
+      );
+      expect(result).toEqual([
+        {
+          id: "commission1",
+          orderPublicToken: "public-token-1",
+          createdAt: row.order.createdAt,
+          campaignName: "Yoz kampaniyasi",
+          offerName: "Glow Serum",
+          customerMasked: "A. Karimov, +998 90 *** ** 12",
+          amountMinor: 100_000_00,
+          discountMinor: 10_000_00,
+          commissionBaseMinor: 90_000_00,
+          commissionMinor: 18_000_00,
+          orderStatus: "DELIVERED",
+          attributionSource: "PROMO_CODE",
+        },
+      ]);
+    });
+
+    it("caps the query at the fixed per-request limit rather than paginating", async () => {
+      prisma.commission.findMany.mockResolvedValueOnce([]);
+      await service.listMySales("creator1");
+      expect(prisma.commission.findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 200 }));
+    });
+
+    it("falls back to REFERRAL_VISIT if a row somehow has no attribution (defensive, should not happen)", async () => {
+      prisma.commission.findMany.mockResolvedValueOnce([{ ...row, order: { ...row.order, attribution: null } }]);
+      const [result] = await service.listMySales("creator1");
+      expect(result!.attributionSource).toBe("REFERRAL_VISIT");
+    });
+  });
+
+  describe("listMyCommissions", () => {
+    const row = {
+      id: "commission1",
+      baseAmountMinor: 90_000_00,
+      amountMinor: 18_000_00,
+      currency: "UZS",
+      status: "APPROVED" as const,
+      createdAt: new Date("2026-01-15"),
+      order: { publicToken: "public-token-1" },
+      commissionRule: { commissionType: "PERCENTAGE", campaign: { name: "Yoz kampaniyasi" } },
+    };
+
+    it("scopes to the given creator, orders by newest first, and exposes the real Commission.status", async () => {
+      // First findMany call is reconcileRefundedOrders' own stale-order sweep (no stale rows here);
+      // the second is the real listing this method returns.
+      prisma.commission.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([row]);
+      const result = await service.listMyCommissions("creator1");
+      expect(prisma.commission.findMany).toHaveBeenLastCalledWith(
+        expect.objectContaining({ where: { creatorId: "creator1" }, orderBy: { createdAt: "desc" }, take: 200 }),
+      );
+      expect(result).toEqual([
+        {
+          id: "commission1",
+          orderPublicToken: "public-token-1",
+          campaignName: "Yoz kampaniyasi",
+          commissionType: "PERCENTAGE",
+          baseAmountMinor: 90_000_00,
+          amountMinor: 18_000_00,
+          currency: "UZS",
+          status: "APPROVED",
+          createdAt: row.createdAt,
+        },
+      ]);
     });
   });
 });

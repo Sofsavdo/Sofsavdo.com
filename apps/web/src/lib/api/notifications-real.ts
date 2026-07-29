@@ -1,7 +1,7 @@
 // Real-backend implementation of the creator/staff-facing Notification domain (Phase 10) —
-// counterpart to wallet-real.ts. No mock counterpart exists (see @rosti/types' comment on
+// counterpart to wallet-real.ts. No mock counterpart exists (see @sofsavdo/types' comment on
 // RealNotification), so every function here is real-backend only.
-import type { RealNotification, RealNotificationCategory, RealNotificationChannel, RealNotificationPreference } from "@rosti/types";
+import type { RealNotification, RealNotificationCategory, RealNotificationChannel, RealNotificationPreference } from "@sofsavdo/types";
 import { apiRequest } from "./http-client";
 
 interface PaginatedResponse<T> {

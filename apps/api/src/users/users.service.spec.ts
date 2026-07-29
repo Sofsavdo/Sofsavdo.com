@@ -14,7 +14,7 @@ describe("UsersService (Admin Operations — Phase 12)", () => {
 
   const staffRow = (over: Record<string, unknown> = {}) => ({
     id: "user1",
-    email: "staff@rosti.uz",
+    email: "staff@sofsavdo.com",
     phone: null,
     displayName: "Staff One",
     status: "ACTIVE",
@@ -48,7 +48,7 @@ describe("UsersService (Admin Operations — Phase 12)", () => {
     it("throws EMAIL_TAKEN when the email is already registered", async () => {
       prisma.user.findUnique.mockResolvedValueOnce({ id: "existing" });
       await expect(
-        service.create({ email: "taken@rosti.uz", password: "password123", displayName: "X", roleIds: ["role1"] }, "actor1"),
+        service.create({ email: "taken@sofsavdo.com", password: "password123", displayName: "X", roleIds: ["role1"] }, "actor1"),
       ).rejects.toMatchObject({ code: "EMAIL_TAKEN" });
     });
 
@@ -56,7 +56,7 @@ describe("UsersService (Admin Operations — Phase 12)", () => {
       prisma.user.findUnique.mockResolvedValue(null);
       prisma.role.findMany.mockResolvedValue([]);
       await expect(
-        service.create({ email: "new@rosti.uz", password: "password123", displayName: "X", roleIds: ["missing"] }, "actor1"),
+        service.create({ email: "new@sofsavdo.com", password: "password123", displayName: "X", roleIds: ["missing"] }, "actor1"),
       ).rejects.toMatchObject({ code: "NOT_FOUND" });
     });
 
@@ -65,9 +65,9 @@ describe("UsersService (Admin Operations — Phase 12)", () => {
       prisma.role.findMany.mockResolvedValue([{ id: "role1" }]);
       prisma.user.create.mockResolvedValue(staffRow());
 
-      const result = await service.create({ email: "new@rosti.uz", password: "password123", displayName: "Staff One", roleIds: ["role1"] }, "actor1");
+      const result = await service.create({ email: "new@sofsavdo.com", password: "password123", displayName: "Staff One", roleIds: ["role1"] }, "actor1");
 
-      expect(result.email).toBe("staff@rosti.uz");
+      expect(result.email).toBe("staff@sofsavdo.com");
       const createCall = prisma.user.create.mock.calls[0][0];
       expect(createCall.data.passwordHash).not.toBe("password123");
       expect(createCall.data.roles).toEqual({ create: [{ roleId: "role1" }] });

@@ -1,7 +1,7 @@
 "use client";
 
-import { formatMoneyMinor } from "@rosti/types";
-import { AnalyticsFilterBar, Card, CardHeader, CardTitle, SelectField, Skeleton, StatTile } from "@rosti/ui";
+import { formatMoneyMinor } from "@sofsavdo/types";
+import { AnalyticsFilterBar, Card, CardHeader, CardTitle, SelectField, Skeleton, StatTile } from "@sofsavdo/ui";
 import { useAnalyticsFilters } from "@/lib/useAnalyticsFilters";
 import { usePaymentAnalytics } from "@/services/admin/analytics";
 import { PaymentMixPieChart } from "@/components/admin/AnalyticsCharts";

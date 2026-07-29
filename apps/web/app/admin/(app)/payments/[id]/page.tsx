@@ -2,8 +2,8 @@
 
 import { use } from "react";
 import Link from "next/link";
-import { formatMoneyMinor } from "@rosti/types";
-import { Alert, Badge, Card, CardHeader, CardTitle, Skeleton } from "@rosti/ui";
+import { formatMoneyMinor } from "@sofsavdo/types";
+import { Alert, Badge, Card, CardHeader, CardTitle, Skeleton } from "@sofsavdo/ui";
 import { ArrowLeft } from "lucide-react";
 import { useRealPaymentDetail, useRealPaymentTimeline } from "@/services/admin/orders";
 

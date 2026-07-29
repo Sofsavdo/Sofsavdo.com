@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { formatMoneyMinor } from "@rosti/types";
-import { Card, CardHeader, CardTitle, Skeleton, StatTile } from "@rosti/ui";
+import { formatMoneyMinor } from "@sofsavdo/types";
+import { Card, CardHeader, CardTitle, Skeleton, StatTile } from "@sofsavdo/ui";
 import { useAdminDashboard } from "@/services/admin/dashboard";
 import { AdminDashboardChart } from "@/components/admin/AdminDashboardChart";
 
@@ -66,18 +66,19 @@ export default function AdminDashboardPage() {
         </Card>
       </div>
 
-      <AdminDashboardChart series7d={d.series7d} series30d={d.series30d} series90d={d.series90d} />
+      <AdminDashboardChart trend={d.trend} />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Click → Landing → Checkout → Order funnel</CardTitle>
+            <CardTitle>Click → Order → Paid order</CardTitle>
           </CardHeader>
+          {/* "Landing view"/"Checkout start" dropped — no event table records either as a distinct
+              moment (only a completed Order exists), so faking those two steps was never honest;
+              see DECISIONS.md ADR-031. Only the 3 stages this schema can actually track remain. */}
           <ul className="space-y-2 font-body text-sm">
             {[
               { label: "Click", value: d.funnel.clicks },
-              { label: "Landing view", value: d.funnel.landingViews },
-              { label: "Checkout start", value: d.funnel.checkoutStarts },
               { label: "Order", value: d.funnel.orders },
               { label: "Paid order", value: d.funnel.paidOrders },
             ].map((step) => (
