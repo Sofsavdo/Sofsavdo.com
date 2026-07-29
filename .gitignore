@@ -25,9 +25,12 @@ coverage/
 npm-debug.log*
 logs/
 
-# Uploads / local file storage (FilesModule dev fallback, never committed)
+# Uploads / local file storage (LocalDiskStorage dev fallback, default STORAGE_LOCAL_DIR — never
+# committed). Deliberately NOT a bare `storage/` pattern: that also matched the real source
+# directory apps/api/src/storage/ (StorageModule/StoragePort/adapters) and silently kept it out of
+# every commit since it was introduced — a fresh clone (e.g. a Railway build) failed with
+# "Cannot find module './storage/storage.module'" until this was caught and fixed.
 uploads/
-storage/
 public/uploads/
 
 # Local databases / dumps
