@@ -19,6 +19,11 @@ RUN npm ci
 FROM node:22-alpine AS build
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
+# npm workspaces does not fully hoist @sofsavdo/api's dependency tree — a handful of packages
+# (the @nestjs/cli binary among them, needed by `nest build` right below) only get installed
+# under this nested apps/api/node_modules, never the root one. Verified directly: removing this
+# copy makes `nest build` fail with "'nest' is not recognized" even though root/node_modules has
+# everything else.
 COPY --from=deps /app/apps/api/node_modules ./apps/api/node_modules
 COPY apps/api ./apps/api
 COPY package.json package-lock.json ./
@@ -46,9 +51,16 @@ ENV NODE_ENV=production
 WORKDIR /app
 RUN addgroup -S sofsavdo && adduser -S sofsavdo -G sofsavdo
 COPY --from=prod-deps /app/node_modules ./node_modules
+# Same non-hoisting behavior as the build stage's deps, just for the prod-only dependency subset —
+# verified `@nestjs/terminus` (a real runtime dependency, used by HealthController) is one of the
+# packages `npm ci --omit=dev` places only here, never in the root node_modules.
 COPY --from=prod-deps /app/apps/api/node_modules ./apps/api/node_modules
 COPY --from=build /app/apps/api/dist ./apps/api/dist
-COPY --from=build /app/apps/api/node_modules/.prisma ./apps/api/node_modules/.prisma
+# The generated Prisma Client (query engine + JS bindings from `prisma generate` in the build
+# stage) lands in the *root* node_modules — npm workspaces hoists it there, it is never nested
+# under apps/api/node_modules — and prod-deps' plain `npm ci --omit=dev` never generates it
+# (no schema.prisma is present at that stage), so it must be layered in from build separately.
+COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
 COPY apps/api/package.json ./apps/api/package.json
 # Schema + migrations only (not seed.ts/scripts/ — those are dev/CI-only, run via `docker exec`
 # or a separate CI step, never baked into what this image starts automatically; see the
