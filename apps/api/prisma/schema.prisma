@@ -190,13 +190,11 @@ model CreatorProfile {
   campaignApplications CampaignApplication[]
   referralLinks        ReferralLink[]
   promoCodes           PromoCode[]
-  content              CreatorContent[]
   commissions          Commission[]
   payoutMethods        PayoutMethod[]
   payouts              Payout[]
   referralsGiven       CreatorReferral[]         @relation("ReferralReferrer")
   referralReceived     CreatorReferral?          @relation("ReferralReferred")
-  // Real Content vertical (Phase 7A) — distinct from the legacy `content CreatorContent[]` above.
   contents             Content[]                 @relation("ContentByCreator")
   fundContributions    CreatorFundContribution[]
 
@@ -657,7 +655,6 @@ model Campaign {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  assets           CampaignAsset[]
   media            CampaignMedia[]
   applications     CampaignApplication[]
   creatorCampaigns CreatorCampaign[]
@@ -673,20 +670,6 @@ model Campaign {
   @@index([archivedAt])
   @@index([startDate, endDate])
   @@index([applicationStartDate, applicationDeadline])
-}
-
-// Mock-era stub, superseded by CampaignMedia below for the real vertical (kept untouched so the
-// mock frontend contract keeps compiling — see DECISIONS.md ADR-013). No real rows exist.
-model CampaignAsset {
-  id         String    @id @default(cuid())
-  campaignId String
-  campaign   Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  fileId     String
-  file       FileAsset @relation(fields: [fileId], references: [id])
-  kind       String // "image" | "video" | "brief" | "logo" | "caption_template"
-  label      String?
-
-  @@index([campaignId])
 }
 
 enum CampaignMediaType {
@@ -1025,39 +1008,7 @@ model CreatorCampaign {
   joinedAt   DateTime              @default(now())
   endedAt    DateTime?
 
-  content CreatorContent[]
-
   @@unique([campaignId, creatorId])
-}
-
-enum CreatorContentStatus {
-  DRAFT
-  SUBMITTED
-  UNDER_REVIEW
-  REVISION_REQUESTED
-  APPROVED
-  PUBLISHED
-  REJECTED
-}
-
-model CreatorContent {
-  id                String               @id @default(cuid())
-  creatorCampaignId String
-  creatorCampaign   CreatorCampaign      @relation(fields: [creatorCampaignId], references: [id], onDelete: Cascade)
-  creatorId         String
-  creator           CreatorProfile       @relation(fields: [creatorId], references: [id])
-  status            CreatorContentStatus @default(DRAFT)
-  draftFileIds      String[]
-  caption           String?
-  publishedUrl      String?
-  platform          SocialPlatform?
-  reviewNote        String?
-  submittedAt       DateTime?
-  reviewedAt        DateTime?
-  createdAt         DateTime             @default(now())
-  updatedAt         DateTime             @updatedAt
-
-  @@index([status])
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -1524,6 +1475,9 @@ model Commission {
   // earnings time-series buckets by this column (Commission.createdAt ≈ Order.createdAt, set in
   // the same checkout transaction — see DECISIONS.md ADR-020).
   @@index([createdAt])
+  // Launch-readiness fix — [creatorId, status] above can't serve NotificationSweepService's
+  // global (non-creator-scoped) status sweep at all; this can, and also bounds it by recency.
+  @@index([status, updatedAt])
 }
 
 enum LedgerEntryType {
@@ -1640,10 +1594,18 @@ model Payout {
   reviewedAt      DateTime?
   paidAt          DateTime?
   rejectionReason String?
+  // Launch-readiness fix — every sibling money-movement model (Order/Payment/Commission) already
+  // had this; Payout didn't, which is what let NotificationSweepService's status-only query grow
+  // unbounded forever (nothing to time-bound it by). See DECISIONS.md's launch-readiness ADR.
+  updatedAt       DateTime       @updatedAt
 
   commissions Commission[]
 
   @@index([creatorId, status])
+  // Serves NotificationSweepService's global (non-creator-scoped) status sweep and
+  // ActivityTickerService's `status: "PAID", paidAt: {...}` query — [creatorId, status] above is
+  // useless for either since neither filters by creatorId.
+  @@index([status, updatedAt])
 }
 
 // Phase N (Creator Motivation System — Creator Fund). Unlike Payout, a contribution never leaves
@@ -1753,17 +1715,6 @@ model Setting {
   key       String   @id
   value     Json
   updatedAt DateTime @updatedAt
-}
-
-model FileAsset {
-  id           String   @id @default(cuid())
-  url          String
-  mimeType     String
-  sizeBytes    Int
-  uploadedById String?
-  createdAt    DateTime @default(now())
-
-  campaignAssets CampaignAsset[]
 }
 
 // ---- Creator-to-creator referral program (6B Enhancement) ----

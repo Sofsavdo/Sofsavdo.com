@@ -6,6 +6,18 @@ import { NotificationsService } from "./notifications.service";
 
 const SWEEP_INTERVAL_NAME = "notification-sweep";
 
+// Launch-readiness fix — each sweep query used to be a plain `status: { in: [...] }` filter with no
+// time bound, no `take`, and no cursor. Several swept statuses are terminal (Payout PAID/REJECTED/
+// FAILED, Order DELIVERED), so that result set only ever grew, re-scanned in full every 30s forever.
+// Bounding by `updatedAt` (a real transition timestamp every one of these models has) caps each scan
+// to rows that changed recently, without needing any "already notified" bookkeeping of its own —
+// NotificationsService's dedupKey unique constraint already makes a repeat dispatch a silent no-op.
+// 7 days is generous enough that even a multi-day outage (this environment's test DB has shown
+// multi-hour Railway unavailability) can't cause a transition to fall out of the window before the
+// next successful sweep picks it up. Mirrors ActivityTickerService's LOOKBACK_HOURS precedent, just
+// wider — that feed only needs to look "recently alive", this needs to guarantee no missed dispatch.
+const SWEEP_LOOKBACK_HOURS = 168;
+
 // Phase 8/9 (Orders/Payments/Commissions/Payouts) are frozen — this service discovers their
 // business events by directly reading their tables (read-only, via PrismaService, exactly like
 // CommissionsService.reconcileRefundedOrders reads Order without OrdersModule ever knowing about
@@ -76,7 +88,13 @@ export class NotificationSweepService implements OnApplicationBootstrap {
     if (this.isRunning) return;
     this.isRunning = true;
     try {
-      await Promise.all([this.sweepOrders(), this.sweepPayments(), this.sweepCommissions(), this.sweepPayouts()]);
+      const since = new Date(Date.now() - SWEEP_LOOKBACK_HOURS * 60 * 60 * 1000);
+      await Promise.all([
+        this.sweepOrders(since),
+        this.sweepPayments(since),
+        this.sweepCommissions(since),
+        this.sweepPayouts(since),
+      ]);
       this.lastRunAt = new Date();
       this.lastError = null;
     } catch (err) {
@@ -87,9 +105,9 @@ export class NotificationSweepService implements OnApplicationBootstrap {
     }
   }
 
-  private async sweepOrders(): Promise<void> {
+  private async sweepOrders(since: Date): Promise<void> {
     const orders = await this.prisma.order.findMany({
-      where: { status: { in: ["PAID", "DELIVERED"] } },
+      where: { status: { in: ["PAID", "DELIVERED"] }, updatedAt: { gte: since } },
       select: {
         id: true,
         status: true,
@@ -120,9 +138,9 @@ export class NotificationSweepService implements OnApplicationBootstrap {
     }
   }
 
-  private async sweepPayments(): Promise<void> {
+  private async sweepPayments(since: Date): Promise<void> {
     const failed = await this.prisma.payment.findMany({
-      where: { status: "FAILED" },
+      where: { status: "FAILED", updatedAt: { gte: since } },
       select: { id: true, provider: true, amountMinor: true, currency: true, order: { select: { publicToken: true } } },
     });
     for (const payment of failed) {
@@ -134,9 +152,9 @@ export class NotificationSweepService implements OnApplicationBootstrap {
     }
   }
 
-  private async sweepCommissions(): Promise<void> {
+  private async sweepCommissions(since: Date): Promise<void> {
     const commissions = await this.prisma.commission.findMany({
-      where: { status: { in: ["APPROVED", "PAYABLE"] } },
+      where: { status: { in: ["APPROVED", "PAYABLE"] }, updatedAt: { gte: since } },
       select: { id: true, status: true, creatorId: true, amountMinor: true, currency: true },
     });
     for (const c of commissions) {
@@ -145,9 +163,9 @@ export class NotificationSweepService implements OnApplicationBootstrap {
     }
   }
 
-  private async sweepPayouts(): Promise<void> {
+  private async sweepPayouts(since: Date): Promise<void> {
     const payouts = await this.prisma.payout.findMany({
-      where: { status: { in: ["REQUESTED", "APPROVED", "REJECTED", "PAID", "FAILED"] } },
+      where: { status: { in: ["REQUESTED", "APPROVED", "REJECTED", "PAID", "FAILED"] }, updatedAt: { gte: since } },
       select: { id: true, status: true, creatorId: true, amountMinor: true, currency: true, rejectionReason: true, creator: { select: { displayName: true } } },
     });
     for (const p of payouts) {

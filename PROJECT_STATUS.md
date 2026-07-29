@@ -838,7 +838,7 @@ lint, or mocked-provider unit tests alone.
 ## Foundation architecture audit (2026-07-18) — foundation frozen
 
 Per explicit instruction, a final architecture audit of the whole 6A foundation ran before
-starting Phase 6B. Full report: [ARCHITECTURE_REVIEW.md](ARCHITECTURE_REVIEW.md).
+starting Phase 6B. Full report: [archive/ARCHITECTURE_REVIEW.md](archive/ARCHITECTURE_REVIEW.md).
 
 - **1 Critical issue fixed:** `AuthService.forgotPassword` logged the raw password-reset JWT
   unconditionally, including in production — a bearer credential written to logs. Now gated
@@ -3340,6 +3340,83 @@ status` check, not assumed — consistent with the intermittent-outage pattern d
 Phase A. This is an external infrastructure gap, not a defect in this phase's code; the full mocked
 unit-test suite (which exercises every new code path, including the exact race-condition and
 zero-value edge cases a live click-through would also hit) is the verification gate for this pass.
+
+## Repository Cleanup (pre-production, Code Freeze) — DONE (2026-07-29)
+
+Full details and reasoning in DECISIONS.md ADR-036. Summary:
+
+- **Safety first**: found 316 uncommitted files at the start (the entire rebrand-through-Phase-Q
+  rebuild had never been committed). Committed a full checkpoint (`925b041`) before any deletion,
+  so every cleanup change is an independently reviewable diff, not a leap of faith.
+- **Legacy docs**: `ARCHITECTURE_REVIEW.md` (a dated, one-time Phase 6A→6B audit snapshot) moved to
+  `archive/`. `docs/SCHEMA_API_AUDIT.md` — same kind of dated audit — was deliberately left in place
+  since 6 live source-code comments cite it by exact path; archiving it would create more staleness
+  than it removes. Seven other root docs that looked like archive candidates by title
+  (COMMISSION/DATABASE/PRODUCT_MODEL/TESTING/USER_FLOWS/ATTRIBUTION/DESIGN_SYSTEM.md) were read in
+  full and confirmed still accurate — kept as-is.
+- **Old branding**: already clean. A repo-wide case-insensitive "rosti" search outside
+  `node_modules` found only legitimate historical changelog entries in DECISIONS.md/
+  PROJECT_STATUS.md. The one real finding — a stale git worktree
+  (`.claude/worktrees/sleepy-shtern-0bce91`) checked out at a pre-rebrand commit with genuine
+  `@rosti/*` imports — is flagged for the user's own `git worktree remove` decision, not touched.
+- **Dead code**: 2 Prisma models confirmed genuinely unused (`CreatorContent`/`CreatorContentStatus`
+  and `CampaignAsset`/`FileAsset` — both already self-documented in the schema as mock-era stubs)
+  dropped via new migrations (`20260807000000_drop_legacy_creator_content`,
+  `20260808000000_drop_legacy_campaign_asset`). One orphaned backend util
+  (`common/idempotency/idempotency.util.ts`, never imported anywhere) removed.
+- **Dependencies**: `uuid`/`@types/uuid` (apps/api — codebase uses `node:crypto`'s `randomUUID()`
+  exclusively), `framer-motion` and `playwright` (apps/web — zero imports, no config, no e2e test
+  file anywhere) removed; `package-lock.json` regenerated (7 packages dropped transitively).
+- **Env/config**: one stale `.env.example` comment describing `NEXT_PUBLIC_API_MODE` as covering
+  only "Phase 6B, auth + Product" fixed to reflect that the entire application is real-backed today.
+  Dockerfiles, railway.toml, GitHub workflows, `.dockerignore` all reviewed — already clean, no
+  changes needed.
+- **Folder structure**: already flat and conventional (`apps/*`, `packages/*`, docs at root) — no
+  restructuring needed beyond the one archive move above.
+- **Verification**: `tsc --noEmit`/`eslint` clean on both apps after every removal; full backend
+  unit suite re-run clean (857/857, 68 suites) after both schema-dropping migrations; both apps'
+  production builds succeed. No new functionality introduced — every change is a deletion, an
+  archive-move, or a doc-accuracy fix.
+
+## Release Candidate / Launch Freeze — DONE (2026-07-29)
+
+Full details and reasoning in DECISIONS.md ADR-037 (vulnerability triage) and ADR-038
+(notification-sweep fix + Prisma version alignment). Summary:
+
+- **Vulnerability triage, no blind upgrades**: of 43 reported vulnerabilities, applied only the safe
+  non-breaking `npm audit fix` (patched `next` 16.2.10→16.2.12, `fast-uri`, `valibot` — all within
+  existing semver ranges, verified via clean typecheck/tests/builds). Declined `--force`'s suggested
+  fixes because they were major-version **downgrades** (jest, `eslint-config-next`, `@nestjs/cli`,
+  `autocannon`), all dev-tooling-only with zero production blast radius. Declined a `js-yaml`
+  override for `@nestjs/swagger` (npm wouldn't apply it, and the finding is confirmed non-reachable:
+  Swagger is disabled by default in production and only ever calls `.dump()`, never `.load()`).
+  `postcss`/`sharp` (bundled in `next`) confirmed non-reachable: `next/image` is never imported and
+  no `images.remotePatterns` are configured anywhere in `apps/web`. Final count: 43 → 38 → 31 (the
+  last drop a side effect of the Prisma version-alignment reinstall below, not a targeted fix).
+- **Notification Sweep launch-readiness fix**: `NotificationSweepService`'s four sweep queries
+  (`sweepOrders`/`sweepPayments`/`sweepCommissions`/`sweepPayouts`, the only `@Interval`-scheduled
+  job in the codebase) had no time bound — several swept statuses are terminal, so the scanned set
+  could only ever grow, re-scanned every 30s forever. Added `Payout.updatedAt` (missing, unlike every
+  sibling money model), `@@index([status, updatedAt])` on both `Payout` and `Commission` (their only
+  existing index was `[creatorId, status]`, useless for these global non-creator-scoped sweeps), and
+  bounded all four queries by a 7-day `updatedAt` lookback (migration
+  `20260809000000_notification_sweep_index_fixes`, applied to the test database). Dispatch dedup was
+  already safe (`Notification.dedupKey`'s unique constraint) — this fix is purely about read cost.
+- **Unrelated blocker fixed along the way**: `prisma generate` started failing
+  ("Could not resolve @prisma/client") due to a version drift between the root-hoisted `prisma` CLI
+  (7.9.1) and the pinned `@prisma/client`/`@prisma/adapter-pg` (7.8.0). Realigned all three to
+  `7.9.1`.
+- **Stale worktree removed**: `.claude/worktrees/sleepy-shtern-0bce91` (pre-rebrand checkout with
+  `@rosti/*` imports, flagged but not touched during the prior cleanup pass) — this pass's
+  instructions explicitly authorized removing stale worktrees. Its 9 uncommitted modifications were
+  committed to the worktree's own branch first so nothing was lost, then the worktree was
+  unregistered via `git worktree remove` (branch and commits remain intact and recoverable).
+- **Verification**: `tsc --noEmit`/`eslint` clean on both apps, full backend unit suite (858/858, 68
+  suites — one new test asserting every sweep query is time-bounded), both apps' production builds
+  clean, and — since the test database came back online mid-session — the full `notifications.e2e-
+  spec.ts` suite (12/12) re-run against the live migrated schema, exercising the sweep-triggered
+  notification paths directly. No new features, no architecture changes — every change in this pass
+  is a targeted fix to a previously-identified, re-confirmed production risk.
 
 ### A note on production launch itself
 

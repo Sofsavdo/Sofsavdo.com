@@ -146,6 +146,16 @@ describe("NotificationSweepService", () => {
     expect(notifications.dispatchToCreator).not.toHaveBeenCalledWith("creator1", expect.stringContaining("failed"), expect.anything(), expect.anything());
   });
 
+  describe("time-bounded sweep (launch-readiness fix — unbounded terminal-status scans)", () => {
+    it("bounds every sweep query by a recent updatedAt cutoff, not just status", async () => {
+      await service.sweep();
+      for (const mock of [prisma.order.findMany, prisma.payment.findMany, prisma.commission.findMany, prisma.payout.findMany]) {
+        const { where } = mock.mock.calls[0][0];
+        expect(where.updatedAt.gte).toBeInstanceOf(Date);
+      }
+    });
+  });
+
   describe("heartbeat and reentrancy (Phase 14 §10 — jobs must be observable and must not overlap)", () => {
     it("starts with no heartbeat, then records lastRunAt after a successful sweep", async () => {
       expect(service.getHeartbeat()).toEqual({ lastRunAt: null, lastError: null });

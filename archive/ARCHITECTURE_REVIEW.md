@@ -1,5 +1,11 @@
 # Architecture review — Phase 6A → 6B checkpoint (2026-07-18)
 
+> **Archived.** A one-time, point-in-time audit snapshot from before Phase 6B — every finding below
+> was fixed at the time and is reflected in the current codebase. Kept here for historical
+> provenance only; DECISIONS.md's ADR log and PROJECT_STATUS.md's phase-by-phase history are the
+> current, actively-maintained record of "why is the code the way it is." Moved out of the repo
+> root during the pre-production cleanup pass (see PROJECT_STATUS.md's "Repository Cleanup" entry).
+
 Audit of the entire backend foundation before starting Phase 6B, per explicit instruction. Method:
 direct inspection of `schema.prisma`, every module in `apps/api/src/`, all DTOs, the RBAC matrix,
 logging call sites, module import graph, and the earlier schema/API consistency audits

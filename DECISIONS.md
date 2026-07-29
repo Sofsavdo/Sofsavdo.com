@@ -1913,3 +1913,180 @@ orders."
 scoping of both queries, the zero-clicks conversionRate guard, a real conversionRate computation).
 No schema change and no new endpoint — `funnel` is a new field on the existing, already-cached
 `GET /creator/dashboard-stats` response.
+
+## ADR-036: Repository Cleanup (pre-production, Code Freeze)
+
+**Context:** entering Code Freeze before deployment. The user asked for a full repository cleanup —
+legacy Rosti-era documentation, dead source files, old branding, folder structure, dependencies,
+and env/config — with the explicit constraint that no new functionality be introduced.
+
+**Decision 0 — a full checkpoint commit came first, before any deletion.** `git status` at the
+start of this pass showed 316 modified/untracked files: every phase since the Rosti-era initial
+commit (the entire Sofsavdo rebuild — rebrand through Phase Q) had never been committed. Deleting
+files against an uncommitted working tree with no recovery point would have meant a misjudged
+deletion had nothing to restore from except memory. Committed everything first (`925b041`), then
+did the cleanup as a second, independently reviewable commit — this is why the cleanup diff is
+clean and small relative to the size of what it's cleaning up.
+
+**Decision 1 — branding was already clean; no action was fabricated to look like there was.** A
+repo-wide case-insensitive search for "rosti" outside `node_modules` returned exactly two files:
+DECISIONS.md and PROJECT_STATUS.md, both legitimate historical changelog entries describing the
+Phase B rebrand itself (e.g. "Phase B — Rebrand: Rosti → Sofsavdo — DONE"). These were left
+untouched — a changelog describing its own history is not a branding leak. The one real branding
+finding was external to the working tree: a stray registered git worktree
+(`.claude/worktrees/sleepy-shtern-0bce91`, branch `claude/sleepy-shtern-0bce91`) checked out at the
+pre-rebrand commit, whose files genuinely still import `@rosti/types`/`@rosti/ui`. This wasn't
+"fixed in place" (patching branding into an abandoned branch nobody uses is pointless) — it's
+flagged for the user's own decision (`git worktree remove`), since removing another branch's
+checkout isn't this session's call to make silently.
+
+**Decision 2 — every proposed source-file/model/dependency removal required independent proof of
+zero real usage, not just "it looks old."** Three categories were checked exhaustively before
+touching anything:
+- *Prisma models*: cross-referenced every model's Prisma-client accessor (`prisma.<model>.`) AND
+  its relation field names (a model can be "used" purely via `include`/`select` without ever
+  appearing as a direct accessor — this caught a false positive on `SocialAccount`, which looked
+  unused by accessor alone but is actively read via `CreatorProfile.socialAccounts`). Three models
+  survived this check as genuinely dead: `CreatorContent`/`CreatorContentStatus` (already self-
+  documented in the schema as "mock-era stub... unreferenced by any real service," superseded by
+  the real `Content` vertical from Phase 7A — not to be confused with the *frontend* mock type of
+  the same name in `packages/types/index.ts`, which is a distinct, still-active demo-mode type,
+  left untouched) and `CampaignAsset`/`FileAsset` (same "mock-era stub, superseded by CampaignMedia,
+  no real rows exist" self-disclosure). All three were dropped via real migrations
+  (`20260807000000_drop_legacy_creator_content`, `20260808000000_drop_legacy_campaign_asset`),
+  applied to the test database and verified against the full 857-test suite, not just typechecked.
+- *Backend utility files*: one genuine orphan found, `common/idempotency/idempotency.util.ts` —
+  exported `isValidIdempotencyKey`/`generateIdempotencyKey` were never imported anywhere;
+  `OrdersService` validates `idempotencyKey` directly via its own DTO instead. Removed.
+- *npm dependencies*: `uuid`/`@types/uuid` (apps/api) — the codebase uses `node:crypto`'s
+  `randomUUID()` exclusively, confirmed via a zero-match search for any `uuid` import across
+  `apps/api/src`. `framer-motion` (apps/web) — zero imports anywhere. `playwright` (apps/web,
+  devDependency) — zero imports, no config file, no e2e test file anywhere; this codebase's real
+  e2e tests are backend Jest specs (`apps/api/test/*.e2e-spec.ts`), not browser automation.
+
+**Decision 3 — Prisma migrations already applied to any environment are never deleted or rewritten,
+even if they describe a phase whose feature later changed.** Every one of the ~23 migration files
+is a permanent, ordered record of what actually happened to a real schema; deleting one would break
+`prisma migrate deploy` for any fresh environment bootstrapped from scratch. "Cleaning up
+migrations" here means *adding* two new ones that undo the dead tables, never touching the history.
+
+**Decision 4 — `docs/SCHEMA_API_AUDIT.md` was kept in place, not archived, despite being a
+dated (2026-07-17) one-time audit snapshot exactly like `ARCHITECTURE_REVIEW.md` (which WAS
+archived).** The difference: `SCHEMA_API_AUDIT.md` is cited by exact relative path in six live
+source-code comments across both apps (`permissions.constants.ts`, `domain-error.ts`,
+`creator-applications.service.ts`, `creator-real.ts`, plus two doc cross-references), while
+`ARCHITECTURE_REVIEW.md` had exactly one citation (a single PROJECT_STATUS.md link, updated to
+point at its new `archive/` path). Moving a file that six source comments cite by path creates more
+churn and staleness risk than the decluttering benefit justifies; moving a file only one doc links
+to does not. This is a case-by-case judgment, not a blanket "audit docs get archived" rule.
+
+**Decision 5 — the other seven root docs that looked like candidates for archiving on title alone
+(`COMMISSION.md`, `DATABASE.md`, `PRODUCT_MODEL.md`, `TESTING.md`, `USER_FLOWS.md`,
+`ATTRIBUTION.md`, `DESIGN_SYSTEM.md`) were read in full and kept as-is.** Each is a living
+conceptual reference whose content still matches the current implementation exactly (verified by
+cross-checking against this same session's own extensive, repeated citations of them) — not a
+point-in-time snapshot like the two audit reports. "Old-sounding title" was not treated as evidence
+of staleness on its own; content was.
+
+**Verification note:** after every removal, `tsc --noEmit`, `eslint`, the full 857-test backend
+suite, and both apps' production builds were re-run clean. `npm install` was re-run once after the
+three dependency removals to regenerate `package-lock.json` (7 packages removed transitively). No
+functionality was added — every change in this pass is a deletion, an archive-move, or a doc-
+accuracy fix (the one stale `.env.example` comment describing `NEXT_PUBLIC_API_MODE` as a "Phase
+6B, auth + Product only" feature, long since true of the entire application).
+
+## ADR-037: Pre-launch Vulnerability Triage (no blind upgrades)
+
+**Context:** before the production push, `npm audit` reported 43 vulnerabilities (36 high, 7
+moderate). The explicit instruction was to investigate each one — production-reachable vs.
+dev-tooling-only vs. transitive-only, safe upgrade available or not — rather than run
+`npm audit fix --force` and accept whatever it changes.
+
+**Decision — apply only the safe, non-breaking fix; document every unfixed finding with why it's
+not upgraded and why it's not exploitable, instead of forcing anything.**
+
+- **Applied:** plain `npm audit fix` (no `--force`), which bumped `next` 16.2.10 → 16.2.12 (patch,
+  within the existing `^16.2.10` range — this alone fixes the top-level Next.js CVEs: SSRF, cache
+  confusion, DoS, middleware bypass, unauthenticated internal endpoint disclosure), `fast-uri`
+  3.1.3 → 3.1.4, and `valibot` ≤1.4.1 → 1.4.2. Verified via `tsc --noEmit` (both apps), the full
+  backend unit suite, and both apps' production builds — all clean, confirming this was a true
+  patch-level bump with no behavior change.
+- **Declined — `npm audit fix --force`'s suggested "fixes" are downgrades, not fixes.** Its own
+  `fixAvailable` field proposed jest 29.7.0 → 19.0.2, `eslint-config-next` 16.2.10 → 12.0.4,
+  `@nestjs/cli` 11.0.0 → 6.8.1, and `autocannon` 8.0.0 → 2.0.1 — every one a major-version
+  regression on a currently-declared range, not an upgrade. All four are dev-tooling only (test
+  runner, lint config, CLI scaffolding, load-test tool) — never shipped to production — so even the
+  vulnerabilities they carry (a `uuid` buffer-bounds issue reachable only through `autocannon`'s own
+  transitive `hyperid`) have zero production blast radius. Declined rather than regress working dev
+  tooling for a non-reachable finding.
+  - **Follow-up, done separately (this same launch-freeze pass):** realigning `prisma`/
+    `@prisma/client`/`@prisma/adapter-pg` to the same `7.9.1` (see this ADR's sibling entry on the
+    `prisma generate` version-mismatch fix, folded into the notification-sweep index migration work
+    below) coincidentally dropped the vulnerability count further, from 38 to 31, as a side effect
+    of picking up newer transitive dependents — not a targeted fix, just observed and noted.
+- **Declined — a scoped `overrides` entry for `js-yaml`.** `@nestjs/swagger@11.4.6` exactly pins
+  `js-yaml@5.2.1` (a DoS in flow-collection parsing, GHSA-pm4m-ph32-ghv5). Adding a root-level
+  `overrides` block to force `5.2.2` never actually took effect even after deleting the nested
+  `node_modules` folder and reinstalling — npm kept resolving `5.2.1`. Rather than force a full
+  lockfile regeneration to chase an override npm wouldn't apply, verified the finding is not
+  production-reachable and left it alone: `swagger-module.js` only ever calls `jsyaml.dump()`
+  (serializing our own OpenAPI spec), never `.load()` on untrusted input, and `main.ts` gates the
+  entire Swagger module behind `NODE_ENV !== "production" || SWAGGER_ENABLED === "true"` — disabled
+  by default in production regardless.
+- **Declined — `postcss`/`sharp` (bundled inside `next`'s own dependency tree).** `next/image` is
+  never imported anywhere in `apps/web` (only the ambient `next-env.d.ts` type reference exists),
+  and `next.config.ts` has no `images.remotePatterns` configured — the vulnerable image-optimization
+  and CSS-stringify code paths are never invoked by this app. The only available "fix" would
+  downgrade `next` itself to `9.3.3`, a non-starter.
+- **Result:** vulnerability count went from 43 → 38 after the safe `npm audit fix`, then to 31 after
+  the unrelated Prisma version-alignment reinstall (see below). The remainder is either confirmed
+  dev-tooling-only or confirmed non-production-reachable per the reasoning above — none of it is
+  believed to be launch-blocking.
+
+## ADR-038: Launch-Readiness Fixes (Notification Sweep) + Prisma Version Alignment
+
+**Context:** the final pre-launch technical audit re-confirmed two findings already flagged in an
+earlier read-only production-readiness pass and asked that they be fixed if still believed to be
+real production risks, with everything else explicitly out of scope for this freeze.
+
+**Finding — `NotificationSweepService`'s four sweep queries were genuinely unbounded.** Each of
+`sweepOrders`/`sweepPayments`/`sweepCommissions`/`sweepPayouts` (the only `@Interval`-scheduled job
+in the codebase, ticking every 30s) ran a plain `status: { in: [...] }` filter with no time bound, no
+`take`, and no cursor. Several swept statuses are terminal (`Order.DELIVERED`,
+`Payout.PAID`/`REJECTED`/`FAILED`), so that result set could only ever grow, re-scanned in full on
+every tick, forever. `Commission`/`Payout` also had only a `[creatorId, status]` composite index —
+useless for these global (non-creator-scoped) status filters — and `Payout` had no `updatedAt`
+column at all, unlike every sibling money-movement model, which is exactly what made a real time
+bound impossible to add without a schema change first.
+
+**Decision — add `Payout.updatedAt`, add `@@index([status, updatedAt])` to both `Payout` and
+`Commission`, and bound all four sweep queries by `updatedAt: { gte: since }` with a shared 168-hour
+(7-day) lookback window.** Migration `20260809000000_notification_sweep_index_fixes`. The 7-day
+window is deliberately generous — this repo's own test database has shown multi-hour Railway
+unavailability during this session, so the window needs to comfortably outlast a real outage without
+ever missing a dispatch once a sweep resumes. Safety of rescanning a bounded window is unchanged from
+before: `NotificationsService.dispatchToCreator`/`dispatchToAdmins`'s deterministic `dedupKey` unique
+constraint already makes a repeat dispatch for the same business event a silent no-op, so bounding by
+recency costs nothing in correctness and only removes the unbounded-growth risk. Mirrors
+`ActivityTickerService`'s existing `LOOKBACK_HOURS` precedent (72h there, wider here since that
+feed's job is "look recently alive" while this one's job is "never miss a dispatch"). `Order`/
+`Payment` already had adequate standalone `@@index([status])`/`@@index([createdAt])` coverage and did
+not need a new composite index — only the query itself needed the `updatedAt` bound, kept consistent
+across all four sweep methods.
+
+**Unrelated blocker hit and fixed along the way — `prisma generate` failing with "Could not resolve
+@prisma/client."** Diagnosed as a version mismatch: the root-hoisted `prisma` CLI had drifted to
+`7.9.1` while `apps/api`'s `@prisma/client`/`@prisma/adapter-pg` stayed pinned at the lockfile's
+`7.8.0` — Prisma 7 requires the CLI and client versions to match exactly, and a clean
+`rm -rf node_modules && npm install` alone did not fix it, since npm kept re-resolving the same drift
+from `package.json`'s open `^7.8.0` ranges. Fixed by explicitly installing
+`@prisma/client@7.9.1 @prisma/adapter-pg@7.9.1 prisma@7.9.1` so every one of the three matches. Not a
+scope expansion — a prerequisite for the migration above to typecheck and generate correctly.
+
+**Verification note:** `prisma format` clean, `prisma generate` clean, `tsc --noEmit` clean (both
+apps), `eslint` clean, full backend unit suite (858/858, including a new assertion that every sweep
+query's `where` clause includes a `Date` `updatedAt.gte` bound). Migration deploy to the Railway test
+database is pending that database's own availability (see this session's repeated `P1001: Can't
+reach database server` — a pre-existing, documented intermittent condition of this specific
+Railway-hosted test instance, unrelated to the migration's correctness) and will be retried before
+this work is considered fully verified.
