@@ -215,11 +215,11 @@ describe("Buyer Accounts (e2e)", () => {
     it("rejects updating another buyer's address with NOT_FOUND", async () => {
       const buyerA = await request(app.getHttpServer())
         .post("/auth/register-buyer")
-        .send({ email: `buyer-addr-a-${suffix}@sofsavdo.com`, password: "Str0ngPass!", fullName: "A" })
+        .send({ email: `buyer-addr-a-${suffix}@sofsavdo.com`, password: "Str0ngPass!", fullName: "Buyer A" })
         .expect(201);
       const buyerB = await request(app.getHttpServer())
         .post("/auth/register-buyer")
-        .send({ email: `buyer-addr-b-${suffix}@sofsavdo.com`, password: "Str0ngPass!", fullName: "B" })
+        .send({ email: `buyer-addr-b-${suffix}@sofsavdo.com`, password: "Str0ngPass!", fullName: "Buyer B" })
         .expect(201);
 
       const addr = await request(app.getHttpServer())

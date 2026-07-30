@@ -3442,11 +3442,23 @@ infrastructure-config, some UX gaps only visible once real people used the deplo
 - **Test-suite drift caught and fixed**: running the full e2e suite start to finish (not done since
   well before this pass) surfaced `content.e2e-spec.ts`'s submit tests failing against current
   behavior — Phase P added a `postUrl` requirement at submit time after this test was written; fixed
-  by updating the test, not the (correct) production code.
+  by updating the test, not the (correct) production code. The same full run also caught
+  `buyer-accounts.e2e-spec.ts` registering test buyers with 1-character names against a DTO that has
+  always required `@MinLength(2)` — another test-drift fix, not a production bug.
+- **Real bug found and fixed: COD checkout redirect**. `CodPaymentAdapter.createPayment` returned the
+  buyer's own `returnUrl` as `redirectUrl` instead of `null` — since Cash on Delivery has nothing
+  external to redirect to, this silently downgraded every COD checkout to a slower full-page-reload
+  path instead of the smooth client-side navigation `MANUAL`/Pay Later correctly gets. Fixed the
+  adapter and widened `PaymentPort`'s `CreatePaymentResult.redirectUrl` to `string | null`.
 - **Verification**: `tsc --noEmit`/`eslint`/build clean on both apps; full backend unit suite
-  (863/863); a real `docker build` for both images (Docker access became available mid-session); an
-  extended real manual walkthrough of both the admin and creator panels against the live Railway test
-  database; the full e2e suite re-run start to finish.
+  (863/863) plus the two payment-adapter unit tests re-verified (14/14) after the COD fix; a real
+  `docker build` for both images (Docker access became available mid-session); an extended real
+  manual walkthrough of both the admin and creator panels against the live Railway test database; the
+  full e2e suite re-run start to finish, with `checkout.e2e-spec.ts` (21/21) and
+  `buyer-accounts.e2e-spec.ts` (61/61) both re-confirmed green in isolation afterward.
+  `creator-applications.e2e-spec.ts` reproduced one 60s Jest timeout on a heavy capacity/approval
+  test (29/30 passing, no assertion failure) — unrelated to any change made this session, recorded as
+  a DB-latency environment artifact rather than a logic bug.
 
 ### A note on production launch itself
 

@@ -2148,6 +2148,24 @@ session's changes — a latent test/behavior drift from an earlier phase, surfac
 the full e2e suite start to finish. Fixed by setting `postUrl` via the existing draft-update PATCH
 before both submit assertions.
 
+**Finding 7 (also caught by the full e2e re-run) — `buyer-accounts.e2e-spec.ts` registered test
+buyers with single-character names (`"A"`, `"B"`), which `RegisterBuyerDto.fullName`'s
+`@MinLength(2)` has always rejected.** Another latent test/behavior drift, not a regression — fixed
+by using `"Buyer A"` / `"Buyer B"`. Re-verified: suite passes in full (61/61, including this test).
+
+**Finding 8 — a real bug, not test drift: `CodPaymentAdapter.createPayment` returned
+`request.returnUrl` as `redirectUrl` instead of `null`.** `CheckoutPageClient` branches on
+`paymentRedirectUrl` being truthy to choose between a full `window.location.assign` (meant for a
+real external payment-gateway redirect) and a smooth client-side `router.push` (meant for the
+no-redirect case, like `MANUAL`/Pay Later). Cash on Delivery has a registered adapter (unlike
+`MANUAL`, which has none at all and so never reaches this code path) but nothing external to send
+the buyer to — so every COD checkout was silently downgraded to the slower full-page-reload path.
+Fixed by returning `redirectUrl: null` and widening `CreatePaymentResult.redirectUrl` to
+`string | null` (Click's adapter, the only other implementer, always returns a real string and is
+unaffected). Re-verified: `checkout.e2e-spec.ts` passes in full (21/21, including the "guest still
+works" and "buyer-linked" checkout flows exercising this exact path), plus both payment adapters'
+unit tests (14/14).
+
 **Verification note:** `tsc --noEmit`/`eslint`/build clean on both apps; full backend unit suite
 (863/863, 69 suites); a real Docker build (once Docker access became available mid-session) confirmed
 the deps-only-copy web build and full api build/prisma-generate cycle end to end; a real, extended
@@ -2155,4 +2173,8 @@ manual walkthrough (dev servers pointed at the real Railway test database) cover
 dashboard, creator-applications, products, the homepage CMS builder, plus a real creator registration
 → SUBMITTED-status cabinet entry → locked-nav-item verification → direct-URL-to-locked-route
 redirect, all behaving exactly as designed; the full e2e suite re-run start to finish, catching and
-fixing Finding 6 above.
+fixing Findings 6, 7, and 8 above. The one remaining non-green result in that full re-run —
+`creator-applications.e2e-spec.ts`'s capacity/approval test hitting a 60s Jest timeout — reproduced
+in isolation as the same single timeout (29/30 passing) with no assertion failure; given it's an
+unrelated, pre-existing, DB-latency-shaped multi-step test untouched by any change in this session,
+it's recorded here as an environment artifact, not a confirmed logic bug.

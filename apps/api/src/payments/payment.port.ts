@@ -19,8 +19,12 @@ export interface CreatePaymentRequest {
 }
 
 export interface CreatePaymentResult {
-  /** URL to redirect the customer's browser to in order to complete payment. */
-  redirectUrl: string;
+  /**
+   * URL to redirect the customer's browser to in order to complete payment, or `null` if this
+   * provider has nothing external to send them to (e.g. Cash on Delivery — see
+   * CodPaymentAdapter's own comment on why that must be a real `null`, not a same-page URL).
+   */
+  redirectUrl: string | null;
 }
 
 export type PaymentCallbackAction = "PREPARE" | "COMPLETE";

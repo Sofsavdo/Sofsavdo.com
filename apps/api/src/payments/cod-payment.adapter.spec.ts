@@ -13,14 +13,9 @@ describe("CodPaymentAdapter (Phase F)", () => {
     expect(adapter.provider).toBe("CASH_ON_DELIVERY");
   });
 
-  it("createPayment redirects straight to the given returnUrl — no external gateway to build a URL for", async () => {
-    const result = await adapter.createPayment({
-      paymentId: "payment1",
-      amountMinor: 50_000_00,
-      currency: "UZS",
-      returnUrl: "https://sofsavdo.com/order-success/public-token-1",
-    });
-    expect(result.redirectUrl).toBe("https://sofsavdo.com/order-success/public-token-1");
+  it("createPayment returns a null redirectUrl — no external gateway to send the buyer to (see the adapter's own comment on why this must be null, not the returnUrl)", async () => {
+    const result = await adapter.createPayment();
+    expect(result.redirectUrl).toBeNull();
   });
 
   it("verifyCallback throws — nothing ever calls it, since COD has no inbound webhook", () => {

@@ -29,7 +29,9 @@ describe("ClickPaymentAdapter", () => {
   describe("createPayment", () => {
     it("builds a my.click.uz pay-via-URL redirect carrying amount and transaction_param", async () => {
       const result = await adapter.createPayment({ paymentId: "pay1", amountMinor: 150_000_00, currency: "UZS", returnUrl: "https://sofsavdo.com/order-success/abc" });
-      const url = new URL(result.redirectUrl);
+      // Click's adapter always returns a real string (unlike COD's, which now legitimately
+      // returns null — see payment.port.ts's CreatePaymentResult) — safe to assert non-null here.
+      const url = new URL(result.redirectUrl!);
       expect(url.origin + url.pathname).toBe("https://my.click.uz/services/pay");
       expect(url.searchParams.get("service_id")).toBe("2002");
       expect(url.searchParams.get("merchant_id")).toBe("1001");
