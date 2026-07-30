@@ -1,0 +1,25 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /creator
+Disallow: /api
+Disallow: /_next/
+Disallow: /private
+
+Sitemap: https://sofsavdo.com/sitemap.xml
+Sitemap: https://www.sofsavdo.com/sitemap.xml
+
+# Google specific
+User-agent: Googlebot
+Allow: /
+Crawl-delay: 0
+
+# Yandex specific
+User-agent: Yandex
+Allow: /
+Crawl-delay: 0
+
+# ChatGPT bot
+User-agent: CCBot
+Allow: /
+
