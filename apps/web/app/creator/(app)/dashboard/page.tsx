@@ -1,26 +1,67 @@
 "use client";
 
 import Link from "next/link";
-import { formatMoneyMinor } from "@sofsavdo/types";
+import { formatMoneyMinor, type CreatorApplicationStatus } from "@sofsavdo/types";
 import { Alert, Badge, Button, Card, CardHeader, CardTitle, EmptyState, Skeleton, StatTile } from "@sofsavdo/ui";
 import { useDashboardStats } from "@/services/dashboard";
 import { useMyCampaigns, useCampaigns } from "@/services/campaigns";
 import { useSales, usePayoutsMine } from "@/services/finance";
 import { useMyContents } from "@/services/content";
-import { creatorCampaignStatusMeta, realPayoutStatusMeta } from "@/lib/status";
+import { useSession } from "@/services/session";
+import { canWorkAsCreator } from "@/lib/routing";
+import { applicationStatusMeta, creatorCampaignStatusMeta, realPayoutStatusMeta } from "@/lib/status";
 import { DashboardChart } from "@/components/creator/DashboardChart";
 import { SalesTable } from "@/components/creator/SalesTable";
 import { ActivityTicker } from "@/components/creator/ActivityTicker";
 
-export default function DashboardPage() {
-  const stats = useDashboardStats();
-  const myCampaigns = useMyCampaigns();
-  const sales = useSales();
-  const content = useMyContents();
-  const payouts = usePayoutsMine();
-  const allCampaigns = useCampaigns();
+// Shown instead of the real (earning-data-heavy) dashboard while a creator's application is
+// SUBMITTED/UNDER_REVIEW — CreatorAppGuard already lets them reach /creator/dashboard at this
+// status (see lib/routing.ts's canEnterCabinet), but every campaign/sales/content/payout query
+// below is still approval-gated on the backend, so this pending view deliberately never fires
+// them (see the `enabled: approved` wiring in the component below).
+function PendingDashboard({ status }: { status: CreatorApplicationStatus }) {
+  const meta = applicationStatusMeta[status];
+  return (
+    <div className="space-y-6">
+      <h1 className="font-heading text-2xl font-bold text-text-primary">Xush kelibsiz!</h1>
+      <Card>
+        <CardHeader className="flex-row items-center justify-between gap-2">
+          <CardTitle>Arizangiz holati</CardTitle>
+          <Badge tone={meta.tone}>{meta.label}</Badge>
+        </CardHeader>
+        <Alert tone="info">
+          Arizangiz admin tomonidan ko&apos;rib chiqilmoqda. Tasdiqlangach, sizga bildirishnoma
+          yuboriladi va quyidagi bo&apos;limlar avtomatik ochiladi: referal havola, kampaniyalar,
+          kontent yuklash, sotuvlar va pul yechish. Hozircha profilingizni to&apos;ldirib,
+          bildirishnomalarni kuzatib turishingiz mumkin.
+        </Alert>
+      </Card>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Link href="/creator/profile" className="rounded-input border border-border p-4 hover:border-accent">
+          <p className="font-body text-sm font-medium text-text-primary">Profilni to&apos;ldirish</p>
+          <p className="mt-1 font-body text-xs text-text-muted">Ijtimoiy tarmoqlar va ma&apos;lumotlaringizni tekshiring</p>
+        </Link>
+        <Link href="/creator/notifications" className="rounded-input border border-border p-4 hover:border-accent">
+          <p className="font-body text-sm font-medium text-text-primary">Bildirishnomalar</p>
+          <p className="mt-1 font-body text-xs text-text-muted">Tasdiqlanganda shu yerda xabar beramiz</p>
+        </Link>
+      </div>
+    </div>
+  );
+}
 
-  const isLoading = stats.isLoading || myCampaigns.isLoading;
+export default function DashboardPage() {
+  const { user } = useSession();
+  const approved = !!user && canWorkAsCreator(user.application.status);
+
+  const stats = useDashboardStats();
+  const myCampaigns = useMyCampaigns({ enabled: approved });
+  const sales = useSales({ enabled: approved });
+  const content = useMyContents({ enabled: approved });
+  const payouts = usePayoutsMine(1, { enabled: approved });
+  const allCampaigns = useCampaigns({ enabled: approved });
+
+  const isLoading = stats.isLoading || (approved && myCampaigns.isLoading);
 
   if (isLoading || !stats.data) {
     return (
@@ -34,6 +75,10 @@ export default function DashboardPage() {
         <Skeleton className="h-64 w-full" />
       </div>
     );
+  }
+
+  if (!approved) {
+    return <PendingDashboard status={user!.application.status} />;
   }
 
   const d = stats.data;

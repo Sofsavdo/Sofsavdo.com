@@ -3,19 +3,38 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, LogOut } from "lucide-react";
+import { Menu, X, LogOut, Lock } from "lucide-react";
 import { cn } from "@sofsavdo/ui";
 import { BRAND } from "@sofsavdo/config/brand";
 import { useSession } from "@/services/session";
+import { canWorkAsCreator } from "@/lib/routing";
 import { CREATOR_NAV_ITEMS } from "./nav-items";
 
-function NavLink({ href, label, icon: Icon, active, onClick }: {
+function NavLink({ href, label, icon: Icon, active, locked, onClick }: {
   href: string;
   label: string;
   icon: (typeof CREATOR_NAV_ITEMS)[number]["icon"];
   active: boolean;
+  locked?: boolean;
   onClick?: () => void;
 }) {
+  // Not a real Link — a pending (not-yet-approved) creator can see this feature exists but can't
+  // navigate to it yet (CreatorAppGuard would just bounce them back anyway); showing it as an
+  // inert, visibly locked row is clearer than either hiding it outright or letting the click
+  // round-trip through a redirect.
+  if (locked) {
+    return (
+      <span
+        className="flex cursor-not-allowed items-center gap-3 rounded-input px-3 py-2 font-body text-sm text-text-muted/60"
+        title="Ariza tasdiqlangach ochiladi"
+      >
+        <Icon className="size-4 shrink-0" />
+        {label}
+        <Lock className="ml-auto size-3.5 shrink-0" />
+      </span>
+    );
+  }
+
   return (
     <Link
       href={href}
@@ -36,6 +55,7 @@ export function CreatorShell({ children }: { children: ReactNode }) {
   const { user, logout } = useSession();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
+  const approved = !!user && canWorkAsCreator(user.application.status);
   const bottomItems = CREATOR_NAV_ITEMS.filter((i) => i.bottomNav);
 
   return (
@@ -48,7 +68,7 @@ export function CreatorShell({ children }: { children: ReactNode }) {
           </Link>
           <nav className="flex flex-col gap-1">
             {CREATOR_NAV_ITEMS.map((item) => (
-              <NavLink key={item.href} {...item} active={pathname.startsWith(item.href)} />
+              <NavLink key={item.href} {...item} active={pathname.startsWith(item.href)} locked={item.approvedOnly && !approved} />
             ))}
           </nav>
         </div>
@@ -108,6 +128,7 @@ export function CreatorShell({ children }: { children: ReactNode }) {
                     key={item.href}
                     {...item}
                     active={pathname.startsWith(item.href)}
+                    locked={item.approvedOnly && !approved}
                     onClick={() => setDrawerOpen(false)}
                   />
                 ))}
@@ -134,6 +155,19 @@ export function CreatorShell({ children }: { children: ReactNode }) {
         {bottomItems.map((item) => {
           const active = pathname.startsWith(item.href);
           const Icon = item.icon;
+          const locked = item.approvedOnly && !approved;
+          if (locked) {
+            return (
+              <span
+                key={item.href}
+                className="flex flex-1 cursor-not-allowed flex-col items-center gap-0.5 py-2 font-body text-[11px] text-text-muted/50"
+                title="Ariza tasdiqlangach ochiladi"
+              >
+                <Lock className="size-5" />
+                {item.label}
+              </span>
+            );
+          }
           return (
             <Link
               key={item.href}

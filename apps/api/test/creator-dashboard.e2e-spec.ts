@@ -130,6 +130,28 @@ describe("Creator Dashboard Stats (e2e)", () => {
     expect(res.body.dailyRevenue30d).toHaveLength(30);
   });
 
+  it("is reachable by a creator whose application is still SUBMITTED, not just APPROVED — a pending creator must still see their own cabinet", async () => {
+    const user = await prisma.user.create({
+      data: {
+        email: `dash-creator-pending-${suffix}@sofsavdo.com`,
+        passwordHash: "x",
+        creatorProfile: {
+          create: {
+            displayName: "Dash Creator Pending",
+            contentNiches: [],
+            referralCode: `dsh-pending-${suffix}`.slice(0, 60),
+            applications: { create: { status: "SUBMITTED", formData: {} } },
+          },
+        },
+      },
+      include: { creatorProfile: true },
+    });
+    const accessToken = tokens.signAccessToken(user.id);
+
+    const res = await request(app.getHttpServer()).get("/creator/dashboard-stats").set("Authorization", `Bearer ${accessToken}`).expect(200);
+    expect(res.body.lifetime.ordersCount).toBe(0);
+  });
+
   it("never mixes in another creator's commissions (ownership-scoped)", async () => {
     const creatorA = await makeCreator("scopeda");
     const creatorB = await makeCreator("scopedb");

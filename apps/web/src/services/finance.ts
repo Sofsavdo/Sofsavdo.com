@@ -4,9 +4,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as api from "../lib/api";
 import { useSession } from "./session";
 
-export function useSales() {
+// `enabled` override — see useCampaigns' comment in services/campaigns.ts for why the dashboard
+// page needs this and no other caller does.
+export function useSales(opts: { enabled?: boolean } = {}) {
   const { user } = useSession();
-  return useQuery({ queryKey: ["sales", user?.id], queryFn: () => api.getSales(user!.id), enabled: !!user });
+  return useQuery({ queryKey: ["sales", user?.id], queryFn: () => api.getSales(user!.id), enabled: !!user && (opts.enabled ?? true) });
 }
 
 export function useCommissions() {
@@ -108,9 +110,9 @@ export function useDeletePayoutMethod() {
   });
 }
 
-export function usePayoutsMine(page = 1) {
+export function usePayoutsMine(page = 1, opts: { enabled?: boolean } = {}) {
   const { user } = useSession();
-  return useQuery({ queryKey: ["real-payouts", page], queryFn: () => api.listPayoutsMine(page), enabled: !!user });
+  return useQuery({ queryKey: ["real-payouts", page], queryFn: () => api.listPayoutsMine(page), enabled: !!user && (opts.enabled ?? true) });
 }
 
 function invalidateWallet(queryClient: ReturnType<typeof useQueryClient>) {

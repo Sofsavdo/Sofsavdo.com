@@ -4,20 +4,24 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as api from "../lib/api";
 import { useSession } from "./session";
 
-export function useCampaigns() {
-  return useQuery({ queryKey: ["campaigns"], queryFn: api.getCampaigns });
+// `enabled` override — every real page that renders these is already unreachable by a not-yet-
+// APPROVED creator (CreatorAppGuard bounces them to /creator/dashboard first), except the
+// dashboard itself, which needs to skip these approval-gated calls entirely for a pending creator
+// rather than let them 403.
+export function useCampaigns(opts: { enabled?: boolean } = {}) {
+  return useQuery({ queryKey: ["campaigns"], queryFn: api.getCampaigns, enabled: opts.enabled ?? true });
 }
 
 export function useCampaign(id: string) {
   return useQuery({ queryKey: ["campaigns", id], queryFn: () => api.getCampaign(id) });
 }
 
-export function useMyCampaigns() {
+export function useMyCampaigns(opts: { enabled?: boolean } = {}) {
   const { user } = useSession();
   return useQuery({
     queryKey: ["my-campaigns", user?.id],
     queryFn: () => api.getMyCampaigns(user!.id),
-    enabled: !!user,
+    enabled: !!user && (opts.enabled ?? true),
   });
 }
 

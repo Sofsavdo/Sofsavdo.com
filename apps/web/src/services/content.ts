@@ -38,8 +38,8 @@ export function useSubmitContent() {
 // the mock store's flat CreatorContent shape. These back the real draft/edit/submit/review-
 // comment/version-history flow (real backend only).
 
-export function useMyContents() {
-  return useQuery({ queryKey: ["my-contents"], queryFn: api.getMyContents });
+export function useMyContents(opts: { enabled?: boolean } = {}) {
+  return useQuery({ queryKey: ["my-contents"], queryFn: api.getMyContents, enabled: opts.enabled ?? true });
 }
 
 export function useMyContentDashboardCounts() {

@@ -1,22 +1,24 @@
-import { Controller, Get, UseGuards } from "@nestjs/common";
+import { Controller, Get } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { CreatorDashboardService } from "./creator-dashboard.service";
-import { RequireCreatorGuard } from "../common/guards/require-creator.guard";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
+import { DomainException } from "../common/errors/domain-error";
 import type { AuthenticatedUser } from "../common/guards/jwt-auth.guard";
 
-// Same creator-facing convention as CreatorSalesController — RequireCreatorGuard (approved-creator
-// check), never @RequirePermissions (this isn't staff RBAC), ownership scoped by the JWT's own
-// creatorId, never a route param a creator could tamper with to read someone else's numbers.
+// Deliberately NOT gated by RequireCreatorGuard (which requires an *approved* application) — same
+// reasoning as CreatorProfileController/CreatorNotificationsController: a creator whose application
+// is still SUBMITTED/UNDER_REVIEW must still be able to see their own cabinet (with real, if mostly
+// zero, numbers) rather than being bounced back to a bare onboarding-status page. Ownership is
+// enforced by scoping every query to the JWT's own creatorId, same as those two controllers.
 @ApiTags("creator/dashboard")
 @ApiBearerAuth("bearer")
-@UseGuards(RequireCreatorGuard)
 @Controller("creator/dashboard-stats")
 export class CreatorDashboardController {
   constructor(private dashboard: CreatorDashboardService) {}
 
   @Get()
   get(@CurrentUser() user: AuthenticatedUser) {
-    return this.dashboard.getStats(user.creatorId!);
+    if (!user.creatorId) throw new DomainException("FORBIDDEN", "Bu endpoint faqat creatorlar uchun.");
+    return this.dashboard.getStats(user.creatorId);
   }
 }
