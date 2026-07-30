@@ -9,6 +9,13 @@ builder = "DOCKERFILE"
 dockerfilePath = "apps/api/Dockerfile"
 
 [deploy]
+# Runs once per deploy, before the new image's process starts (Railway's pre-deploy step — not
+# baked into the Dockerfile CMD, so multiple replicas never race each other into applying the same
+# migration concurrently). Both commands run from the repo root (this service's Root Directory),
+# hence --workspace=@sofsavdo/api. No psql/pg_dump binary involved — prisma:migrate:deploy talks to
+# Postgres over DATABASE_URL via Prisma's own client, and seed:admin is plain Node/Prisma, so
+# nothing here depends on a database CLI being present in the runtime container.
+preDeployCommand = "npm run prisma:migrate:deploy --workspace=@sofsavdo/api && npm run seed:admin --workspace=@sofsavdo/api"
 # Terminus-free by design (see src/health/health.controller.ts) — only Postgres gates readiness;
 # a Redis outage degrades but never fails this check, matching Phase 14's health-check design.
 healthcheckPath = "/health/ready"
