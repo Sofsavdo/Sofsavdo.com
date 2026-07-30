@@ -35,12 +35,12 @@ export default function AdminProductsPage() {
         <div className="flex gap-2">
           <Button asChild size="sm">
             <Link href="/admin/products/launch">
-              <Rocket className="mr-1.5 size-4" /> Yangi mahsulot (to&apos;liq)
+              <Rocket className="mr-1.5 size-4" /> Yangi mahsulot
             </Link>
           </Button>
           <Button asChild size="sm" variant="outline">
             <Link href="/admin/products/new">
-              <Plus className="mr-1.5 size-4" /> Faqat mahsulot
+              <Plus className="mr-1.5 size-4" /> Faqat mahsulot (kengaytirilgan)
             </Link>
           </Button>
         </div>

@@ -57,12 +57,18 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
           <CardTitle>Shu productga qurilgan Offerlar</CardTitle>
         </CardHeader>
         {relatedOffers.length === 0 ? (
-          <p className="font-body text-sm text-text-muted">
-            Hali offer yaratilmagan.{" "}
-            <Link href={`/admin/offers/new?productId=${product.id}`} className="text-accent underline">
-              Offer yaratish
+          <div className="flex flex-col gap-2">
+            <Alert tone="warning">
+              Bu mahsulot hali hech qanday offerga ulanmagan — shu sababli u buyer katalogida ham, creator
+              kampaniyalari ro&apos;yxatida ham ko&apos;rinmaydi.
+            </Alert>
+            <Link
+              href={`/admin/products/launch?productId=${product.id}`}
+              className="w-fit font-body text-sm text-accent underline"
+            >
+              Tezkor rejimda offer va creator kampaniyasini yaratish (bir necha maydon, darhol jonli)
             </Link>
-          </p>
+          </div>
         ) : (
           <ul className="divide-y divide-border">
             {relatedOffers.map((o) => (

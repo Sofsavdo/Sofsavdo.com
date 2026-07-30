@@ -2499,3 +2499,85 @@ structure and standard `COPY --chown=`/`RUN mkdir`/`chown` semantics. The diagno
 fix (the `STORAGE_ERROR` wrapping) was already confirmed working against real production — it's
 what surfaced the exact error this ADR fixes. The permission fix itself awaits the user's next
 Railway deploy for real confirmation.
+
+## ADR-047: Quick Product Launch — Collapsing 4 Forms Into 1, and Fixing "Created But Invisible"
+
+**Context:** the admin created a product through the admin panel, and it showed up for neither
+buyers nor creators. Separately, the admin described the creation process itself as too complex —
+too many fields to fill in, too many screens to understand.
+
+**Root cause of "invisible": two independent gaps, not one bug.** `Product` alone is never
+buyer/creator-facing — `OffersService.listCatalog` (the buyer catalog query) requires
+`Offer.status === "ACTIVE"`, and `CampaignsService.listForCreator` requires
+`Campaign.status === "ACTIVE"`; `LandingPage` similarly requires `status === "PUBLISHED"` for its
+public route. The admin panel has two entry points at `/admin/products`: "Faqat mahsulot" (`/admin/
+products/new`), which creates *only* a bare `Product` row with no Offer/Campaign at all, and "Yangi
+mahsulot (to'liq)" (the pre-existing `ProductLaunchWizard`, `/admin/products/launch`), a 4-step
+flow that does create an Offer/Landing/Campaign — but `OffersService.create`/`CampaignsService.
+create` both default `status` to `DRAFT` (a deliberate stored-status-vs-computed-availability
+design, see the `OfferStatus` schema comment), and the wizard never calls the separate `activate()`
+transition on either. So even the "full" wizard left a newly-created product invisible until the
+admin *separately* remembered to open the Offer and Campaign and activate each — a step the
+4-screen flow gave no indication was still required.
+
+**Root cause of "too complex": the granular admin forms are appropriately rich for power users,
+not for the common case.** `CampaignForm` alone has ~20 fields (many required by its frontend zod
+schema even where the backend DTO leaves them optional — `description`/`goal`/`targetAudience`
+`min(10)`/`min(5)`/`min(5)` in `schemas-admin.ts`, none of them actually required by
+`CreateCampaignDto`). Cross-checking backend DTOs directly, the true *required* minimum across all
+four creates is just: Product `name`/`slug`/`type`; Offer `productId`/`name`/`slug`/`headline`/
+`priceMinor`; Campaign `offerId`/`name`/`slug`/`category`/`ctaLabel`/`commissionType`(+paired
+value). Everything else has a defensible generic default.
+
+**Fix — `QuickProductLaunchForm`** (`apps/web/src/components/admin/QuickProductLaunchForm.tsx`),
+now the default action at `/admin/products/launch`: one screen, ~8 fields (name, type, photo(s),
+short description, sale price, optional compare-at price, optional supplier/cost price, optional
+category, creator commission type + value). On submit it calls the *same existing* backend
+endpoints the old wizard already used — no new backend code — but in a sequence that also
+**activates** the Offer, **publishes** the Landing, and **activates** the Campaign, so "mahsulot
+yaratish" and "buyer/creator uchun jonli" happen as one action instead of two the admin has to
+remember. Every non-essential field (headline, CTA copy, payment options, platforms, attribution
+window, application deadline, creator limit, landing sections) gets a sensible default — the admin
+never sees or has to understand these concepts to publish a product. `requiresApproval` on the
+Campaign defaults to `false` (creators can join immediately), matching the "just make it work with
+minimum admin effort" goal of this specific flow. If any step in the sequence throws, whatever
+already succeeded (Product/Offer/Campaign) is surfaced with a direct link so nothing already
+created is lost or hidden from the admin (same resilience pattern the old wizard already used
+client-side).
+
+**The already-stuck bare-Product case** (exactly what the admin hit) is fixed at the source: the
+Product detail page's "Hali offer yaratilmagan" (no offer yet) notice now links to `/admin/products/
+launch?productId=<id>`, which renders the same quick form with the product-creation step skipped —
+attach a price + commission to an existing orphaned Product in one screen, rather than the
+old link into the granular standalone Offer form (which still left Campaign/activation undone).
+
+**Kept, not removed:** the original 4-step `ProductLaunchWizard` remains reachable at `/admin/
+products/launch/advanced` and the standalone `ProductForm`/`OfferForm`/`CampaignForm` pages are
+untouched, for the real cases that need per-field control (multiple price variants, custom CTA
+copy, follower-count gating, requiring campaign-join approval, etc.) — this is an additional fast
+path, not a replacement for granular editing.
+
+**A real gap the first browser run caught:** `CampaignsService.activate()` refuses to transition to
+`ACTIVE` when `contentFormats` is empty (a config-completeness check — see `campaigns.service.ts`'s
+`CONFIG_INCOMPLETE` check, requiring non-empty `category`/`ctaLabel`/`platforms`/`contentFormats`).
+The form's first default passed `contentFormats: []`, so the very first live test produced exactly
+the "created but not live" symptom this feature exists to eliminate — a real 409 surfaced in the
+UI's own partial-failure recovery panel, not a silent failure. Fixed by defaulting `contentFormats`
+to a generic non-empty list (`["Post", "Reels", "Story"]`); re-run confirmed the fix.
+
+**Verification:** `tsc --noEmit`/`eslint` clean on `apps/web` (one pre-existing-convention `<img>`
+LCP lint warning, same as `ProductForm.tsx`, left unsuppressed). Real end-to-end browser
+walkthrough against the Railway test database, logged in as a freshly-bootstrapped super-admin:
+quick-created a product with a price and a percentage commission; network trace confirmed every
+step in order (`Product` 201 → `Offer` 201 → `Offer/activate` 201 → `Landing` 201 → 5×
+`landing-sections` 201 → `Landing/publish` 201 → `Campaign` 201 → `Campaign/activate` 201) and the
+success screen with working links to all three created records. Confirmed live in `/catalog`
+(buyer-facing) by browser navigation — both the fixed and (leftover, pre-fix) test products
+appeared correctly priced. Creator-side visibility was confirmed by direct means rather than a
+full creator-account login/approval round trip: the network trace shows `Campaign.status` reached
+`ACTIVE` via a genuine `201` on `/activate`, and `CampaignsService.computeAvailability()` (read
+directly) returns `LIVE` for any `ACTIVE` campaign with null `startDate`/`endDate` — exactly what
+this form produces — which is the same condition `listForCreator` filters on. Also confirmed the
+"orphaned product, no offer" recovery path: `/admin/products/launch?productId=<id>` correctly
+skipped the product-creation fields and attached a real Offer + Campaign to an existing bare
+Product.

@@ -3467,4 +3467,40 @@ user's own action are done: a real `docker build` has been run and verified for 
 Railway project exists and is serving real traffic at the real domain, real Click.uz production
 credentials have been entered, and the production database has a bootstrapped admin account. The
 checklists in RUNBOOK.md/DEPLOYMENT.md remain the reference for anything further
+
+## Phase R — Real Production Incident Fixes: API Container Permissions + Quick Product Launch — DONE (2026-07-30)
+
+Two real production issues reported directly by the operating admin, both traced to their actual
+root cause rather than patched symptomatically.
+
+- **Product image upload 500 in production**: root cause was `apps/api/Dockerfile`'s runtime stage
+  missing `--chown=sofsavdo:sofsavdo` on its `COPY --from=` lines — the exact same class of bug
+  already fixed for the web container in ADR-045, now confirmed present in the API container too.
+  `LocalDiskStorage`'s runtime `mkdir` of its uploads directory failed with `EACCES` because
+  `/app/apps/api` stayed root-owned after the container switched to its unprivileged user. Also
+  surfaced that production has no `STORAGE_DRIVER=s3` configured — files live on the container's
+  ephemeral disk, not durable cloud storage; flagged as a follow-up decision for the user
+  (switch to `S3Storage`, already fully implemented, or mount a Railway Volume). See ADR-046.
+- **Admin created a product, but neither buyers nor creators could see it, and creation felt too
+  complex**: two independent causes. First, `Product` alone (or even the old 4-step
+  `ProductLaunchWizard`) never activated the created `Offer`/`Campaign` — both default to `DRAFT`,
+  and buyer/creator visibility strictly requires `ACTIVE`. Second, the granular admin forms
+  (~20 fields on `CampaignForm` alone) are appropriately rich for power users but too much for the
+  common "just launch a product" case. Built `QuickProductLaunchForm` — one screen with ~8 fields
+  that orchestrates the same existing Product/Offer/Landing/Campaign endpoints but also activates/
+  publishes each, so a product is buyer- and creator-visible the moment it's created. Also fixed
+  the exact stuck-product scenario at its source: the Product detail page's "no offer yet" notice
+  now links to the quick-launch form pre-attached to that product via `?productId=`. The original
+  step-by-step wizard remains available at `/admin/products/launch/advanced` for admins who need
+  per-field control. See ADR-047.
+- **Verification**: `tsc --noEmit`/`eslint` clean on `apps/web`. Full real browser walkthrough
+  against the Railway test database, logged in as a freshly-bootstrapped admin: quick-launched a
+  product end to end (network trace confirmed every step through `Campaign/activate` returning
+  `201`), confirmed it live in `/catalog`; a first live attempt caught a real gap
+  (`CampaignsService.activate()` rejects an empty `contentFormats`) via its own genuine 409 error,
+  fixed, and re-confirmed working. Separately confirmed the orphaned-product recovery path by
+  creating a bare Product, then quick-launching an Offer + Campaign onto it via `?productId=`. The
+  API Dockerfile fix could not be verified with a live `docker build` (Docker Desktop daemon
+  unavailable in this environment) — verified by manual reading of the Dockerfile and standard
+  `COPY --chown=`/`RUN mkdir` semantics instead; awaits the user's next Railway deploy to confirm.
 for each once the user is ready to perform them.
