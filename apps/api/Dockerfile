@@ -50,24 +50,29 @@ FROM node:22-alpine AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
 RUN addgroup -S sofsavdo && adduser -S sofsavdo -G sofsavdo
-COPY --from=prod-deps /app/node_modules ./node_modules
+COPY --from=prod-deps --chown=sofsavdo:sofsavdo /app/node_modules ./node_modules
 # Same non-hoisting behavior as the build stage's deps, just for the prod-only dependency subset —
 # verified `@nestjs/terminus` (a real runtime dependency, used by HealthController) is one of the
 # packages `npm ci --omit=dev` places only here, never in the root node_modules.
-COPY --from=prod-deps /app/apps/api/node_modules ./apps/api/node_modules
-COPY --from=build /app/apps/api/dist ./apps/api/dist
+COPY --from=prod-deps --chown=sofsavdo:sofsavdo /app/apps/api/node_modules ./apps/api/node_modules
+COPY --from=build --chown=sofsavdo:sofsavdo /app/apps/api/dist ./apps/api/dist
 # The generated Prisma Client (query engine + JS bindings from `prisma generate` in the build
 # stage) lands in the *root* node_modules — npm workspaces hoists it there, it is never nested
 # under apps/api/node_modules — and prod-deps' plain `npm ci --omit=dev` never generates it
 # (no schema.prisma is present at that stage), so it must be layered in from build separately.
-COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
-COPY apps/api/package.json ./apps/api/package.json
+COPY --from=build --chown=sofsavdo:sofsavdo /app/node_modules/.prisma ./node_modules/.prisma
+COPY --chown=sofsavdo:sofsavdo apps/api/package.json ./apps/api/package.json
 # Schema + migrations only (not seed.ts/scripts/ — those are dev/CI-only, run via `docker exec`
 # or a separate CI step, never baked into what this image starts automatically; see the
 # "Production must never run destructive seed logic automatically" requirement in ENVIRONMENT.md).
-COPY apps/api/prisma/schema.prisma ./apps/api/prisma/schema.prisma
-COPY apps/api/prisma/migrations ./apps/api/prisma/migrations
-COPY apps/api/prisma.config.ts ./apps/api/prisma.config.ts
+COPY --chown=sofsavdo:sofsavdo apps/api/prisma/schema.prisma ./apps/api/prisma/schema.prisma
+COPY --chown=sofsavdo:sofsavdo apps/api/prisma/migrations ./apps/api/prisma/migrations
+COPY --chown=sofsavdo:sofsavdo apps/api/prisma.config.ts ./apps/api/prisma.config.ts
+# LocalDiskStorage (the default StoragePort when STORAGE_DRIVER isn't "s3") mkdir's this directory
+# at runtime the first time a file is stored — must exist and be owned by the unprivileged user
+# *before* USER switches to it, or the mkdir fails with EACCES (confirmed in production: a real
+# product-image upload's 500 traced to exactly this).
+RUN mkdir -p /app/apps/api/uploads && chown sofsavdo:sofsavdo /app/apps/api/uploads
 USER sofsavdo
 WORKDIR /app/apps/api
 EXPOSE 4000

@@ -2450,3 +2450,52 @@ matching (the same rooted, non-glob exact-path semantics already confirmed for t
 **not** by a live `docker build`, since the local Docker daemon wasn't running in this environment at
 the time (`docker info` failed to reach `dockerDesktopLinuxEngine`). Disclosed honestly rather than
 claimed as tested: the next real Railway deploy is the actual confirmation.
+
+## ADR-046: Real Product-Image Upload 500 in Production — API Container Had the Same Ownership Bug as ADR-045's Web Container, Plus It Revealed Production Runs Local Disk Storage, Not S3
+
+**Context:** after ADR-044/045 shipped, the user tried uploading a real product image in production
+and got a generic 500 (`"Kutilmagan xatolik yuz berdi."`) with nothing actionable in the browser
+console. Getting the real Railway server logs required two round-trips (the user twice pasted
+browser console output instead) before the actual backend log line surfaced.
+
+**Diagnostic step first, root cause second.** Rather than guess at the production storage
+misconfiguration, `UploadsService.uploadImage` was changed to wrap any `StoragePort.put()` failure
+in a `DomainException("STORAGE_ERROR", ...)` carrying the real underlying error message (previously
+any storage-adapter failure fell through to `AllExceptionsFilter`'s generic 500 body, with the real
+cause visible only in server-side logs the user had no way to pull). This alone was committed and
+deployed first (`5c7d9d4`), and it worked exactly as intended: the next attempt's server log showed
+the real cause instead of a dead end.
+
+**Real cause:** `EACCES: permission denied, mkdir '/app/apps/api/uploads'` — two things this
+revealed at once. First, production has no `STORAGE_DRIVER=s3` configured, so `STORAGE_PORT`'s
+factory (see `apps/api/src/storage/storage.module.ts`) resolves to `LocalDiskStorage`, not
+`S3Storage` as had been assumed — every file storage path in production, including the pre-existing
+`CampaignMediaService`, depends on a writable local disk inside the container. Second,
+`apps/api/Dockerfile`'s runtime stage has the **exact same ownership bug as ADR-045's web
+container**: it creates a `sofsavdo` user/group, copies every build artifact via plain `COPY
+--from=` (no `--chown`), and only then switches to `USER sofsavdo` — leaving `/app/apps/api`
+root-owned, so `LocalDiskStorage`'s first-write `mkdir` of its uploads directory fails.
+
+**Fix:** added `--chown=sofsavdo:sofsavdo` to every `COPY --from=` line in the runtime stage
+(matching ADR-045's web-container fix exactly), plus one addition the web fix didn't need: an
+explicit `RUN mkdir -p /app/apps/api/uploads && chown sofsavdo:sofsavdo /app/apps/api/uploads`
+before the `USER` switch, so the directory exists and is owned correctly from container start
+rather than relying on `LocalDiskStorage`'s own runtime `mkdir` succeeding against an
+already-`--chown`'d but not-yet-created parent path.
+
+**Not fixed here, flagged for a follow-up decision:** local disk storage inside an ephemeral
+Railway container means every uploaded product image is lost on the next redeploy or restart — this
+permission fix makes uploads *work*, not *durable*. The codebase already fully supports
+`S3Storage` (`apps/api/src/storage/s3.storage.ts`, S3-API-compatible so it covers AWS S3, Cloudflare
+R2, or GCS's S3 mode) behind the same `StoragePort` interface; switching production to it is just
+setting `STORAGE_DRIVER=s3` plus real bucket/credential env vars, with zero application code
+changes. Alternatively, a Railway Volume mounted at `apps/api/uploads` would make local disk
+storage durable without an external provider. Either way, this is a real decision for the user to
+make, not something to pick silently.
+
+**Verification:** same disclosed limitation as ADR-045 — no live `docker build` (Docker Desktop
+daemon unavailable in this environment), verified by manual reading of the Dockerfile's stage
+structure and standard `COPY --chown=`/`RUN mkdir`/`chown` semantics. The diagnostic half of this
+fix (the `STORAGE_ERROR` wrapping) was already confirmed working against real production — it's
+what surfaced the exact error this ADR fixes. The permission fix itself awaits the user's next
+Railway deploy for real confirmation.
