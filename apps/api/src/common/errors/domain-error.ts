@@ -106,7 +106,8 @@ export type ErrorCode =
   | "INVALID_COMPETITION_TRANSITION"
   | "INVALID_AMOUNT"
   | "POST_URL_REQUIRED"
-  | "BIO_COMPLIANCE_REQUIRED";
+  | "BIO_COMPLIANCE_REQUIRED"
+  | "STORAGE_ERROR";
 
 const STATUS_BY_CODE: Partial<Record<ErrorCode, number>> = {
   VALIDATION_ERROR: 400,
@@ -208,6 +209,10 @@ const STATUS_BY_CODE: Partial<Record<ErrorCode, number>> = {
   INVALID_AMOUNT: 400,
   POST_URL_REQUIRED: 400,
   BIO_COMPLIANCE_REQUIRED: 403,
+  // A genuine infra/adapter failure (e.g. StoragePort.put() rejecting), not a client mistake —
+  // matches AI_GENERATION_FAILED's precedent of a 5xx for "the server-side dependency failed",
+  // distinct from every other code above, which is 4xx because the client did something wrong.
+  STORAGE_ERROR: 500,
 };
 
 // The one exception type application/domain code should throw for business-rule failures —

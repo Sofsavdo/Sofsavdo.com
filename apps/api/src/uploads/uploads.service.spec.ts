@@ -53,4 +53,15 @@ describe("UploadsService", () => {
     ).rejects.toMatchObject({ code: "MEDIA_TOO_LARGE" });
     expect(storage.put).not.toHaveBeenCalled();
   });
+
+  // A real S3/storage-adapter failure (bad credentials, missing bucket, network) previously
+  // surfaced only as AllExceptionsFilter's generic "Kutilmagan xatolik yuz berdi." with the real
+  // cause visible only in server-side logs — confirmed against a real production 500 that gave no
+  // actionable detail. Re-thrown as a DomainException carrying the underlying message instead.
+  it("wraps a storage-layer failure with the underlying error message, not a bare 500", async () => {
+    storage.put.mockRejectedValue(new Error("The specified bucket does not exist"));
+    await expect(
+      service.uploadImage({ buffer: PNG_1X1, originalname: "photo.png", mimetype: "image/png", size: PNG_1X1.length }),
+    ).rejects.toMatchObject({ code: "STORAGE_ERROR", message: expect.stringContaining("The specified bucket does not exist") });
+  });
 });

@@ -37,7 +37,19 @@ export class UploadsService {
     }
 
     const storageKey = `product-images/${Date.now()}-${normalizeFilename(file.originalname)}`;
-    const stored = await this.storage.put(storageKey, file.buffer, sniffed);
-    return { url: stored.publicUrl };
+    try {
+      const stored = await this.storage.put(storageKey, file.buffer, sniffed);
+      return { url: stored.publicUrl };
+    } catch (err) {
+      // Without this, any storage-layer failure (S3 credentials/bucket/network misconfiguration —
+      // exactly the kind of thing that only ever shows up the first time a feature actually
+      // exercises the storage layer against real production config) surfaced only as
+      // AllExceptionsFilter's generic "Kutilmagan xatolik yuz berdi." with the real cause visible
+      // only in server-side logs. Re-thrown as a DomainException so the underlying message reaches
+      // the admin directly — this is an internal admin-only endpoint, not a public one, so
+      // surfacing the storage adapter's own error text here is a reasonable diagnostic tradeoff.
+      const reason = err instanceof Error ? err.message : String(err);
+      throw new DomainException("STORAGE_ERROR", `Faylni saqlashda xatolik: ${reason}`);
+    }
   }
 }
