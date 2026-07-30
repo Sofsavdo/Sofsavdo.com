@@ -2377,3 +2377,39 @@ platform, handle, follower count, clickable profile link) and `contentNiches` (b
 of the generic key/value grid entirely rather than crammed into a single cell.
 
 **Verification:** `tsc --noEmit`/`eslint` clean on both apps.
+
+## ADR-044: Real Product Image Upload (No More Pasting an External URL)
+
+**Context:** every place in the admin panel that referenced an image — Product, and the Landing
+section editor's "Rasm nomlari" (image names) field — was a plain text input: the admin typed a
+raw URL or filename, one per line, with zero connection to the StorageModule/StoragePort
+infrastructure that already exists (built for Campaign media, Phase A4). `ProductForm.tsx` didn't
+even have an images field at all — `images: existing?.images ?? []` silently carried forward
+whatever a product already had, meaning a brand-new product always got zero images and an existing
+one's images could never be changed from that form. The user asked for the ability to upload a file
+directly from their computer instead.
+
+**What was NOT done, deliberately:** a full CampaignMedia-equivalent system (dedicated model,
+cover/gallery roles, width/height metadata, alt text, reordering) for products. `Product.images` is
+just a `string[]` of URLs today — building a matching rich media model for it would be
+over-engineering relative to what the schema actually needs. `validateAndExtractMedia`'s aspect-
+ratio enforcement (a strict 3:4 portrait check) is also specifically a Campaign-media requirement
+(social-story/reel format) with no bearing on a normal product photo, so it's deliberately not
+reused here — only the shared, non-campaign-specific pieces (`sniffMimeType`,
+`ALLOWED_IMAGE_MIME_TYPES`, `normalizeFilename`) are.
+
+**What was built:** a small, generic `POST /admin/uploads/image` endpoint
+(`apps/api/src/uploads/`) — validates real file bytes (not just the declared Content-Type) against
+JPEG/PNG/WEBP, enforces the existing configurable `media.maxImageBytes` ceiling, stores via the
+already-`@Global()` `STORAGE_PORT`, and returns `{ url }`. `ProductForm.tsx` now manages `images` as
+real, editable local state (add via file picker, remove via an per-thumbnail X button) instead of
+silently carrying forward `existing.images`.
+
+**Verification:** `tsc --noEmit`/`eslint` clean on both apps; new `uploads.service.spec.ts` (3/3:
+stores a valid image and returns its URL, rejects a file whose real bytes aren't a known image
+format, rejects an oversized file); a real end-to-end check against the running dev server — logged
+in as the seeded super-admin, POSTed a real PNG to `/admin/uploads/image`, got back a working public
+URL, and confirmed that URL actually serves the image (`200`, `image/png`) — the Browser tool can't
+drive a native OS file picker, so this direct-request check is the strongest available proof of the
+server-side path; the widget's own wiring (`onChange` → mutation → the same proven endpoint) was
+verified by reading the code, not guessed.

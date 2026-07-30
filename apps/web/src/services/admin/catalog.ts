@@ -13,6 +13,12 @@ export function useAdminProduct(id: string) {
   return useQuery({ queryKey: ["admin-products", id], queryFn: () => api.getProduct(id), enabled: !!id });
 }
 
+// Plain upload — no cache to invalidate, just returns the stored file's public URL for the caller
+// (ProductForm's image list) to append to local form state.
+export function useUploadImage() {
+  return useMutation({ mutationFn: (file: File) => api.uploadImage(file) });
+}
+
 export function useCreateProduct() {
   const qc = useQueryClient();
   return useMutation({

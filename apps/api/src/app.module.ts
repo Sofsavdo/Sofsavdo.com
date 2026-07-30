@@ -19,6 +19,7 @@ import { CreatorApplicationsModule } from "./creator-applications/creator-applic
 import { CreatorProfileModule } from "./creator-profile/creator-profile.module";
 import { StorageModule } from "./storage/storage.module";
 import { CampaignMediaModule } from "./campaign-media/campaign-media.module";
+import { UploadsModule } from "./uploads/uploads.module";
 import { DeliveryModule } from "./delivery/delivery.module";
 import { ReferralsModule } from "./referrals/referrals.module";
 import { ContentModule } from "./content/content.module";
@@ -78,6 +79,7 @@ import configuration from "./config/configuration";
     LandingsModule,
     CampaignsModule,
     CampaignMediaModule,
+    UploadsModule,
     DeliveryModule,
     CreatorApplicationsModule,
     CreatorProfileModule,

@@ -1064,6 +1064,16 @@ export async function setCampaignMediaCover(mediaId: string): Promise<CampaignMe
   return mapBackendCampaignMedia(await apiRequest<BackendCampaignMedia>(`/admin/campaign-media/${mediaId}/set-cover`, { method: "PATCH" }));
 }
 
+// A plain image-upload endpoint — not part of the CampaignMedia domain above (Product.images is
+// just a `string[]` of URLs, not a dedicated media model with cover/gallery roles), used by
+// ProductForm's image field so an admin uploads a real file instead of pasting an external URL.
+export async function uploadImage(file: File): Promise<string> {
+  const fd = new FormData();
+  fd.append("file", file);
+  const { url } = await apiRequest<{ url: string }>("/admin/uploads/image", { method: "POST", body: fd });
+  return url;
+}
+
 export async function reorderCampaignMedia(campaignId: string, orderedIds: string[]): Promise<CampaignMediaItem[]> {
   const items = await apiRequest<BackendCampaignMedia[]>(`/admin/campaigns/${campaignId}/media/reorder`, { method: "POST", body: { orderedIds } });
   return items.map(mapBackendCampaignMedia);

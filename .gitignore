@@ -25,12 +25,14 @@ coverage/
 npm-debug.log*
 logs/
 
-# Uploads / local file storage (LocalDiskStorage dev fallback, default STORAGE_LOCAL_DIR — never
-# committed). Deliberately NOT a bare `storage/` pattern: that also matched the real source
-# directory apps/api/src/storage/ (StorageModule/StoragePort/adapters) and silently kept it out of
-# every commit since it was introduced — a fresh clone (e.g. a Railway build) failed with
-# "Cannot find module './storage/storage.module'" until this was caught and fixed.
-uploads/
+# Uploads / local file storage (LocalDiskStorage dev fallback, default STORAGE_LOCAL_DIR, resolved
+# relative to apps/api's own cwd — never committed). Anchored to that exact runtime path, not a
+# bare `uploads/`: a bare pattern matches ANY directory named "uploads" anywhere in the repo,
+# including the real source module apps/api/src/uploads/ (UploadsModule/UploadsController/
+# UploadsService, added for the admin product-image-upload feature) — the exact same class of bug
+# already found once for a bare `storage/` pattern hiding apps/api/src/storage/ (see git history),
+# caught here before it repeated.
+apps/api/uploads/
 public/uploads/
 
 # Local databases / dumps

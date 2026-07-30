@@ -186,6 +186,8 @@ export type {
   ReferralRuleInput,
 } from "./admin-real";
 
+export const uploadImage = (file: File) => realAdmin.uploadImage(file);
+
 export const getCampaignMedia = (campaignId: string) => realAdmin.getCampaignMedia(campaignId);
 export const uploadCampaignMedia = (campaignId: string, input: realAdmin.UploadMediaInput) => realAdmin.uploadCampaignMedia(campaignId, input);
 export const replaceCampaignCover = (campaignId: string, input: realAdmin.UploadMediaInput) => realAdmin.replaceCampaignCover(campaignId, input);

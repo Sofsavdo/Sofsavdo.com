@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
+import { X } from "lucide-react";
 import type { Product } from "@sofsavdo/types";
-import { Alert, Button, Card, CardHeader, CardTitle, SelectField, TextAreaField, TextField } from "@sofsavdo/ui";
+import { Alert, Button, Card, CardHeader, CardTitle, IconButton, SelectField, TextAreaField, TextField } from "@sofsavdo/ui";
 import { productSchema, type ProductInput } from "@/lib/schemas-admin";
-import { useCreateProduct, useUpdateProduct } from "@/services/admin/catalog";
+import { useCreateProduct, useUpdateProduct, useUploadImage } from "@/services/admin/catalog";
 import { ApiError } from "@/lib/api/admin";
 
 // Only title/shortDescription — the two ProductAiDraft fields that actually have a home in this
@@ -39,6 +40,13 @@ export function ProductForm({
   const router = useRouter();
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
+  const uploadImage = useUploadImage();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  // Before this, this form silently carried forward `existing?.images` with no way to actually
+  // add or remove one — creating a new product always ended up with zero images, and editing one
+  // could never change them. Real, editable state now; the admin uploads a file directly instead
+  // of pasting an external image-hosting URL (see DECISIONS.md's Product Image Upload ADR).
+  const [images, setImages] = useState<string[]>(existing?.images ?? []);
 
   const {
     register,
@@ -70,6 +78,14 @@ export function ProductForm({
 
   const mutation = existing ? updateProduct : createProduct;
 
+  async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting the same file later
+    if (!file) return;
+    const url = await uploadImage.mutateAsync(file);
+    setImages((prev) => [...prev, url]);
+  }
+
   async function onSubmit(values: ProductInput) {
     const payload = {
       name: values.name,
@@ -79,7 +95,7 @@ export function ProductForm({
       sku: values.sku,
       costPriceMinor: values.costPriceMinor ? Math.round(Number(values.costPriceMinor) * 100) : undefined,
       internalNotes: values.internalNotes,
-      images: existing?.images ?? [],
+      images,
       attributes: existing?.attributes ?? [],
     };
     if (existing) {
@@ -116,6 +132,36 @@ export function ProductForm({
           <TextField label="Cost price (so'm)" type="number" {...register("costPriceMinor")} />
         </div>
         <TextAreaField label="Ichki izohlar (faqat admin ko'radi)" {...register("internalNotes")} />
+
+        <div>
+          <p className="mb-1.5 font-body text-sm font-medium text-text-primary">Rasmlar</p>
+          <div className="flex flex-wrap gap-3">
+            {images.map((url, index) => (
+              <div key={url} className="relative size-24 overflow-hidden rounded-input border border-border">
+                <img src={url} alt="" className="size-full object-cover" />
+                <IconButton
+                  type="button"
+                  aria-label="Rasmni o'chirish"
+                  size="sm"
+                  className="absolute right-1 top-1 bg-dark/60 text-white hover:bg-dark/80"
+                  onClick={() => setImages((prev) => prev.filter((_, i) => i !== index))}
+                >
+                  <X className="size-3.5" />
+                </IconButton>
+              </div>
+            ))}
+            <button
+              type="button"
+              disabled={uploadImage.isPending}
+              onClick={() => fileInputRef.current?.click()}
+              className="flex size-24 flex-col items-center justify-center gap-1 rounded-input border border-dashed border-border font-body text-xs text-text-muted hover:border-accent hover:text-accent"
+            >
+              {uploadImage.isPending ? "Yuklanmoqda..." : "+ Rasm yuklash"}
+            </button>
+          </div>
+          <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleFileSelect} />
+          {uploadImage.isError ? <p className="mt-1.5 font-body text-xs text-error">{(uploadImage.error as ApiError).message}</p> : null}
+        </div>
 
         {mutation.isError ? <Alert tone="error">{(mutation.error as ApiError).message}</Alert> : null}
 
