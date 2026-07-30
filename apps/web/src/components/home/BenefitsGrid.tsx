@@ -10,11 +10,13 @@ export interface BenefitsGridContent {
   items?: BenefitItem[];
 }
 
+// "Tezkor" (responsive), not "24/7" — only email support exists today (see LEGAL.md's Support
+// contact info note), so a round-the-clock claim would over-promise what a real customer gets.
 const DEFAULT_BENEFITS: BenefitItem[] = [
   { icon: "CreditCard", label: "Click va naqd to'lov" },
   { icon: "PackageCheck", label: "Original mahsulotlar" },
   { icon: "RotateCcw", label: "Oson qaytarish" },
-  { icon: "Headset", label: "24/7 qo'llab-quvvatlash" },
+  { icon: "Headset", label: "Tezkor qo'llab-quvvatlash" },
 ];
 
 export function BenefitsGrid({ content }: { content?: BenefitsGridContent }) {

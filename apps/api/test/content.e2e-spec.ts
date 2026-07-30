@@ -212,8 +212,15 @@ describe("Content (e2e)", () => {
         .expect(201);
       const contentId = created.body.id;
 
-      // 2. Edit while DRAFT
-      await request(app.getHttpServer()).patch(`/creator/contents/${contentId}`).set("Authorization", auth).send({ caption: "v1 caption edited" }).expect(200);
+      // 2. Edit while DRAFT — postUrl included here (Phase P — assertSubmittable now requires it
+      // alongside the attachment, see that method's own comment) rather than as a separate PATCH,
+      // since it's a durable Content field that stays set through the rest of this lifecycle
+      // (submit, resubmit) once written once.
+      await request(app.getHttpServer())
+        .patch(`/creator/contents/${contentId}`)
+        .set("Authorization", auth)
+        .send({ caption: "v1 caption edited", postUrl: "https://instagram.com/p/test-lifecycle-post" })
+        .expect(200);
 
       // 3. Submitting with zero attachments is rejected
       const noAttachment = await request(app.getHttpServer()).post(`/creator/contents/${contentId}/submit`).set("Authorization", auth).expect(400);
@@ -306,6 +313,8 @@ describe("Content (e2e)", () => {
       const created = await request(app.getHttpServer()).post(`/creator/campaigns/${campaignId}/contents`).set("Authorization", auth).send({ caption: "will be rejected" }).expect(201);
       const contentId = created.body.id;
       await request(app.getHttpServer()).post(`/creator/contents/${contentId}/attachments`).set("Authorization", auth).field("role", "ATTACHMENT").attach("file", buildTestPng(600, 400), "a.png").expect(201);
+      // Phase P — submit requires postUrl too (see the lifecycle test's own comment).
+      await request(app.getHttpServer()).patch(`/creator/contents/${contentId}`).set("Authorization", auth).send({ postUrl: "https://instagram.com/p/test-reject-flow" }).expect(200);
       await request(app.getHttpServer()).post(`/creator/contents/${contentId}/submit`).set("Authorization", auth).expect(201);
       await request(app.getHttpServer()).post(`/admin/contents/${contentId}/start-review`).set("Authorization", `Bearer ${adminAccessToken}`).expect(201);
 

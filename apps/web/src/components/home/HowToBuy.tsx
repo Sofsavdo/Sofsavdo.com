@@ -4,7 +4,7 @@ const STEPS = [
   { icon: Search, title: "Mahsulotni tanlang", body: "Katalogdan yoki tanlangan mahsulotlardan yoqqanini toping." },
   { icon: ClipboardList, title: "Buyurtma bering", body: "Ism va telefon raqamingizni kiriting, yetkazib berish manzilini tanlang." },
   { icon: CreditCard, title: "To'lovni amalga oshiring", body: "Click orqali onlayn yoki yetkazib berishda naqd to'lang." },
-  { icon: PackageCheck, title: "Yetkazib olamiz", body: "Buyurtmangiz holati haqida xabardor bo'lasiz va belgilangan manzilga yetkaziladi." },
+  { icon: PackageCheck, title: "Qabul qilib oling", body: "Buyurtmangiz holati haqida xabardor bo'lasiz va belgilangan manzilga yetkaziladi." },
 ];
 
 // Directly answers "how does a customer actually buy here" — WhySofsavdo/BenefitsGrid are trust

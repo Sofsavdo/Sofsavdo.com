@@ -2090,3 +2090,69 @@ database is pending that database's own availability (see this session's repeate
 reach database server` — a pre-existing, documented intermittent condition of this specific
 Railway-hosted test instance, unrelated to the migration's correctness) and will be retried before
 this work is considered fully verified.
+
+## ADR-039: Post-Launch Real-Traffic Fixes — Docker Builds, Storage Module, Creator Gating, Storefront
+
+**Context:** the first real production deploy attempt (Railway, real domain, real Click.uz
+credentials) surfaced several issues no test suite could have caught, since they were either
+infrastructure-config problems or UX gaps only visible once real people (not test fixtures) actually
+used the deployed site.
+
+**Finding 1 — both Dockerfiles assumed every npm workspace gets its own nested `node_modules`.**
+`apps/web/Dockerfile` copied a `apps/web/node_modules` that a clean `npm ci` never actually creates
+(everything hoists to root) — this alone broke the Railway build. `apps/api/Dockerfile` had the
+opposite bug in its generated-Prisma-client COPY: `apps/api/node_modules/.prisma` doesn't exist
+either (that also hoists to root), while a *different* handful of packages (`@nestjs/cli`'s `nest`
+binary in dev; `@nestjs/terminus` in prod) genuinely don't hoist and do need the nested copy kept.
+Verified all three claims directly: isolated `npm ci` runs in a scratch directory, then real
+`nest build`/`next build` against the result, before touching either Dockerfile.
+
+**Finding 2 — `.gitignore`'s bare `storage/` pattern silently excluded a real source directory.**
+`apps/api/src/storage/` (StorageModule, StoragePort, local-disk/S3 adapters) had never been part of
+any commit — the pattern meant only for the dev upload folder (`uploads/`, already covered
+separately) also matched this unrelated directory by name. A fresh clone (the Railway build) failed
+with `Cannot find module './storage/storage.module'` until this was caught; existed fine in every
+local working tree the whole time, which is exactly why it went unnoticed until a real clone.
+
+**Finding 3 — a pending (SUBMITTED/UNDER_REVIEW) creator was bounced entirely out of the cabinet.**
+Both `RequireCreatorGuard` (backend) and `CreatorAppGuard` (frontend) required a fully `APPROVED`
+application just to see the dashboard — a real registrant hitting this in production is what
+surfaced it. Fixed by splitting "can enter the cabinet at all" (`canEnterCabinet` —
+SUBMITTED/UNDER_REVIEW/APPROVED) from "can use earning-capable features" (`canWorkAsCreator` —
+APPROVED only); every referral/campaign/content/payout route stays locked (visibly, with a lock icon)
+until real approval, everything else opens as soon as there's nothing left to fill in.
+
+**Finding 4 — the public storefront had no navigation, no purchase-flow explanation, and no
+creator entry point that didn't require scrolling to the footer.** `/` and `/catalog` had no way to
+reach each other except one footer link; nothing on the homepage explained how a purchase actually
+works; a creator's own sign-up link sat at the very bottom of the page. Fixed with a shared
+`PublicHeader` (logo, Katalog, a top-level "Hamkorlik uchun" creator entry point, buyer login),
+a `HowToBuy` 4-step explainer, and a real, honest FOMO ticker (`PublicActivityService` — the last few
+actually-PAID/DELIVERED orders, anonymized to an offer name + city, never a name or amount) rather
+than any fabricated "N people viewing" counter, which `docs/PROHIBITED.md`'s "fabricated stats" rule
+already forbids.
+
+**Finding 5 — the three `/legal/*` pages were structural placeholders with a "DRAFT" banner.**
+Real, standard-form Terms of Service / Privacy Policy / Refund Policy content was written, grounded
+in this platform's actual behavior (Click.uz + cash-on-delivery, buyer/creator accounts, real
+Refund/Order states) — not a substitute for review by local counsel, but no longer an empty skeleton
+a real customer could land on. Checkout and both register forms (buyer, creator) gained a required
+ToS/Privacy consent checkbox, closing two gaps `LEGAL.md` had already flagged as open before a real
+launch.
+
+**Finding 6 (caught during this pass's own full e2e verification, not from production) —
+`content.e2e-spec.ts`'s submit-flow tests were failing against the *current* codebase.** Root cause:
+Phase P (`ContentService.assertSubmittable`) added a hard `postUrl` requirement at submit time after
+this test file was written, and the test was never updated to set one. Not a regression from this
+session's changes — a latent test/behavior drift from an earlier phase, surfaced by actually running
+the full e2e suite start to finish. Fixed by setting `postUrl` via the existing draft-update PATCH
+before both submit assertions.
+
+**Verification note:** `tsc --noEmit`/`eslint`/build clean on both apps; full backend unit suite
+(863/863, 69 suites); a real Docker build (once Docker access became available mid-session) confirmed
+the deps-only-copy web build and full api build/prisma-generate cycle end to end; a real, extended
+manual walkthrough (dev servers pointed at the real Railway test database) covering admin login,
+dashboard, creator-applications, products, the homepage CMS builder, plus a real creator registration
+→ SUBMITTED-status cabinet entry → locked-nav-item verification → direct-URL-to-locked-route
+redirect, all behaving exactly as designed; the full e2e suite re-run start to finish, catching and
+fixing Finding 6 above.

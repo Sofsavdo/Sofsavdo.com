@@ -3418,13 +3418,41 @@ Full details and reasoning in DECISIONS.md ADR-037 (vulnerability triage) and AD
   notification paths directly. No new features, no architecture changes — every change in this pass
   is a targeted fix to a previously-identified, re-confirmed production risk.
 
+## Post-Launch Real-Traffic Fixes — DONE (2026-07-30)
+
+Full details and reasoning in DECISIONS.md ADR-039. The first real production deploy (Railway, real
+domain, real Click.uz credentials) surfaced issues no test suite catches on its own — some
+infrastructure-config, some UX gaps only visible once real people used the deployed site. Summary:
+
+- **Docker builds fixed**: both Dockerfiles had wrong npm-workspaces hoisting assumptions (verified
+  directly via isolated `npm ci` + real `nest build`/`next build` before touching either file) —
+  `apps/web`'s broke the Railway build outright; `apps/api`'s generated-Prisma-client COPY path was
+  wrong in a way that would have broken it too.
+- **`.gitignore` fix**: a bare `storage/` pattern (meant only for the dev upload folder) had silently
+  excluded the real `apps/api/src/storage/` source module from every commit since it was introduced
+  — worked in every local tree, broke on the first fresh clone.
+- **Creator gating fixed**: a SUBMITTED/UNDER_REVIEW creator was bounced entirely out of the cabinet
+  instead of just being locked out of earning-capable features — a real registrant hit this. Split
+  "enter the cabinet" from "use earning features"; every money/referral route stays locked with a
+  visible lock icon until real approval.
+- **Public storefront navigation + content**: added a shared header (with a top-level creator
+  entry point, previously buried in the footer), a real purchase-flow explainer, a real (not
+  fabricated) recent-activity FOMO ticker, and full content for the three `/legal/*` pages (previously
+  DRAFT placeholders) plus a required ToS/Privacy consent checkbox at checkout and both register forms.
+- **Test-suite drift caught and fixed**: running the full e2e suite start to finish (not done since
+  well before this pass) surfaced `content.e2e-spec.ts`'s submit tests failing against current
+  behavior — Phase P added a `postUrl` requirement at submit time after this test was written; fixed
+  by updating the test, not the (correct) production code.
+- **Verification**: `tsc --noEmit`/`eslint`/build clean on both apps; full backend unit suite
+  (863/863); a real `docker build` for both images (Docker access became available mid-session); an
+  extended real manual walkthrough of both the admin and creator panels against the live Railway test
+  database; the full e2e suite re-run start to finish.
+
 ### A note on production launch itself
 
-The four items `PRODUCTION_READINESS.md` has flagged since Phase 14 as requiring the user's own
-action remain unchanged by this pass: (1) a real `docker build` has never been run (no Docker
-engine in this sandbox), (2) no real Railway project/GitHub Environment secrets exist yet, (3) real
-Click.uz production credentials (now confirmed contracted) have never been activated/tested against
-this codebase, (4) no production database has ever been bootstrapped. These require the user's own
-Railway account, domain registration, and Click merchant activation — seeing/handling those
-credentials is outside what this assistant does; RUNBOOK.md/DEPLOYMENT.md have the exact checklists
+As of this pass, all four items `PRODUCTION_READINESS.md` had flagged since Phase 14 as requiring the
+user's own action are done: a real `docker build` has been run and verified for both images, a real
+Railway project exists and is serving real traffic at the real domain, real Click.uz production
+credentials have been entered, and the production database has a bootstrapped admin account. The
+checklists in RUNBOOK.md/DEPLOYMENT.md remain the reference for anything further
 for each once the user is ready to perform them.

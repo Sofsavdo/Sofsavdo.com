@@ -12,6 +12,7 @@ export const registerSchema = z
     email: z.string().min(1, "Email kiritilishi shart").email("Email formati noto'g'ri"),
     password: z.string().min(6, "Parol kamida 6 belgidan iborat bo'lishi kerak"),
     confirmPassword: z.string().min(1, "Parolni tasdiqlang"),
+    termsAccepted: z.boolean().refine((v) => v === true, "Davom etish uchun shartlarga rozilik bildiring"),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Parollar mos kelmadi",
@@ -73,6 +74,7 @@ export const checkoutSchema = z.object({
   email: z.string().email("Email formati noto'g'ri").optional().or(z.literal("")),
   comment: z.string().optional(),
   paymentMethod: z.string().min(1, "To'lov usulini tanlang"),
+  termsAccepted: z.boolean().refine((v) => v === true, "Davom etish uchun shartlarga rozilik bildiring"),
 });
 export type CheckoutInput = z.infer<typeof checkoutSchema>;
 

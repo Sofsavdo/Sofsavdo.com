@@ -57,6 +57,22 @@ export default function BuyerRegisterPage() {
           {...register("confirmPassword")}
         />
 
+        <label className="flex items-start gap-2 font-body text-sm text-text-secondary">
+          <input type="checkbox" className="mt-0.5 size-4 shrink-0 rounded border-border" {...register("termsAccepted")} />
+          <span>
+            Men{" "}
+            <Link href="/legal/terms" target="_blank" className="text-accent underline">
+              Foydalanish shartlari
+            </Link>{" "}
+            va{" "}
+            <Link href="/legal/privacy" target="_blank" className="text-accent underline">
+              Maxfiylik siyosati
+            </Link>
+            ni o&apos;qib chiqdim va roziman.
+          </span>
+        </label>
+        {errors.termsAccepted ? <p className="-mt-2 font-body text-sm text-error">{errors.termsAccepted.message}</p> : null}
+
         {registerError ? <Alert tone="error">{registerError}</Alert> : null}
 
         <Button type="submit" disabled={registerPending} className="mt-2">

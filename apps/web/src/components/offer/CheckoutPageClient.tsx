@@ -240,6 +240,28 @@ export function CheckoutPageClient({ offerSlug }: { offerSlug: string }) {
 
           <PaymentMethodSelector methodIds={offer.paymentOptions} error={errors.paymentMethod?.message} {...register("paymentMethod")} />
 
+          {/* LEGAL.md gap #1 — checkout previously had no ToS/Privacy links or consent at all;
+              a customer could pay real money with zero acknowledgment of any policy. */}
+          <label className="flex items-start gap-2 font-body text-sm text-text-secondary">
+            <input type="checkbox" className="mt-0.5 size-4 shrink-0 rounded border-border" {...register("termsAccepted")} />
+            <span>
+              Men{" "}
+              <Link href="/legal/terms" target="_blank" className="text-accent underline">
+                Foydalanish shartlari
+              </Link>
+              ,{" "}
+              <Link href="/legal/privacy" target="_blank" className="text-accent underline">
+                Maxfiylik siyosati
+              </Link>{" "}
+              va{" "}
+              <Link href="/legal/refund-policy" target="_blank" className="text-accent underline">
+                Qaytarish siyosati
+              </Link>
+              ni o&apos;qib chiqdim va roziman.
+            </span>
+          </label>
+          {errors.termsAccepted ? <p className="-mt-2 font-body text-sm text-error">{errors.termsAccepted.message}</p> : null}
+
           <div className="rounded-input border border-border bg-bg p-4 font-body text-sm">
             <div className="flex justify-between text-text-secondary">
               <span>Narx</span>

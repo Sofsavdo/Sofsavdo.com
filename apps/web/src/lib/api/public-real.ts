@@ -179,3 +179,16 @@ export interface HomepageSection {
 export async function getHomepageSections(): Promise<HomepageSection[]> {
   return apiRequest<HomepageSection[]>("/homepage");
 }
+
+// Shape returned by PublicActivityService.getRecentActivity() — see that file's own comment for
+// why this never carries a creator name, an amount, or anything Commission-related.
+export interface PublicActivityEvent {
+  offerName: string;
+  city: string | null;
+  occurredAt: string;
+}
+
+// Real-backend only — brand-new public surface (homepage FOMO ticker), no legacy mock to preserve.
+export async function getRecentActivity(): Promise<PublicActivityEvent[]> {
+  return apiRequest<PublicActivityEvent[]>("/public/recent-activity");
+}

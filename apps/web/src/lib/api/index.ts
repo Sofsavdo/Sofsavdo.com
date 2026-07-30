@@ -52,6 +52,10 @@ export { getCatalog } from "./public-real";
 export type { HomepageSection } from "./public-real";
 export { getHomepageSections } from "./public-real";
 
+// Public homepage FOMO ticker — same convention: real backend only, brand-new public surface.
+export type { PublicActivityEvent } from "./public-real";
+export { getRecentActivity } from "./public-real";
+
 export const getCampaigns = (): Promise<Campaign[]> => (USE_REAL_API ? creatorRealApi.getCampaigns() : mockApi.apiGetCampaigns());
 
 export const getCampaign = (id: string): Promise<Campaign | null> =>
