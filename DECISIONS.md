@@ -2299,3 +2299,20 @@ list was empty before the `useNotifications` fix and populated correctly after i
 row-click Dialog opens with the full message, confirmed mark-as-read works end-to-end (badge and
 button disappear after confirming), and confirmed IN_APP-only scoping removed the duplicate-looking
 EMAIL row.
+
+**Addendum — admin-side discoverability gap.** The user separately asked why no "creator ariza
+yuborildi" alert reached the admin panel even though a real onboarding submission had happened.
+Traced this end to end: `OnboardingService.submitOrResubmit` correctly emits
+`ONBOARDING_SUBMITTED`, the listener correctly calls `dispatchToAdmins("onboarding.new", ...)`, and
+the `super_admin`/`admin`/`manager` roles all correctly carry `notification.read`
+(`seedRolesAndPermissions` resets each default role's permissions from
+`DEFAULT_ROLE_PERMISSIONS` on every run, so this can't silently drift) — confirmed directly against
+the real test database: the demo super-admin account already had 39 real unread IN_APP
+notifications sitting there, several literally titled "Yangi creator arizasi". The actual gap: the
+`/admin/notifications` nav item (`apps/web/src/components/admin/nav-items.ts`, under the last
+"Tizim" group) has always existed, but carried zero unread-count indicator — nothing ever
+prompted an admin to look. Fixed by adding a small unread-count badge to `AdminShell.tsx`'s
+`NavLink`, sourced from the same `useNotifications({ channel: "IN_APP", unreadOnly: true })` hook
+this ADR's main fix already made safe to reuse. Verified live: logged into the real test database
+as the seeded super-admin account, confirmed the badge renders the real unread count and the
+notifications page it links to shows genuine "Yangi creator arizasi" rows.

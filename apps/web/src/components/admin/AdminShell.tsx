@@ -8,17 +8,19 @@ import { cn } from "@sofsavdo/ui";
 import { BRAND } from "@sofsavdo/config/brand";
 import type { AdminRole } from "@sofsavdo/types";
 import { useAdminSession } from "@/services/adminSession";
+import { useNotifications } from "@/services/notifications";
 import { hasRole, ROLE_LABELS } from "@/lib/adminRouting";
 import { ADMIN_NAV_GROUPS, ADMIN_MOBILE_PRIMARY_HREFS } from "./nav-items";
 
 const DEV_ROLES: AdminRole[] = ["MANAGER", "ADMIN", "SUPER_ADMIN"];
 const isDev = process.env.NODE_ENV !== "production";
 
-function NavLink({ href, label, icon: Icon, active, onClick }: {
+function NavLink({ href, label, icon: Icon, active, badge, onClick }: {
   href: string;
   label: string;
   icon: (typeof ADMIN_NAV_GROUPS)[number]["items"][number]["icon"];
   active: boolean;
+  badge?: number;
   onClick?: () => void;
 }) {
   return (
@@ -31,7 +33,12 @@ function NavLink({ href, label, icon: Icon, active, onClick }: {
       )}
     >
       <Icon className="size-4 shrink-0" />
-      {label}
+      <span className="flex-1">{label}</span>
+      {badge ? (
+        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1.5 font-numeric text-[11px] font-semibold text-white">
+          {badge > 99 ? "99+" : badge}
+        </span>
+      ) : null}
     </Link>
   );
 }
@@ -40,6 +47,14 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { user, logout, devSwitchRole } = useAdminSession();
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // The one signal that a new creator/campaign application (or any other admin alert) actually
+  // arrived — before this, the "Bildirishnomalar" nav item was a plain link with zero indication
+  // anything was waiting, so a real submission could sit unnoticed indefinitely. IN_APP-only, same
+  // reasoning as the buyer notifications page: EMAIL/TELEGRAM delivery bookkeeping isn't a "did
+  // something happen" signal for the person reading this sidebar.
+  const unreadQuery = useNotifications({ channel: "IN_APP", unreadOnly: true, pageSize: 1 });
+  const unreadCount = unreadQuery.data?.total ?? 0;
 
   const visibleGroups = ADMIN_NAV_GROUPS.map((g) => ({
     ...g,
@@ -64,7 +79,13 @@ export function AdminShell({ children }: { children: ReactNode }) {
               ) : null}
               <div className="flex flex-col gap-0.5">
                 {group.items.map((item) => (
-                  <NavLink key={item.href} {...item} active={pathname.startsWith(item.href)} onClick={() => setDrawerOpen(false)} />
+                  <NavLink
+                    key={item.href}
+                    {...item}
+                    active={pathname.startsWith(item.href)}
+                    badge={item.href === "/admin/notifications" ? unreadCount : undefined}
+                    onClick={() => setDrawerOpen(false)}
+                  />
                 ))}
               </div>
             </div>
