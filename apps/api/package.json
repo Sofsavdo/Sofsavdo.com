@@ -19,6 +19,7 @@
     "prisma:studio": "prisma studio",
     "seed": "ts-node -r tsconfig-paths/register prisma/seed.ts",
     "bootstrap:admin": "ts-node -r tsconfig-paths/register prisma/bootstrap-admin.ts",
+    "seed:admin": "ts-node -r tsconfig-paths/register scripts/seed-admin.ts",
     "loadtest": "ts-node -r tsconfig-paths/register scripts/load-test.ts",
     "db:reset": "prisma migrate reset --force",
     "db:migrate:test": "dotenv -e .env.test -- prisma migrate deploy",
