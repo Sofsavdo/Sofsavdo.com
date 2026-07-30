@@ -50,7 +50,7 @@ function NewRoleContent() {
 
 export default function NewRolePage() {
   return (
-    <RoleGuard min="SUPER_ADMIN">
+    <RoleGuard permission="role.manage">
       <NewRoleContent />
     </RoleGuard>
   );

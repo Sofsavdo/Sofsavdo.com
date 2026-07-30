@@ -5,7 +5,6 @@ import type { CommissionStatus } from "@sofsavdo/types";
 import { formatMoneyMinor } from "@sofsavdo/types";
 import { Button, ConfirmModal, DataTableShell, MobileDataCard, StatusBadge, TextField } from "@sofsavdo/ui";
 import { useAdminSession } from "@/services/adminSession";
-import { hasRole } from "@/lib/adminRouting";
 import { useAdminCommissions, useApproveCommission, useCommissionSettlementList, useManualAdjustCommission, useMarkCommissionPayable, useRejectCommission } from "@/services/admin/finance";
 import { commissionStatusMeta } from "@/lib/status";
 import { formatCommissionValue } from "@/lib/commission-display";
@@ -25,7 +24,7 @@ function RealAdminCommissionsPage() {
   const markPayable = useMarkCommissionPayable();
   const [modal, setModal] = useState<{ id: string; mode: "reject" } | null>(null);
 
-  const canAdjust = hasRole(admin?.role, "ADMIN");
+  const canAdjust = admin?.permissions.includes("commission.adjust") ?? false;
   const items = query.data?.items ?? [];
 
   return (
@@ -187,7 +186,7 @@ function MockAdminCommissionsPage() {
   const [newAmount, setNewAmount] = useState("");
 
   const filtered = (query.data ?? []).filter((c) => c.creatorName.toLowerCase().includes(search.toLowerCase()) || c.campaignName.toLowerCase().includes(search.toLowerCase()));
-  const canAdjust = hasRole(admin?.role, "ADMIN");
+  const canAdjust = admin?.permissions.includes("commission.adjust") ?? false;
 
   return (
     <DataTableShell

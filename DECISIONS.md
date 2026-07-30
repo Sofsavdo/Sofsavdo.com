@@ -2316,3 +2316,35 @@ prompted an admin to look. Fixed by adding a small unread-count badge to `AdminS
 this ADR's main fix already made safe to reuse. Verified live: logged into the real test database
 as the seeded super-admin account, confirmed the badge renders the real unread count and the
 notifications page it links to shows genuine "Yangi creator arizasi" rows.
+
+## ADR-042: Custom Admin Roles Are Now Actually Reachable (Permission-Based Gating)
+
+**Context:** an audit of the Roles/RBAC domain (requested after the notifications investigation)
+confirmed a real bug: `AdminUser.role` was only a coarse 3-tier label (`MANAGER`/`ADMIN`/
+`SUPER_ADMIN`) derived from matching a role's KEY NAME against the three seeded defaults
+(`mapRoleKeysToAdminRole`, `apps/web/src/lib/api/admin-real.ts`) — any custom role created via the
+real Roles CRUD UI (Phase 12) fell back to the lowest tier regardless of what it was actually
+granted. Every full-page gate (`RoleGuard min="SUPER_ADMIN"` on Users/Roles/Settings) and every
+inline feature gate (`hasRole(admin?.role, "ADMIN")` for analytics export, commission manual
+adjustment, attribution override) checked this same coarse tier — so a custom role explicitly
+granted `user.manage`/`role.manage`/`settings.write`/`analytics.export`/etc. still couldn't reach
+the page or button that permission was for. The Roles CRUD feature could create these roles but
+they were then functionally unreachable for anything beyond the 3 defaults.
+
+**Fix:** the backend already computed the real, effective permission-key set per user
+(`RolesService.getRoleKeysAndPermissionsForUser`, used internally by `PermissionsGuard`) but never
+exposed it in the session response. `AuthService.getSessionSummary` now returns `permissions`
+alongside `roleKeys`; `AdminUser` (packages/types) gained a `permissions: string[]` field; every
+gate now checks `user.permissions.includes(realPermissionKey)` directly instead of the tier:
+`RoleGuard`'s prop changed from `min: AdminRole` to `permission: string` (roles/users/settings
+pages now require `role.read|role.manage`/`user.read|user.manage`/`settings.read` respectively,
+matching this file's existing read/manage split everywhere else), and the three inline `hasRole`
+checks now check `analytics.export`/`commission.adjust`/`attribution.override` directly.
+`AdminUser.role` and `ROLE_LABELS` stay — they're display-only now (sidebar footer, dev
+role-switcher), not an authorization boundary; `hasRole()`/`ROLE_RANK` were removed as dead code
+once nothing gated on them anymore. Mock mode's three demo admins (`admin-seed.ts`) were given a
+real permission list mirroring `DEFAULT_ROLE_PERMISSIONS` so the mock experience didn't regress.
+
+**Verification:** `tsc --noEmit`/`eslint` clean on both apps; `auth.service.spec.ts` (13/13); this
+was a same-day fix requested by the user immediately after the audit surfaced it, prioritized over
+documenting-and-deferring since custom admin roles are an active near-term need.

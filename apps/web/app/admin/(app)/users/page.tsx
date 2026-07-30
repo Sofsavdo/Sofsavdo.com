@@ -128,7 +128,7 @@ function UsersPageContent() {
 
 export default function AdminUsersPage() {
   return (
-    <RoleGuard min="SUPER_ADMIN">
+    <RoleGuard permission="user.read">
       <UsersPageContent />
     </RoleGuard>
   );

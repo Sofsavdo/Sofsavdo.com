@@ -27,6 +27,7 @@ export interface AuthResult {
     email: string | null;
     phone: string | null;
     roleKeys: string[];
+    permissions: string[];
     creatorId: string | null;
   };
 }
@@ -217,12 +218,13 @@ export class AuthService {
       include: { creatorProfile: true },
     });
     if (!user) throw new DomainException("NOT_FOUND", "Foydalanuvchi topilmadi.");
-    const { roleKeys } = await this.roles.getRoleKeysAndPermissionsForUser(userId);
+    const { roleKeys, permissions } = await this.roles.getRoleKeysAndPermissionsForUser(userId);
     return {
       id: user.id,
       email: user.email,
       phone: user.phone,
       roleKeys,
+      permissions,
       creatorId: user.creatorProfile?.id ?? null,
     };
   }

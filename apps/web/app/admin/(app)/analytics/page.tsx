@@ -10,7 +10,6 @@ import { useExecutiveAnalytics, useCreatorAnalyticsList, useCampaignAnalyticsLis
 import { RevenueTrendChart, OrderStatusBarChart, PaymentMixPieChart } from "@/components/admin/AnalyticsCharts";
 import { CampaignFilterSelect, CreatorFilterSelect } from "@/components/admin/AnalyticsEntityFilters";
 import { useAdminSession } from "@/services/adminSession";
-import { hasRole } from "@/lib/adminRouting";
 
 function downloadCsv(content: string, filename: string) {
   const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
@@ -47,10 +46,11 @@ const TILES: Array<{ key: keyof RealExecutiveMetrics; label: string; format: (v:
 export default function AdminAnalyticsPage() {
   const { filters, setRange, setFrom, setTo, setCompare, setFilter } = useAnalyticsFilters();
   const { user: admin } = useAdminSession();
-  // analytics.export is ADMIN+ only (RBAC.md) — hiding the button for MANAGER is UI-only
-  // convenience matching every other ADMIN+-only action elsewhere in the admin UI; the real
-  // boundary is the backend's @RequirePermissions("analytics.read", "analytics.export") guard.
-  const canExport = hasRole(admin?.role, "ADMIN");
+  // analytics.export is ADMIN+ only by default (RBAC.md) — checked against the real permission key
+  // (not a role tier — see DECISIONS.md's Roles/RBAC ADR) so a custom role granted this permission
+  // sees the button too. Hiding it otherwise is UI-only convenience; the real boundary is the
+  // backend's @RequirePermissions("analytics.read", "analytics.export") guard.
+  const canExport = admin?.permissions.includes("analytics.export") ?? false;
 
   const executive = useExecutiveAnalytics(filters);
   const topCreators = useCreatorAnalyticsList({ ...filters, pageSize: 5 });

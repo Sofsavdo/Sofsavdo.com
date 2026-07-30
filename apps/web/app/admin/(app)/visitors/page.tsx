@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Badge, Button, ConfirmModal, DataTableShell, MobileDataCard } from "@sofsavdo/ui";
 import { useAdminSession } from "@/services/adminSession";
-import { hasRole } from "@/lib/adminRouting";
 import { useAdminVisitors, useOverrideAttribution } from "@/services/admin/marketing";
 import { useAdminOrders } from "@/services/admin/orders";
 import { useAdminCreators } from "@/services/admin/creators";
@@ -20,7 +19,7 @@ export default function AdminVisitorsPage() {
   const filtered = (query.data ?? []).filter(
     (v) => v.offerName.toLowerCase().includes(search.toLowerCase()) || (v.creatorName ?? "").toLowerCase().includes(search.toLowerCase()),
   );
-  const canOverride = hasRole(admin?.role, "SUPER_ADMIN");
+  const canOverride = admin?.permissions.includes("attribution.override") ?? false;
 
   function orderIdForToken(token?: string) {
     return ordersQuery.data?.find((o) => o.publicToken === token)?.id;

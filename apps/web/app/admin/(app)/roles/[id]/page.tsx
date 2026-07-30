@@ -109,7 +109,7 @@ function RoleDetailContent({ id }: { id: string }) {
 export default function RoleDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   return (
-    <RoleGuard min="SUPER_ADMIN">
+    <RoleGuard permission="role.manage">
       <RoleDetailContent id={id} />
     </RoleGuard>
   );

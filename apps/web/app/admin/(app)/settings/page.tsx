@@ -96,7 +96,7 @@ function SettingsPageContent() {
 
 export default function AdminSettingsPage() {
   return (
-    <RoleGuard min="SUPER_ADMIN">
+    <RoleGuard permission="settings.read">
       <SettingsPageContent />
     </RoleGuard>
   );

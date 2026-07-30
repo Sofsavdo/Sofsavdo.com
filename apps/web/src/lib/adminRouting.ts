@@ -1,12 +1,10 @@
 import type { AdminRole } from "@sofsavdo/types";
 
-const ROLE_RANK: Record<AdminRole, number> = { MANAGER: 1, ADMIN: 2, SUPER_ADMIN: 3 };
-
-export function hasRole(role: AdminRole | undefined, min: AdminRole): boolean {
-  if (!role) return false;
-  return ROLE_RANK[role] >= ROLE_RANK[min];
-}
-
+// Display-only now — the coarse 3-tier role label shown in the sidebar footer and the dev
+// role-switcher. Real page/section gating checks AdminUser.permissions directly (RoleGuard,
+// AdminShell's nav filter) — see DECISIONS.md's Roles/RBAC ADR for why the old tier-based
+// `hasRole()` gate was removed (it silently locked custom roles out of pages they were actually
+// granted access to).
 export const ROLE_LABELS: Record<AdminRole, string> = {
   MANAGER: "Manager",
   ADMIN: "Admin",

@@ -45,7 +45,7 @@ function RolesPageContent() {
 
 export default function AdminRolesPage() {
   return (
-    <RoleGuard min="SUPER_ADMIN">
+    <RoleGuard permission="role.read">
       <RolesPageContent />
     </RoleGuard>
   );

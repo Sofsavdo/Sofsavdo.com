@@ -76,6 +76,7 @@ interface BackendSessionUser {
   email: string | null;
   phone: string | null;
   roleKeys: string[];
+  permissions: string[];
   creatorId: string | null;
 }
 
@@ -96,14 +97,16 @@ interface PaginatedResponse<T> {
 function mapSessionUserToAdminUser(user: BackendSessionUser): AdminUser {
   const role = mapRoleKeysToAdminRole(user.roleKeys);
   const displayName = user.email?.split("@")[0] ?? user.phone ?? "Admin";
-  return { id: user.id, email: user.email ?? "", displayName, role };
+  return { id: user.id, email: user.email ?? "", displayName, role, permissions: user.permissions };
 }
 
 // Phase 12 added real Roles CRUD, so a staff account can now hold only a custom role (neither
-// super_admin/admin/manager) — this coarse 3-tier mapping only drives frontend nav/section
-// visibility (see RoleGuard.tsx), so an unrecognized-but-present role key defaults to the lowest
-// tier rather than blocking login outright; the real authorization boundary is always the
-// backend's per-endpoint RequirePermissions check, unaffected by this fallback.
+// super_admin/admin/manager). This coarse 3-tier mapping is display-only now (ROLE_LABELS, the dev
+// role-switcher) — it used to also gate real UI visibility (RoleGuard's `min` prop, nav-items.ts's
+// `minRole`), which was a real bug: any custom role, no matter what it was actually granted, fell
+// back to the lowest tier and got silently locked out of pages it had real permission for. Fixed by
+// switching all of that to check `AdminUser.permissions` (the real, effective permission-key set)
+// directly instead of this tier — see DECISIONS.md's Roles/RBAC ADR.
 function mapRoleKeysToAdminRole(roleKeys: string[]): AdminRole {
   if (roleKeys.includes("super_admin")) return "SUPER_ADMIN";
   if (roleKeys.includes("admin")) return "ADMIN";

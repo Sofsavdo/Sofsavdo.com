@@ -9,7 +9,7 @@ import { BRAND } from "@sofsavdo/config/brand";
 import type { AdminRole } from "@sofsavdo/types";
 import { useAdminSession } from "@/services/adminSession";
 import { useNotifications } from "@/services/notifications";
-import { hasRole, ROLE_LABELS } from "@/lib/adminRouting";
+import { ROLE_LABELS } from "@/lib/adminRouting";
 import { ADMIN_NAV_GROUPS, ADMIN_MOBILE_PRIMARY_HREFS } from "./nav-items";
 
 const DEV_ROLES: AdminRole[] = ["MANAGER", "ADMIN", "SUPER_ADMIN"];
@@ -58,7 +58,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
   const visibleGroups = ADMIN_NAV_GROUPS.map((g) => ({
     ...g,
-    items: g.items.filter((item) => !item.minRole || hasRole(user?.role, item.minRole)),
+    items: g.items.filter((item) => !item.requiredPermission || (user?.permissions.includes(item.requiredPermission) ?? false)),
   })).filter((g) => g.items.length > 0);
 
   const mobilePrimary = visibleGroups.flatMap((g) => g.items).filter((i) => ADMIN_MOBILE_PRIMARY_HREFS.includes(i.href));

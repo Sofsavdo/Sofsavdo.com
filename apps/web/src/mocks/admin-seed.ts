@@ -8,10 +8,37 @@ import type {
 const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString();
 const daysFromNow = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString();
 
+// Mirrors apps/api/src/roles/permissions.constants.ts's default MANAGER/ADMIN/SUPER_ADMIN grants
+// (mocks never import backend code — see this file's own convention). Real mode's AdminUser.role
+// is only a display label now; RoleGuard/nav-items check `permissions` directly, so the mock users
+// need a real list here too or every RoleGuard-gated page would look "broken" in mock mode.
+const MANAGER_MOCK_PERMISSIONS = [
+  "product.read", "offer.read", "landing.read", "campaign.read", "application.read", "creator.read", "creator.review",
+  "content.read", "content.review", "referral.read", "attribution.read", "order.read", "order.update", "payment.read",
+  "commission.read", "payout.read", "analytics.read", "audit.read", "notification.read", "onboarding.read",
+  "onboarding.review", "refund.read", "homepage.read", "competition.read",
+];
+const ADMIN_MOCK_PERMISSIONS = [
+  ...MANAGER_MOCK_PERMISSIONS,
+  "product.write", "product.archive", "offer.write", "offer.publish", "offer.pause", "offer.archive", "landing.write",
+  "landing.publish", "landing.archive", "campaign.write", "campaign.publish", "campaign.pause", "campaign.complete",
+  "campaign.archive", "application.review", "application.approve", "application.reject", "application.revise",
+  "creator.suspend", "creator.compliance", "creator.tier", "content.approve", "content.reject", "content.revise",
+  "referral.manage", "referral.review", "referral.disqualify", "order.refund", "commission.adjust", "payout.approve",
+  "payout.pay", "analytics.export", "notification.manage", "onboarding.approve", "onboarding.reject",
+  "onboarding.revise", "refund.manage", "homepage.write", "competition.write", "competition.publish",
+  "competition.complete", "competition.archive",
+];
+const SUPER_ADMIN_MOCK_PERMISSIONS = [
+  ...ADMIN_MOCK_PERMISSIONS,
+  "creator.block", "attribution.override", "settings.read", "settings.write", "user.read", "user.manage",
+  "role.read", "role.manage",
+];
+
 export const ADMIN_USERS: Record<string, AdminUser> = {
-  "manager@sofsavdo.com": { id: "admin_manager", email: "manager@sofsavdo.com", displayName: "Ozoda Mirzayeva", role: "MANAGER" },
-  "admin@sofsavdo.com": { id: "admin_admin", email: "admin@sofsavdo.com", displayName: "Sherzod Nabiyev", role: "ADMIN" },
-  "super@sofsavdo.com": { id: "admin_super", email: "super@sofsavdo.com", displayName: "Kamron Tursunov", role: "SUPER_ADMIN" },
+  "manager@sofsavdo.com": { id: "admin_manager", email: "manager@sofsavdo.com", displayName: "Ozoda Mirzayeva", role: "MANAGER", permissions: MANAGER_MOCK_PERMISSIONS },
+  "admin@sofsavdo.com": { id: "admin_admin", email: "admin@sofsavdo.com", displayName: "Sherzod Nabiyev", role: "ADMIN", permissions: ADMIN_MOCK_PERMISSIONS },
+  "super@sofsavdo.com": { id: "admin_super", email: "super@sofsavdo.com", displayName: "Kamron Tursunov", role: "SUPER_ADMIN", permissions: SUPER_ADMIN_MOCK_PERMISSIONS },
 };
 
 export const PRODUCTS: Product[] = [

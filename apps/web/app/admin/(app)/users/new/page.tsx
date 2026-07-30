@@ -61,7 +61,7 @@ function NewStaffUserContent() {
 
 export default function NewStaffUserPage() {
   return (
-    <RoleGuard min="SUPER_ADMIN">
+    <RoleGuard permission="user.manage">
       <NewStaffUserContent />
     </RoleGuard>
   );

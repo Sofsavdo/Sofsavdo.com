@@ -27,13 +27,15 @@ import {
   Home,
   Trophy,
 } from "lucide-react";
-import type { AdminRole } from "@sofsavdo/types";
-
 export interface AdminNavItem {
   href: string;
   label: string;
   icon: LucideIcon;
-  minRole?: AdminRole;
+  // The real permission key required to see this item — checked against AdminUser.permissions
+  // (AdminShell.tsx), not the coarse role-tier label. See DECISIONS.md's Roles/RBAC ADR: gating
+  // this on a role tier silently hid these pages from any custom role, no matter what it was
+  // actually granted.
+  requiredPermission?: string;
 }
 
 export interface AdminNavGroup {
@@ -101,9 +103,9 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
     label: "Tizim",
     items: [
       { href: "/admin/notifications", label: "Bildirishnomalar", icon: Bell },
-      { href: "/admin/users", label: "Foydalanuvchilar", icon: UserCog, minRole: "SUPER_ADMIN" },
-      { href: "/admin/roles", label: "Rollar", icon: ShieldCheck, minRole: "SUPER_ADMIN" },
-      { href: "/admin/settings", label: "Sozlamalar", icon: Settings, minRole: "SUPER_ADMIN" },
+      { href: "/admin/users", label: "Foydalanuvchilar", icon: UserCog, requiredPermission: "user.read" },
+      { href: "/admin/roles", label: "Rollar", icon: ShieldCheck, requiredPermission: "role.read" },
+      { href: "/admin/settings", label: "Sozlamalar", icon: Settings, requiredPermission: "settings.read" },
       { href: "/admin/audit-log", label: "Audit log", icon: History },
     ],
   },

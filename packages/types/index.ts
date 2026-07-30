@@ -559,6 +559,12 @@ export interface AdminUser {
   email: string;
   displayName: string;
   role: AdminRole;
+  // The real, effective permission-key set from the user's actual assigned role(s) — the source of
+  // truth for what a custom (non-default) role can access. `role` above is only a coarse 3-tier
+  // label derived from role KEY NAME for display/dev-switcher purposes; gating UI visibility on it
+  // alone silently locks out any custom role regardless of what it was actually granted (see
+  // DECISIONS.md's Roles/RBAC ADR).
+  permissions: string[];
 }
 
 export interface Product {
