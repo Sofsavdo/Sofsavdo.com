@@ -2178,3 +2178,53 @@ fixing Findings 6, 7, and 8 above. The one remaining non-green result in that fu
 in isolation as the same single timeout (29/30 passing) with no assertion failure; given it's an
 unrelated, pre-existing, DB-latency-shaped multi-step test untouched by any change in this session,
 it's recorded here as an environment artifact, not a confirmed logic bug.
+
+## ADR-040: SEO/Discoverability Baseline — Structured Data, Sitemap, Robots
+
+**Context:** searching the brand name "Sofsavdo" surfaced unrelated `.uz`/`.ru` domains ahead of
+`sofsavdo.com` itself. Zero SEO infrastructure existed before this: no `robots.txt`, no sitemap, a
+one-line `<title>`/`<description>` with no Open Graph/Twitter/canonical tags, no structured data,
+and no `public/` directory at all (no favicon, no logo asset of any kind).
+
+**What this can and cannot fix.** Ranking #1 for a brand-name query against already-indexed
+competing domains, and appearing in AI-assistant answers, both depend on external factors no code
+change controls directly: domain age, inbound links, competitor content, Google's own algorithm,
+and — for AI systems — what got crawled/trained and whether the assistant does a live web search at
+all. This ADR closes the technical gap that was actually missing (the site being properly
+describable and crawlable); it does not and cannot guarantee a ranking position or an AI mention.
+
+**What was added:**
+- `packages/config/brand.ts` gained `url` and `tagline` — reused for every piece below instead of
+  re-declaring the same domain/URL string per file.
+- `apps/web/app/layout.tsx`: full `Metadata` — `metadataBase`, a title template, keywords,
+  `alternates.canonical`, `openGraph`, `twitter`, plus Organization + WebSite JSON-LD
+  (`schema.org`) in the document `<head>`. JSON-LD's `sameAs` is deliberately left empty rather
+  than filled with guessed social-profile URLs — claiming an account this session doesn't actually
+  control would be a false structured-data claim, not a helpful one.
+- `apps/web/app/icon.tsx`: a generated brand-colored monogram favicon (`next/og`'s
+  `ImageResponse`) — there was no logo asset anywhere in the repo to use instead; this only
+  replaces a blank/browser-default tab icon, not a real designed logo.
+- `apps/web/app/robots.ts`: allows the real public surface (`/`, `/catalog`, `/o/*`, `/legal/*`,
+  and the register/login/forgot-password entry points), disallows every authenticated
+  admin/creator/buyer dashboard route — those have zero SEO value and indexing them would only
+  leak internal URL structure.
+- `apps/web/app/sitemap.ts`: static public routes plus every live offer's `/o/[slug]` landing
+  page, paginating through the existing public `GET /offers/catalog` endpoint (capped at 20 pages
+  — far beyond this catalog's current real scale — with the same defensive `.catch` pattern
+  `/catalog` and `/` already use, so a backend hiccup shrinks the sitemap rather than 500ing it).
+- `apps/web/public/llms.txt`: a short, honest plain-text summary of what Sofsavdo is and links to
+  its real public pages, following the emerging (unofficial, but harmless) convention of giving
+  AI/LLM crawlers a direct, low-noise summary alongside the human-facing site.
+
+**Explicitly out of scope of this ADR (require the user's own action, not a code change):**
+registering the domain with Google Search Console / Yandex Webmaster and submitting the sitemap;
+any backlink-building or off-site content; clarifying whether the competing `.uz`/`.ru` domains
+seen in search results are related to this business at all (if they are, e.g. an old placeholder
+domain, a redirect or a callout on the homepage would help; if unrelated, this is closer to a
+trademark/brand-confusion question than an SEO one) — worth a direct answer from the user before
+any further action here.
+
+**Verification:** `tsc --noEmit`/`eslint` clean; a full `next build` confirmed `/icon`,
+`/robots.txt`, and `/sitemap.xml` all generate as static routes; a live dev-server check confirmed
+the rendered `<head>` carries the new title/description/OG/canonical/favicon and both JSON-LD
+blocks, and that `/robots.txt` serves the expected allow/disallow rules.

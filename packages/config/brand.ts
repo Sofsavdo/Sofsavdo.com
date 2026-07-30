@@ -7,4 +7,6 @@ export const BRAND = {
   name: "Sofsavdo",
   supportEmail: "support@sofsavdo.com",
   domain: "sofsavdo.com",
+  url: "https://sofsavdo.com",
+  tagline: "Ishonchli creator-affiliate savdo platformasi",
 } as const;

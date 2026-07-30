@@ -12,14 +12,58 @@ import { BRAND } from "@sofsavdo/config/brand";
 const inter = Inter({ subsets: ["latin", "cyrillic"], variable: "--font-inter", display: "swap" });
 const manrope = Manrope({ subsets: ["latin", "cyrillic"], variable: "--font-manrope", display: "swap" });
 
+// Organization + WebSite JSON-LD — the standard structured-data signal search engines (and any
+// crawler-fed AI system) use to resolve an ambiguous brand-name query to the real, official site
+// rather than an unrelated same-name domain. sameAs is left empty rather than filled with guessed
+// social-profile URLs — an official account we don't actually control would be a false claim.
+const organizationJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: BRAND.name,
+  url: BRAND.url,
+  logo: `${BRAND.url}/icon`,
+  description: BRAND.tagline,
+};
+
+const websiteJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: BRAND.name,
+  url: BRAND.url,
+};
+
 export const metadata: Metadata = {
-  title: BRAND.name,
-  description: `${BRAND.name} — yopiq creator affiliate commerce platformasi`,
+  metadataBase: new URL(BRAND.url),
+  title: {
+    default: `${BRAND.name} — ${BRAND.tagline}`,
+    template: `%s | ${BRAND.name}`,
+  },
+  description: `${BRAND.name} (${BRAND.domain}) — tanlangan mahsulotlar, ishonchli to'lov va tez yetkazib berish. Rasmiy sayt.`,
+  keywords: [BRAND.name, "Sofsavdo", BRAND.domain, "sofsavdo online do'kon", "sofsavdo creator"],
+  alternates: { canonical: BRAND.url },
+  robots: { index: true, follow: true },
+  openGraph: {
+    type: "website",
+    locale: "uz_UZ",
+    siteName: BRAND.name,
+    title: `${BRAND.name} — ${BRAND.tagline}`,
+    description: `${BRAND.name} (${BRAND.domain}) — rasmiy sayt.`,
+    url: BRAND.url,
+  },
+  twitter: {
+    card: "summary",
+    title: BRAND.name,
+    description: `${BRAND.name} (${BRAND.domain}) — rasmiy sayt.`,
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="uz" className={`${inter.variable} ${manrope.variable}`}>
+      <head>
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }} />
+      </head>
       <body className="font-body antialiased">
         <Providers>{children}</Providers>
       </body>

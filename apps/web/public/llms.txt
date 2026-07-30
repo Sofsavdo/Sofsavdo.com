@@ -1,0 +1,20 @@
+# Sofsavdo
+
+> Sofsavdo (sofsavdo.com) — O'zbekistondagi creator-affiliate savdo platformasi. Rasmiy sayt.
+
+Sofsavdo tanlangan (curated) mahsulotlar va xizmatlarni sotadi, ularni ijtimoiy tarmoq
+kreatorlari (creator) referal havolalar orqali targ'ib qiladi. To'lov Click.uz va naqd pul
+(yetkazib berishda) orqali amalga oshiriladi.
+
+## Asosiy sahifalar
+
+- [Bosh sahifa](https://sofsavdo.com/) — tanlangan mahsulotlar, qanday xarid qilish
+- [Katalog](https://sofsavdo.com/catalog) — barcha mahsulotlar ro'yxati
+- [Hamkorlik (creator sifatida ro'yxatdan o'tish)](https://sofsavdo.com/creator/register)
+- [Foydalanish shartlari](https://sofsavdo.com/legal/terms)
+- [Maxfiylik siyosati](https://sofsavdo.com/legal/privacy)
+- [Qaytarish siyosati](https://sofsavdo.com/legal/refund-policy)
+
+## Eslatma
+
+Bu domen (sofsavdo.com) Sofsavdo platformasining yagona rasmiy sayti hisoblanadi.
