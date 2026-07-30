@@ -59,9 +59,9 @@ export default function PrivacyPolicyPage() {
       <h2>5. Foydalanuvchi huquqlari</h2>
       <ul>
         <li>O&apos;zingiz haqingizda saqlanayotgan ma&apos;lumotlarni ko&apos;rish — shaxsiy kabinet (Profil
-          bo&apos;limi) orqali yoki {BRAND.supportEmail} ga murojaat qilib;</li>
+          bo&apos;limi) orqali yoki Telegram: @{BRAND.supportTelegram} ga murojaat qilib;</li>
         <li>Ma&apos;lumotlarni to&apos;g&apos;irlash — profil sozlamalari orqali;</li>
-        <li>Ma&apos;lumotlarni o&apos;chirishni so&apos;rash — {BRAND.supportEmail} ga yozib (qonuniy saqlash
+        <li>Ma&apos;lumotlarni o&apos;chirishni so&apos;rash — Telegram: @{BRAND.supportTelegram} ga yozib (qonuniy saqlash
           majburiyati bo&apos;lgan yozuvlar bundan mustasno).</li>
       </ul>
 
@@ -81,7 +81,7 @@ export default function PrivacyPolicyPage() {
 
       <h2>8. Bog&apos;lanish uchun kontakt</h2>
       <p>
-        Maxfiylik bo&apos;yicha savol yoki so&apos;rovlar uchun: <a href={`mailto:${BRAND.supportEmail}`} className="text-accent underline">{BRAND.supportEmail}</a>
+        Maxfiylik bo&apos;yicha savol yoki so&apos;rovlar uchun: <a href={BRAND.supportTelegramUrl} target="_blank" rel="noopener noreferrer" className="text-accent underline">Telegram @{BRAND.supportTelegram}</a>
       </p>
     </LegalPage>
   );

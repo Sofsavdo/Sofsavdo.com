@@ -91,7 +91,7 @@ export default function OrderSuccessPage({ params }: { params: Promise<{ orderId
       </Card>
 
       <p className="mt-6 text-center font-body text-xs text-text-muted">
-        Savol yuzasidan {BRAND.supportEmail} manziliga murojaat qiling.
+        Savol yuzasidan Telegram: @{BRAND.supportTelegram} orqali murojaat qiling.
       </p>
     </div>
   );

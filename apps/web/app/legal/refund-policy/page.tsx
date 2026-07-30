@@ -36,7 +36,7 @@ export default function RefundPolicyPage() {
 
       <h2>3. Qaytarish so&apos;rovini yuborish tartibi</h2>
       <ol>
-        <li>Buyurtma raqamingiz bilan {BRAND.supportEmail} manziliga murojaat qiling yoki shaxsiy kabinetdagi
+        <li>Buyurtma raqamingiz bilan Telegram: @{BRAND.supportTelegram} manziliga murojaat qiling yoki shaxsiy kabinetdagi
           buyurtma tafsilotlari sahifasidan qaytarish so&apos;rovini yuboring;</li>
         <li>Qaytarish sababini va (agar mavjud bo&apos;lsa) mahsulot holatini tasdiqlovchi rasmlarni
           qo&apos;shing;</li>
@@ -73,7 +73,7 @@ export default function RefundPolicyPage() {
 
       <h2>7. Bog&apos;lanish</h2>
       <p>
-        Qaytarish bo&apos;yicha barcha savollar uchun: <a href={`mailto:${BRAND.supportEmail}`} className="text-accent underline">{BRAND.supportEmail}</a>
+        Qaytarish bo&apos;yicha barcha savollar uchun: <a href={BRAND.supportTelegramUrl} target="_blank" rel="noopener noreferrer" className="text-accent underline">Telegram @{BRAND.supportTelegram}</a>
       </p>
     </LegalPage>
   );

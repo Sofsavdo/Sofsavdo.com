@@ -71,7 +71,7 @@ export default function TermsPage() {
         Platforma mahsulotlarning sifatini ta&apos;minlash uchun oqilona choralar ko&apos;radi, biroq
         yetkazib berish muddatidagi kechikish, uchinchi tomon (Click.uz, kuryerlik xizmati) tomonidan
         yuzaga kelgan uzilishlar uchun to&apos;liq javobgarlikni o&apos;z zimmasiga olmaydi. Bunday holatlarda
-        Platforma muammoni hal qilishga ko&apos;maklashadi va {BRAND.supportEmail} orqali murojaatlarni
+        Platforma muammoni hal qilishga ko&apos;maklashadi va Telegram: @{BRAND.supportTelegram} orqali murojaatlarni
         ko&apos;rib chiqadi.
       </p>
 
@@ -91,7 +91,7 @@ export default function TermsPage() {
 
       <h2>8. Bog&apos;lanish</h2>
       <p>
-        Savol yoki shikoyatlar bo&apos;yicha: <a href={`mailto:${BRAND.supportEmail}`} className="text-accent underline">{BRAND.supportEmail}</a>
+        Savol yoki shikoyatlar bo&apos;yicha: <a href={BRAND.supportTelegramUrl} target="_blank" rel="noopener noreferrer" className="text-accent underline">Telegram @{BRAND.supportTelegram}</a>
       </p>
     </LegalPage>
   );

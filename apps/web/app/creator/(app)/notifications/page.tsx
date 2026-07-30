@@ -2,13 +2,19 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import type { RealNotificationChannel } from "@sofsavdo/types";
-import { Alert, Badge, Button, Card, EmptyState, Skeleton } from "@sofsavdo/ui";
+import type { RealNotification, RealNotificationChannel } from "@sofsavdo/types";
+import { Alert, Badge, Button, Card, Dialog, EmptyState, Skeleton } from "@sofsavdo/ui";
 import { useMarkAllNotificationsRead, useMarkNotificationRead, useNotifications } from "@/services/notifications";
-import { notificationChannelMeta, notificationDeliveryStatusMeta, notificationTypeMeta } from "@/lib/status";
+import { notificationChannelMeta, notificationDeliveryStatusMeta } from "@/lib/status";
 
 const USE_REAL_API = process.env.NEXT_PUBLIC_API_MODE === "real";
 const CHANNELS: RealNotificationChannel[] = ["IN_APP", "TELEGRAM", "EMAIL"];
+
+// Matches packages/ui/src/components/Field.tsx's shared `controlClasses` (not exported — this is
+// a compact inline filter, not a labeled form field, so SelectField's visible-label wrapper would
+// look wrong here) so this select doesn't visually drift from every other control on the page.
+const selectClasses =
+  "h-10 rounded-input border border-border bg-surface px-3 font-body text-sm text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent";
 
 function RealNotificationsPage() {
   const [channel, setChannel] = useState<RealNotificationChannel | "ALL">("ALL");
@@ -17,6 +23,7 @@ function RealNotificationsPage() {
   const query = useNotifications({ channel: channel === "ALL" ? undefined : channel, unreadOnly: unreadOnly || undefined, page, pageSize: 20 });
   const markRead = useMarkNotificationRead();
   const markAllRead = useMarkAllNotificationsRead();
+  const [selected, setSelected] = useState<RealNotification | null>(null);
 
   const items = query.data?.items ?? [];
 
@@ -50,7 +57,7 @@ function RealNotificationsPage() {
             setChannel(e.target.value as RealNotificationChannel | "ALL");
             setPage(1);
           }}
-          className="h-10 rounded-input border border-border bg-bg px-3 font-body text-sm"
+          className={selectClasses}
         >
           <option value="ALL">Barcha kanallar</option>
           {CHANNELS.map((c) => (
@@ -80,27 +87,29 @@ function RealNotificationsPage() {
       ) : (
         <Card>
           <ul className="divide-y divide-border">
-            {items.map((n) => {
-              const meta = notificationTypeMeta[n.type] ?? { label: n.type, tone: "neutral" as const };
-              return (
-                <li key={n.id} className="flex items-start justify-between gap-4 py-3">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="font-body text-sm font-semibold text-text-primary">{meta.label}</p>
-                      {!n.readAt ? <Badge tone="accent">Yangi</Badge> : null}
-                      <Badge tone="neutral">{notificationChannelMeta[n.channel]?.label ?? n.channel}</Badge>
-                      {n.channel !== "IN_APP" ? <Badge tone={notificationDeliveryStatusMeta[n.status].tone}>{notificationDeliveryStatusMeta[n.status].label}</Badge> : null}
-                    </div>
-                    <p className="mt-1 font-body text-xs text-text-muted">{new Date(n.createdAt).toLocaleString("uz-UZ")}</p>
+            {items.map((n) => (
+              <li key={n.id} className="flex items-start justify-between gap-3 py-3">
+                <button
+                  type="button"
+                  onClick={() => setSelected(n)}
+                  className="flex min-w-0 flex-1 flex-col items-start gap-1 rounded-input text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="line-clamp-2 break-words font-body text-sm font-semibold text-text-primary">{n.title}</p>
+                    {!n.readAt ? <Badge tone="accent">Yangi</Badge> : null}
+                    <Badge tone="neutral">{notificationChannelMeta[n.channel]?.label ?? n.channel}</Badge>
+                    {n.channel !== "IN_APP" ? <Badge tone={notificationDeliveryStatusMeta[n.status].tone}>{notificationDeliveryStatusMeta[n.status].label}</Badge> : null}
                   </div>
-                  {!n.readAt ? (
-                    <Button size="sm" variant="ghost" disabled={markRead.isPending} onClick={() => markRead.mutate(n.id)}>
-                      O&apos;qildi
-                    </Button>
-                  ) : null}
-                </li>
-              );
-            })}
+                  <p className="line-clamp-2 break-words font-body text-xs text-text-secondary">{n.body}</p>
+                  <p className="font-body text-xs text-text-muted">{new Date(n.createdAt).toLocaleString("uz-UZ")}</p>
+                </button>
+                {!n.readAt ? (
+                  <Button size="sm" variant="ghost" className="shrink-0" disabled={markRead.isPending} onClick={() => markRead.mutate(n.id)}>
+                    O&apos;qildi
+                  </Button>
+                ) : null}
+              </li>
+            ))}
           </ul>
           {query.data && query.data.totalPages > 1 ? (
             <div className="mt-4 flex items-center justify-between">
@@ -117,6 +126,27 @@ function RealNotificationsPage() {
           ) : null}
         </Card>
       )}
+
+      <Dialog open={!!selected} onClose={() => setSelected(null)} title={selected?.title ?? ""} description={selected ? new Date(selected.createdAt).toLocaleString("uz-UZ") : undefined}>
+        {selected ? (
+          <div className="space-y-4">
+            <p className="whitespace-pre-wrap break-words font-body text-sm text-text-secondary">{selected.body}</p>
+            {!selected.readAt ? (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={markRead.isPending}
+                onClick={() => {
+                  markRead.mutate(selected.id);
+                  setSelected(null);
+                }}
+              >
+                O&apos;qildi deb belgilash
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
+      </Dialog>
     </div>
   );
 }

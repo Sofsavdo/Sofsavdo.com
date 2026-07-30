@@ -11,8 +11,8 @@ export default function BuyerSupportPage() {
           <CardTitle>Biz bilan bog&apos;laning</CardTitle>
         </CardHeader>
         <p className="font-body text-sm text-text-secondary">Savollaringiz bo&apos;lsa, bemalol yozing.</p>
-        <a href={`mailto:${BRAND.supportEmail}`} className="mt-2 inline-block font-body font-medium text-accent underline">
-          {BRAND.supportEmail}
+        <a href={BRAND.supportTelegramUrl} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block font-body font-medium text-accent underline">
+          Telegram: @{BRAND.supportTelegram}
         </a>
       </Card>
       <Card>

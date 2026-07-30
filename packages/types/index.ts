@@ -1004,6 +1004,8 @@ export interface RealNotification {
   channel: RealNotificationChannel;
   type: string;
   payload: Record<string, unknown>;
+  title: string;
+  body: string;
   readAt?: string;
   status: RealNotificationDeliveryStatus;
   createdAt: string;

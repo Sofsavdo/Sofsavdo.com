@@ -2228,3 +2228,74 @@ any further action here.
 `/robots.txt`, and `/sitemap.xml` all generate as static routes; a live dev-server check confirmed
 the rendered `<head>` carries the new title/description/OG/canonical/favicon and both JSON-LD
 blocks, and that `/robots.txt` serves the expected allow/disallow rules.
+
+## ADR-041: Notifications UI Fix + Real Cross-Principal Bug + Telegram Contact Channel
+
+**Context:** the user tested registration on mobile and reported the notifications section as
+disorganized — overflowing blocks, poorly-styled buttons, and no way to open a notification to
+read its actual message. Separately, they asked to replace the public-facing email contact channel
+with a Telegram handle (`@Sofsavdo_support`) everywhere it appears.
+
+**Finding 1 (real bug, not just styling) — the buyer notifications page never actually fetched
+any data, for any buyer, ever.** `useNotifications()` (`apps/web/src/services/notifications.ts`,
+shared by both the creator and buyer notifications pages) gated its query on
+`enabled: !!user` using the creator-scoped `SessionProvider`/`useSession()`
+(`apps/web/src/services/session.tsx`). For a buyer-only account (no `creatorId`),
+`creator-real.ts`'s `getSession()` deliberately throws a 403 ("Bu hisob creator emas.") which it
+catches and converts to `null` — meaning `user` is permanently `null` for every buyer, and the
+notifications query never fired at all, regardless of how many real notifications existed. The
+buyer notifications page silently rendered as an honest-looking empty state ("Bildirishnoma yo'q")
+instead of a loading or error state, so this looked like "no notifications" rather than "the page is
+broken." Confirmed via a live registration + direct DB query: two real `Notification` rows existed
+(`user.registered`, IN_APP + EMAIL) while the UI showed nothing; removing the buggy `enabled` gate
+(this hook already has no reachable unauthenticated code path — both call sites sit behind their
+own principal's app guard) fixed it immediately, verified live.
+
+**Finding 2 — the backend never actually rendered a notification's message text for the IN_APP
+channel.** `NotificationsService.toResponse` returned only the raw template variables (`payload`)
+never the rendered `{ title, body }` that `TEMPLATES[type].inApp(vars)` was already written to
+produce — that render function was only ever invoked for the TELEGRAM/EMAIL channels
+(`attemptDelivery`), making it effectively dead code for the one channel end users actually see in
+this UI. This is the real reason "a notification couldn't be opened" — there was no message body to
+show, only a generic per-type label (`notificationTypeMeta[n.type].label`, e.g. "Yangi sotuv!") with
+nothing underneath. Fixed by rendering `title`/`body` in `toResponse` and adding both fields to
+`NotificationResponse`/`RealNotification`.
+
+**Finding 3 — the same business event fans out into one `Notification` row per delivery channel**
+(`NotificationsService.dispatchToUser` creates a separate IN_APP + EMAIL row for one event), which
+the creator page surfaces on purpose via a channel Badge, but the buyer page had no such context —
+two visually-identical "Xush kelibsiz!" rows with no explanation likely produced the "I think 4
+messages came in, very disorganized" impression. Fixed by scoping the buyer page's query to
+`channel: "IN_APP"` only — delivery-channel bookkeeping isn't a buyer-facing concept.
+
+**UI/CSS fixes (both `apps/web/app/{buyer,creator}/(app)/notifications/page.tsx`):**
+- Each row is now a real interactive element (a `<button>` wrapping the label/badges/body/date)
+  that opens a `Dialog` (`packages/ui`) showing the full title + body + a mark-as-read action —
+  this is the actual "open a notification" affordance that never existed before.
+- `min-w-0` added to the row's flex-1 text column and `line-clamp-2`/`break-words` added to both
+  the title and body text — the same overflow-prevention pattern already established in
+  `CampaignCard.tsx`'s own comment about flex-child text overflow, which this file hadn't followed.
+- The badge row (`Yangi`/channel/status) gained `flex-wrap` — on the creator page, up to 3 badges
+  plus a label could previously overflow a narrow mobile viewport horizontally.
+- The mark-as-read button gained `shrink-0` so long title text can no longer visually squeeze or
+  overlap it in the `justify-between` row.
+- The creator page's raw channel-filter `<select>` had ad hoc styling (`bg-bg`, no focus ring)
+  inconsistent with every other control on the page — restyled to match
+  `packages/ui/src/components/Field.tsx`'s shared `controlClasses` (kept as a plain `<select>`, not
+  `SelectField`, since a labeled form field would look wrong for a compact inline filter).
+
+**Telegram contact channel:** `packages/config/brand.ts` gained `supportTelegram`
+("Sofsavdo_support") and `supportTelegramUrl`. Every public-facing "contact us" surface — the
+homepage `SupportSection`, the offer landing page footer, `order-success`, the buyer support page,
+and all three `/legal/*` pages — now links to Telegram instead of a `mailto:` email link.
+`BRAND.supportEmail` itself is untouched and still used internally (the backend's own
+Settings-catalog "general.supportEmail" admin setting) — only the end-user-visible contact channel
+changed.
+
+**Verification:** `tsc --noEmit`/`eslint` clean on both apps; `next build` clean; backend
+`notifications.service.spec.ts` (20/20); a full live walkthrough — registered a real buyer account
+on a mobile viewport (375×812) against the real Railway test database, confirmed the notifications
+list was empty before the `useNotifications` fix and populated correctly after it, confirmed the
+row-click Dialog opens with the full message, confirmed mark-as-read works end-to-end (badge and
+button disappear after confirming), and confirmed IN_APP-only scoping removed the duplicate-looking
+EMAIL row.

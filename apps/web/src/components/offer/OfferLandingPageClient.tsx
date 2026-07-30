@@ -76,7 +76,7 @@ export function OfferLandingPageClient({ offerSlug }: { offerSlug: string }) {
 
       <footer className="border-t border-border bg-surface px-pad-mobile py-6 text-center font-body text-xs text-text-muted md:px-pad-desktop">
         <p>
-          {BRAND.name} · Aloqa: <a href={`mailto:${BRAND.supportEmail}`} className="hover:text-text-primary hover:underline">{BRAND.supportEmail}</a> ·{" "}
+          {BRAND.name} · Aloqa: <a href={BRAND.supportTelegramUrl} target="_blank" rel="noopener noreferrer" className="hover:text-text-primary hover:underline">Telegram @{BRAND.supportTelegram}</a> ·{" "}
           <Link href="/legal/terms" className="hover:text-text-primary hover:underline">Shartlar</Link> ·{" "}
           <Link href="/legal/privacy" className="hover:text-text-primary hover:underline">Maxfiylik</Link> ·{" "}
           <Link href="/legal/refund-policy" className="hover:text-text-primary hover:underline">Qaytarish siyosati</Link>

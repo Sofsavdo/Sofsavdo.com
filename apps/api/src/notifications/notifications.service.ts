@@ -24,6 +24,8 @@ export interface NotificationResponse {
   channel: NotificationChannel;
   type: string;
   payload: Prisma.JsonValue;
+  title: string;
+  body: string;
   readAt: Date | null;
   status: string;
   createdAt: Date;
@@ -53,8 +55,23 @@ export class NotificationsService {
     @Inject(EMAIL_PORT) private email: EmailPort,
   ) {}
 
+  // The frontend previously showed only a generic per-type label (e.g. "Yangi sotuv!") with no way
+  // to see what the notification actually said — the real message was sitting unused in `payload`
+  // (the template's `inApp` render function was written for every type but only ever invoked for
+  // the TELEGRAM/EMAIL channels, never IN_APP). Rendering it here means the API response itself
+  // now carries the full human-readable text, not just the raw template variables.
+  private renderContent(n: Pick<Notification, "type" | "payload">): { title: string; body: string } {
+    const template = TEMPLATES[n.type as NotificationTypeKey] as (typeof TEMPLATES)[NotificationTypeKey] | undefined;
+    if (!template) return { title: n.type, body: "" };
+    try {
+      return template.inApp(n.payload as never);
+    } catch {
+      return { title: n.type, body: "" };
+    }
+  }
+
   private toResponse(n: Notification): NotificationResponse {
-    return { id: n.id, channel: n.channel, type: n.type, payload: n.payload, readAt: n.readAt, status: n.status, createdAt: n.createdAt };
+    return { id: n.id, channel: n.channel, type: n.type, payload: n.payload, ...this.renderContent(n), readAt: n.readAt, status: n.status, createdAt: n.createdAt };
   }
 
   private toAdminResponse(n: Notification & { user: { id: string; email: string | null; phone: string | null } }): AdminNotificationResponse {
