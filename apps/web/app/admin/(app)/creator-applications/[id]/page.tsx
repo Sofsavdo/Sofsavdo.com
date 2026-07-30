@@ -12,7 +12,7 @@ import {
   useRejectOnboardingApplication,
   useRequestChangesOnboardingApplication,
 } from "@/services/admin/onboarding";
-import { applicationStatusMeta } from "@/lib/status";
+import { applicationStatusMeta, onboardingFieldLabels, payoutMethodTypeLabels } from "@/lib/status";
 import { ApiError } from "@/lib/api/admin";
 
 const AUDIT_ACTION_LABELS: Record<string, string> = {
@@ -53,7 +53,15 @@ export default function AdminOnboardingDetailPage({ params }: { params: Promise<
   }
 
   const application = query.data;
-  const formDataEntries = Object.entries(application.formData ?? {}).filter(([, v]) => v !== undefined && v !== null && v !== "");
+  // socialAccounts/contentNiches get their own dedicated rendering below (a flat key/value grid
+  // can't show an array of social accounts or a niche list sensibly) — everything else uses
+  // onboardingFieldLabels instead of the raw formData key, and payoutMethodType gets its own
+  // value label. Before this, the whole section rendered raw object keys/JSON.stringify'd arrays
+  // verbatim — unreadable for anyone reviewing an application in Uzbek.
+  const { socialAccounts, contentNiches, ...restFormData } = application.formData ?? {};
+  const formDataEntries = Object.entries(restFormData).filter(([, v]) => v !== undefined && v !== null && v !== "");
+  const formatFieldValue = (key: string, value: unknown): string =>
+    key === "payoutMethodType" ? (payoutMethodTypeLabels[String(value)] ?? String(value)) : String(value);
   const actionError = startReview.isError
     ? (startReview.error as ApiError).message
     : approve.isError
@@ -88,17 +96,55 @@ export default function AdminOnboardingDetailPage({ params }: { params: Promise<
             <CardHeader>
               <CardTitle>Ariza ma&apos;lumotlari</CardTitle>
             </CardHeader>
-            {formDataEntries.length === 0 ? (
+            {formDataEntries.length === 0 && !socialAccounts?.length && !contentNiches?.length ? (
               <p className="font-body text-sm text-text-muted">Hali to&apos;ldirilmagan (qadam {application.currentStep}).</p>
             ) : (
-              <dl className="grid grid-cols-1 gap-3 font-body text-sm sm:grid-cols-2">
-                {formDataEntries.map(([key, value]) => (
-                  <div key={key}>
-                    <dt className="text-xs text-text-muted">{key}</dt>
-                    <dd className="text-text-primary">{typeof value === "object" ? JSON.stringify(value) : String(value)}</dd>
+              <div className="space-y-5">
+                {formDataEntries.length > 0 ? (
+                  <dl className="grid grid-cols-1 gap-3 font-body text-sm sm:grid-cols-2">
+                    {formDataEntries.map(([key, value]) => (
+                      <div key={key}>
+                        <dt className="text-xs text-text-muted">{onboardingFieldLabels[key] ?? key}</dt>
+                        <dd className="text-text-primary">{formatFieldValue(key, value)}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                ) : null}
+
+                {contentNiches?.length ? (
+                  <div>
+                    <p className="mb-1.5 font-body text-xs text-text-muted">Kontent yo&apos;nalishlari</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {contentNiches.map((niche) => (
+                        <Badge key={niche} tone="neutral">
+                          {niche}
+                        </Badge>
+                      ))}
+                    </div>
                   </div>
-                ))}
-              </dl>
+                ) : null}
+
+                {socialAccounts?.length ? (
+                  <div>
+                    <p className="mb-1.5 font-body text-xs text-text-muted">Ijtimoiy tarmoqlar</p>
+                    <ul className="space-y-2">
+                      {socialAccounts.map((acc) => (
+                        <li key={acc.id} className="rounded-input border border-border p-3 font-body text-sm">
+                          <p className="font-medium text-text-primary">
+                            {acc.platform} — {acc.handle}
+                          </p>
+                          <p className="text-text-secondary">{acc.followerCount.toLocaleString("uz-UZ")} obunachi</p>
+                          {acc.profileUrl ? (
+                            <a href={acc.profileUrl} target="_blank" rel="noopener noreferrer" className="text-accent underline">
+                              {acc.profileUrl}
+                            </a>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </div>
             )}
           </Card>
 

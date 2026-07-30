@@ -27,6 +27,34 @@ import type {
 
 export type Tone = "neutral" | "success" | "warning" | "error" | "info" | "accent";
 
+// The onboarding wizard's own field names (OnboardingWizard.tsx's register() calls) — the admin
+// review page used to render this application data as raw `formData` object keys (fullName,
+// audienceAgeRange, payoutCardNumber...) with no translation at all, making a submitted
+// application unreadable for anyone reviewing it in Uzbek. One map keeps both sides in sync: a new
+// wizard field needs a new key here too, same convention as every *Meta map above.
+export const onboardingFieldLabels: Record<string, string> = {
+  fullName: "To'liq ism",
+  phone: "Telefon raqami",
+  bio: "O'zi haqida",
+  city: "Shahar",
+  audienceAgeRange: "Auditoriya yosh oralig'i",
+  audienceGeography: "Auditoriya geografiyasi",
+  audienceInterests: "Auditoriya qiziqishlari",
+  contentNiches: "Kontent yo'nalishlari",
+  priorExperience: "Oldingi hamkorlik tajribasi",
+  payoutMethodType: "To'lov usuli",
+  payoutCardNumber: "Karta raqami",
+  payoutCardHolder: "Karta egasi",
+  payoutBankName: "Bank nomi",
+  payoutBankAccount: "Hisob raqami",
+  termsAccepted: "Shartlarga rozilik",
+};
+
+export const payoutMethodTypeLabels: Record<string, string> = {
+  CARD: "Bank kartasi",
+  BANK_ACCOUNT: "Bank hisob raqami",
+};
+
 export const applicationStatusMeta: Record<CreatorApplicationStatus, { label: string; tone: Tone }> = {
   DRAFT: { label: "Qoralama", tone: "neutral" },
   SUBMITTED: { label: "Yuborildi", tone: "info" },

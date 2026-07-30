@@ -2348,3 +2348,32 @@ real permission list mirroring `DEFAULT_ROLE_PERMISSIONS` so the mock experience
 **Verification:** `tsc --noEmit`/`eslint` clean on both apps; `auth.service.spec.ts` (13/13); this
 was a same-day fix requested by the user immediately after the audit surfaced it, prioritized over
 documenting-and-deferring since custom admin roles are an active near-term need.
+
+## ADR-043: Buyer Storefront Escape Hatch + Readable Creator Application Review
+
+**Context:** two more real bugs reported directly from live use.
+
+**Finding 1 — a buyer who logged into their account had no way back to the storefront.** Every
+item in `BUYER_NAV_ITEMS` (`apps/web/src/components/buyer/nav-items.ts`) pointed at a `/buyer/*`
+sub-page, including "Bosh sahifa" itself (`/buyer/dashboard`, not the public homepage) — and both
+the desktop sidebar and mobile header logo in `BuyerShell.tsx` link to `/buyer/dashboard` too.
+There was no link anywhere in the buyer shell to `/catalog` or `/`. A buyer's account is meant to
+be a small, secondary surface (order tracking, saved items, profile) — never the whole experience
+— but with zero storefront link, a buyer who logged in was functionally locked out of browsing
+until they typed a URL manually. Fixed by adding a "Katalog" item (→ `/catalog`, a plain
+cross-route-group `Link`, the same pattern `PublicHeader` already uses to reach `/buyer/login`) as
+the first, most prominent bottom-nav/sidebar entry.
+
+**Finding 2 — the admin's creator-application review page rendered raw form-data object keys and
+JSON-stringified arrays.** `formDataEntries.map(([key, value]) => ...)` used the raw
+`OnboardingWizard.tsx` field name (`audienceAgeRange`, `payoutCardNumber`, etc.) as the label with
+no translation, and a `socialAccounts` array (the applicant's actual Instagram/TikTok/YouTube/
+Telegram handles and follower counts — arguably the single most important thing to review) dumped
+as `JSON.stringify(value)`. An admin reviewing a real application saw untranslated English-ish
+field names and unreadable inline JSON instead of the applicant's actual answers. Fixed with a new
+`onboardingFieldLabels`/`payoutMethodTypeLabels` map in `lib/status.ts` (same convention as every
+other `*Meta` map there) and dedicated rendering for `socialAccounts` (a real per-account list:
+platform, handle, follower count, clickable profile link) and `contentNiches` (badges), pulled out
+of the generic key/value grid entirely rather than crammed into a single cell.
+
+**Verification:** `tsc --noEmit`/`eslint` clean on both apps.

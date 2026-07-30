@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { LayoutDashboard, Package, ShoppingBag, CreditCard, Heart, MapPin, User, Bell, Headset } from "lucide-react";
+import { LayoutDashboard, Package, ShoppingBag, CreditCard, Heart, MapPin, User, Bell, Headset, Store } from "lucide-react";
 
 export interface BuyerNavItem {
   href: string;
@@ -14,6 +14,14 @@ export interface BuyerNavItem {
 // own convention (docs/PROHIBITED.md) is to never ship a page backed by fabricated data. Tracked
 // as a disclosed gap, not silently dropped.
 export const BUYER_NAV_ITEMS: BuyerNavItem[] = [
+  // A buyer's account is a small, secondary part of the storefront — order tracking, saved items,
+  // profile — never the whole experience, so it must never be a dead end. Before this, nothing in
+  // the buyer shell linked back to the actual storefront (every item pointed at a /buyer/* page,
+  // including "Bosh sahifa" -> /buyer/dashboard, not the public home) — a buyer who logged in had
+  // no way back to browsing products short of typing a URL. This item goes to the real catalog,
+  // outside the buyer route group entirely (a plain cross-route-group Link, same pattern
+  // PublicHeader already uses to reach /buyer/login).
+  { href: "/catalog", label: "Katalog", icon: Store, bottomNav: true },
   { href: "/buyer/dashboard", label: "Bosh sahifa", icon: LayoutDashboard, bottomNav: true },
   { href: "/buyer/orders", label: "Buyurtmalar", icon: Package, bottomNav: true },
   { href: "/buyer/purchases", label: "Xarid qilingan mahsulotlar", icon: ShoppingBag },
