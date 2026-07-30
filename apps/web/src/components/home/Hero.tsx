@@ -11,14 +11,16 @@ export interface HeroContent {
 
 // Buyer-facing, not creator-facing (the creator pitch gets its own CreatorProgramBlurb section
 // further down) — the Sofsavdo pivot's Commerce Home is a shopping destination first. Default CTA
-// scrolls to this same page's own FeaturedProducts section rather than linking /catalog directly —
-// preserved as the fallback even now that /catalog exists (Phase E), since an admin-edited
-// ctaHref (Phase H) is the intended way to point Hero somewhere else.
+// links to /catalog (the definitive "browse everything" page) rather than scrolling to this same
+// page's own FeaturedProducts section — that anchor was a dead end whenever no offer is marked
+// featured yet (a real launch-week state: FeaturedProducts then renders its own "hozircha yo'q"
+// placeholder with nothing to scroll to). An admin-edited ctaHref (Phase H) is the intended way to
+// point Hero somewhere else once there's a good reason to.
 export function Hero({ content }: { content?: HeroContent }) {
   const title = content?.title || BRAND.name;
   const subtitle = content?.subtitle || "Tanlangan mahsulotlar, ishonchli to'lov va tez yetkazib berish — bir joyda.";
   const ctaLabel = content?.ctaLabel || "Mahsulotlarni ko'rish";
-  const ctaHref = content?.ctaHref || "#featured-products";
+  const ctaHref = content?.ctaHref || "/catalog";
 
   return (
     <section className="mx-auto max-w-7xl px-pad-mobile pb-12 pt-16 text-center md:px-pad-desktop md:pb-20 md:pt-24">

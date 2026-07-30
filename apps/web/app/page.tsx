@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import { BRAND } from "@sofsavdo/config/brand";
 import { getFeaturedOffers, getHomepageSections } from "@/lib/api";
+import { PublicHeader } from "@/components/home/PublicHeader";
 import { Hero } from "@/components/home/Hero";
 import { WhySofsavdo } from "@/components/home/WhySofsavdo";
 import { FeaturedProducts } from "@/components/home/FeaturedProducts";
+import { HowToBuy } from "@/components/home/HowToBuy";
 import { CreatorProgramBlurb } from "@/components/home/CreatorProgramBlurb";
 import { BenefitsGrid } from "@/components/home/BenefitsGrid";
 import { FAQ } from "@/components/home/FAQ";
@@ -40,9 +42,11 @@ export default async function HomePage() {
   if (sections.length === 0) {
     return (
       <main>
+        <PublicHeader />
         <Hero />
         <WhySofsavdo />
         <FeaturedProducts offers={featuredOffers} />
+        <HowToBuy />
         <CreatorProgramBlurb />
         <BenefitsGrid />
         <FAQ />
@@ -54,9 +58,14 @@ export default async function HomePage() {
 
   return (
     <main>
+      <PublicHeader />
       {sections.map((section) => (
         <HomepageSectionRenderer key={`${section.type}-${section.sortOrder}`} section={section} featuredOffers={featuredOffers} />
       ))}
+      {/* Not yet a real HomepageSection type (see HowToBuy's own comment) — always rendered here
+          so an admin-configured section list never silently drops the one thing on this page that
+          explains the actual purchase flow. */}
+      <HowToBuy />
       <Footer />
     </main>
   );

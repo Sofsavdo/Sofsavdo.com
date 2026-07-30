@@ -3,6 +3,8 @@ import Link from "next/link";
 import { BRAND } from "@sofsavdo/config/brand";
 import { getCatalog } from "@/lib/api";
 import { ProductCard } from "@/components/catalog/ProductCard";
+import { PublicHeader } from "@/components/home/PublicHeader";
+import { Footer } from "@/components/home/Footer";
 
 export const metadata: Metadata = {
   title: `Katalog — ${BRAND.name}`,
@@ -54,7 +56,9 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
   }
 
   return (
-    <main className="mx-auto max-w-7xl px-pad-mobile py-10 md:px-pad-desktop md:py-16">
+    <>
+      <PublicHeader />
+      <main className="mx-auto max-w-7xl px-pad-mobile py-10 md:px-pad-desktop md:py-16">
       <h1 className="font-heading text-3xl font-bold text-text-primary">Katalog</h1>
       <p className="mt-2 font-body text-text-secondary">Barcha mahsulotlar — turi va narxi bo&apos;yicha filtrlang.</p>
 
@@ -138,6 +142,8 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
           ) : null}
         </div>
       ) : null}
-    </main>
+      </main>
+      <Footer />
+    </>
   );
 }
