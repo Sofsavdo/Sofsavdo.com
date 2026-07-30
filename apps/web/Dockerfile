@@ -41,10 +41,15 @@ FROM node:22-alpine AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
 RUN addgroup -S sofsavdo && adduser -S sofsavdo -G sofsavdo
-COPY --from=build /app/apps/web/.next/standalone ./
+# --chown is required, not cosmetic: a plain COPY --from= preserves the build stage's ownership
+# (root, since nothing set USER there), but the process actually runs as the unprivileged
+# `sofsavdo` user below. Without this, every ISR revalidation write (this app has
+# `export const revalidate = 60` on the homepage) hits EACCES trying to update
+# .next/server/app/index.html — confirmed in a real Railway deploy's logs.
+COPY --from=build --chown=sofsavdo:sofsavdo /app/apps/web/.next/standalone ./
 # Static assets are deliberately excluded from the standalone trace and must be copied separately
 # — the one Next.js Docker step it's easy to forget and get a 404-riddled production build from.
-COPY --from=build /app/apps/web/.next/static ./apps/web/.next/static
+COPY --from=build --chown=sofsavdo:sofsavdo /app/apps/web/.next/static ./apps/web/.next/static
 USER sofsavdo
 WORKDIR /app/apps/web
 EXPOSE 3000

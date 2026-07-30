@@ -2413,3 +2413,40 @@ URL, and confirmed that URL actually serves the image (`200`, `image/png`) — t
 drive a native OS file picker, so this direct-request check is the strongest available proof of the
 server-side path; the widget's own wiring (`onChange` → mutation → the same proven endpoint) was
 verified by reading the code, not guessed.
+
+## ADR-045: Two Real Railway Deploy Failures — .dockerignore Repeat Bug + Web Container Ownership
+
+**Context:** the user's next Railway deploy (after ADR-044's commit) failed on both services, and
+they pasted the real deploy logs.
+
+**Finding 1 — the backend build failed: `Cannot find module './uploads/uploads.module'`.** Not a
+git problem this time (the previous commit's `.gitignore` fix was already correct and the files
+were genuinely committed) — it was `.dockerignore`, a completely separate file with its own
+independent exclusion list. Its `**/uploads` pattern is glob-anchored to match at *any* depth,
+so it excluded the real source module `apps/api/src/uploads/` (UploadsModule/UploadsController/
+UploadsService) from the Docker build context entirely — `app.module.ts`'s new import line made it
+into the image, the three files it imports did not. This is the third time this exact bug
+class has hit this codebase this deploy cycle: a bare/overly-broad ignore pattern meant for one
+real thing (the dev upload-storage folder) silently swallowing a same-named source directory —
+first `.gitignore`'s bare `storage/` (fixed earlier), then `.gitignore`'s bare `uploads/` (fixed in
+ADR-044's own commit), now `.dockerignore`'s `**/uploads` (fixed here). Anchored to the one real
+runtime path, `apps/api/uploads`, matching the `.gitignore` fix exactly.
+
+**Finding 2 — the web container ran but logged `EACCES: permission denied` on every attempt to
+update `/app/apps/web/.next/server/app/index.html`.** `apps/web/Dockerfile`'s runtime stage copies
+`.next/standalone` and `.next/static` from the `build` stage via a plain `COPY --from=build` (no
+`--chown`), so the copied files keep the build stage's ownership (root — nothing in that stage ever
+set a non-root `USER`). The container then switches to `USER sofsavdo` to actually run the server.
+The homepage (`app/page.tsx`) has `export const revalidate = 60`, so Next.js periodically tries to
+rewrite the cached HTML for ISR — every one of those writes hit a root-owned file as the
+unprivileged `sofsavdo` user and failed. Fixed by adding `--chown=sofsavdo:sofsavdo` to both `COPY
+--from=build` lines (the group/user already exist by that point — `addgroup`/`adduser` runs first).
+This didn't 500 the page (Next.js serves the existing cached render either way) but it did mean ISR
+revalidation was silently broken in production and the logs were being spammed continuously.
+
+**Verification:** both fixes were verified by careful manual reasoning about Docker's ignore-pattern
+matching (the same rooted, non-glob exact-path semantics already confirmed for the analogous
+`.gitignore` fix via `git check-ignore -v`) and standard, well-established `COPY --chown=` syntax —
+**not** by a live `docker build`, since the local Docker daemon wasn't running in this environment at
+the time (`docker info` failed to reach `dockerDesktopLinuxEngine`). Disclosed honestly rather than
+claimed as tested: the next real Railway deploy is the actual confirmation.

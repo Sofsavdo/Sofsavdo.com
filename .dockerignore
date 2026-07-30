@@ -3,7 +3,14 @@ node_modules
 **/dist
 **/.next
 **/coverage
-**/uploads
+# Anchored to the real runtime upload dir (LocalDiskStorage's default, resolved relative to
+# apps/api's own cwd) — NOT a bare/`**/`-globbed `uploads` pattern. That form matches ANY
+# directory named "uploads" at any depth, including the real source module
+# apps/api/src/uploads/ (UploadsModule/UploadsController/UploadsService) — which broke the Railway
+# Docker build with "Cannot find module './uploads/uploads.module'" the moment that module was
+# added, the same class of bug .gitignore's bare `storage/`/`uploads/` patterns already caused
+# twice before (see DECISIONS.md).
+apps/api/uploads
 .git
 .env
 .env.*
