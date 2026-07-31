@@ -26,7 +26,7 @@ describe("CreatorApplicationsService", () => {
   let prisma: {
     campaignApplication: { findUnique: jest.Mock; findMany: jest.Mock; count: jest.Mock; create: jest.Mock; update: jest.Mock };
     campaign: { findUnique: jest.Mock; findUniqueOrThrow: jest.Mock };
-    creatorProfile: { findUnique: jest.Mock };
+    creatorProfile: { findUnique: jest.Mock; findUniqueOrThrow: jest.Mock };
     creatorCampaign: { count: jest.Mock; create: jest.Mock };
     referralLink: { findMany: jest.Mock; upsert: jest.Mock };
     $transaction: jest.Mock;
@@ -97,7 +97,7 @@ describe("CreatorApplicationsService", () => {
     prisma = {
       campaignApplication: { findUnique: jest.fn(), findMany: jest.fn(), count: jest.fn(), create: jest.fn(), update: jest.fn() },
       campaign: { findUnique: jest.fn(), findUniqueOrThrow: jest.fn() },
-      creatorProfile: { findUnique: jest.fn() },
+      creatorProfile: { findUnique: jest.fn(), findUniqueOrThrow: jest.fn().mockResolvedValue({ displayName: "Test Creator" }) },
       creatorCampaign: { count: jest.fn().mockResolvedValue(0), create: jest.fn() },
       referralLink: { findMany: jest.fn().mockResolvedValue([]), upsert: jest.fn() },
       $transaction: jest.fn(),
@@ -382,7 +382,7 @@ describe("CreatorApplicationsService", () => {
           submittedAt: new Date("2026-01-01"),
           createdAt: new Date("2026-01-01"),
           rejectionReason: null,
-          campaign: { id: "camp1", name: "Campaign" },
+          campaign: { id: "camp1", name: "Campaign", offer: { id: "offer1", slug: "campaign" }, attributionWindowDays: 30 },
         },
       ]);
       prisma.creatorCampaign.count.mockResolvedValue(0);
@@ -413,7 +413,7 @@ describe("CreatorApplicationsService", () => {
           submittedAt: new Date("2026-01-01"),
           createdAt: new Date("2026-01-01"),
           rejectionReason: null,
-          campaign: { id: "camp1", name: "Campaign", offer: { slug: "malika-serum" } },
+          campaign: { id: "camp1", name: "Campaign", offer: { id: "offer1", slug: "malika-serum" }, attributionWindowDays: 30 },
         },
       ]);
       (prisma.creatorCampaign as unknown as { findMany: jest.Mock }).findMany = jest
@@ -431,12 +431,46 @@ describe("CreatorApplicationsService", () => {
         clicks: 4,
         createdAt: new Date("2026-01-02"),
       });
+      // Already exists — the backfill path must never fire for a pair that already has a link.
+      expect(prisma.referralLink.upsert).not.toHaveBeenCalled();
     });
 
-    it("returns null referralLink when none has been created yet for that pair", async () => {
+    // The actual bug this closes: a creator who joined BEFORE ReferralLink auto-creation existed
+    // (or any other path that ever leaves an ACTIVE membership without one) must not be stuck
+    // with nothing to share forever — every real ACTIVE membership gets a real link the next time
+    // this endpoint is called, not just ones created after the fix shipped.
+    it("backfills a real referral link for an ACTIVE membership that has none yet, instead of leaving it null", async () => {
       withMembership("APPROVED", { status: "ACTIVE" });
+      prisma.referralLink.findMany.mockResolvedValue([]);
+      prisma.referralLink.upsert.mockResolvedValue({
+        campaignId: "camp1",
+        code: "test-creator-offer1",
+        createdAt: new Date("2026-02-01"),
+        _count: { visits: 0 },
+      });
+
+      const [result] = await service.listMyCampaigns("creator1", "https://sofsavdo.com");
+
+      expect(prisma.creatorProfile.findUniqueOrThrow).toHaveBeenCalledWith({ where: { id: "creator1" }, select: { displayName: true } });
+      expect(prisma.referralLink.upsert).toHaveBeenCalledWith({
+        where: { creatorId_campaignId: { creatorId: "creator1", campaignId: "camp1" } },
+        update: {},
+        create: expect.objectContaining({ creatorId: "creator1", campaignId: "camp1", offerId: "offer1", attributionWindowDays: 30 }),
+        include: { _count: { select: { visits: true } } },
+      });
+      expect(result!.referralLink).toEqual({
+        code: "test-creator-offer1",
+        url: "https://sofsavdo.com/o/campaign?ref=test-creator-offer1",
+        clicks: 0,
+        createdAt: new Date("2026-02-01"),
+      });
+    });
+
+    it("never attempts a backfill for an application with no real membership yet (pending/rejected/etc)", async () => {
+      withMembership("SUBMITTED", null);
       const [result] = await service.listMyCampaigns("creator1", "https://sofsavdo.com");
       expect(result!.referralLink).toBeNull();
+      expect(prisma.referralLink.upsert).not.toHaveBeenCalled();
     });
 
     it.each([

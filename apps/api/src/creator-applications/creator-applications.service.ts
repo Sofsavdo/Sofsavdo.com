@@ -22,6 +22,7 @@ const MY_CAMPAIGN_SUMMARY_SELECT = {
   commissionRateBps: true,
   commissionAmountMinor: true,
   commissionCurrency: true,
+  attributionWindowDays: true,
   offer: { select: { id: true, name: true, slug: true, priceMinor: true, compareAtPriceMinor: true, currency: true } },
 } satisfies Prisma.CampaignSelect;
 
@@ -381,6 +382,33 @@ export class CreatorApplicationsService {
         })
       ).map((l) => [l.campaignId, l]),
     );
+
+    // Backfill: a real ACTIVE membership created before ReferralLink auto-creation existed (or by
+    // any future code path that ever creates one without also creating a link) must not be a
+    // permanent dead end — every creator with a real membership gets a real link the next time
+    // they load this page, not just ones who joined after this fix shipped. `upsert` on the
+    // (creatorId, campaignId) unique key makes this safe to run on every request: a link that
+    // already exists is left untouched, never duplicated or regenerated.
+    const missingLinkCampaignIds = [...membershipByCampaignId.keys()].filter((campaignId) => !referralLinkByCampaignId.has(campaignId));
+    if (missingLinkCampaignIds.length > 0) {
+      const creator = await this.prisma.creatorProfile.findUniqueOrThrow({ where: { id: creatorId }, select: { displayName: true } });
+      for (const campaignId of missingLinkCampaignIds) {
+        const app = apps.find((a) => a.campaignId === campaignId)!;
+        const created = await this.prisma.referralLink.upsert({
+          where: { creatorId_campaignId: { creatorId, campaignId } },
+          update: {},
+          create: {
+            code: buildReferralLinkCode(creator.displayName, creatorId, app.campaign.offer.id),
+            creatorId,
+            campaignId,
+            offerId: app.campaign.offer.id,
+            attributionWindowDays: app.campaign.attributionWindowDays,
+          },
+          include: { _count: { select: { visits: true } } },
+        });
+        referralLinkByCampaignId.set(campaignId, created);
+      }
+    }
 
     return apps.map((a) => {
       const membership = membershipByCampaignId.get(a.campaignId);
