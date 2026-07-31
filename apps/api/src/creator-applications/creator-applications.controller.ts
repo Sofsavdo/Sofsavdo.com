@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Param, Patch, Post, UseGuards } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { CreatorApplicationsService } from "./creator-applications.service";
 import { CreateApplicationDto } from "./dto/create-application.dto";
@@ -13,7 +14,10 @@ import type { AuthenticatedUser } from "../common/guards/jwt-auth.guard";
 @UseGuards(RequireCreatorGuard)
 @Controller()
 export class CreatorApplicationsController {
-  constructor(private applications: CreatorApplicationsService) {}
+  constructor(
+    private applications: CreatorApplicationsService,
+    private config: ConfigService,
+  ) {}
 
   @Post("creator/campaigns/:campaignId/applications")
   create(@Param("campaignId") campaignId: string, @Body() dto: CreateApplicationDto, @CurrentUser() user: AuthenticatedUser) {
@@ -27,7 +31,7 @@ export class CreatorApplicationsController {
 
   @Get("creator/my-campaigns")
   listMyCampaigns(@CurrentUser() user: AuthenticatedUser) {
-    return this.applications.listMyCampaigns(user.creatorId!);
+    return this.applications.listMyCampaigns(user.creatorId!, this.config.get<string>("webAppUrl")!);
   }
 
   @Get("creator/applications/:id")

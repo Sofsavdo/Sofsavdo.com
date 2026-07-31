@@ -4,6 +4,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { DomainException } from "../common/errors/domain-error";
 import type { CreateDeliveryRegionDto } from "./dto/create-delivery-region.dto";
 import type { UpdateDeliveryRegionDto } from "./dto/update-delivery-region.dto";
+import { UZ_DELIVERY_ZONES, getStandardFeeMinor } from "./uz-regions";
 
 // Regional delivery pricing (6B Enhancement) — owned by Offer, not Product, because different
 // Offers for the same Product may run different delivery promotions (spec-confirmed ownership;
@@ -154,6 +155,40 @@ export class DeliveryService {
     const existing = await this.prisma.offerDeliveryRegion.findUnique({ where: { id } });
     if (!existing) throw new DomainException("DELIVERY_REGION_NOT_FOUND", "Yetkazib berish regioni topilmadi.");
     await this.prisma.offerDeliveryRegion.delete({ where: { id } });
+  }
+
+  // One-click "standart narxlarni qo'llash" — populates every canonical Uzbekistan delivery zone
+  // (uz-regions.ts: Toshkent shahar free, every other viloyat's own center at REGIONAL_CENTER
+  // rate, every district at DISTRICT rate) for this offer in one call, replacing what would
+  // otherwise be ~190 manual free-text region entries per offer. Idempotent — safe to call again
+  // on an offer that already has some/all standard zones (createMany + skipDuplicates just fills
+  // in whatever's missing); any individual row remains freely editable/removable afterward through
+  // the normal create/update/remove endpoints above, so a one-off override for a specific offer
+  // is still possible without touching this bulk action.
+  async seedStandardRegions(offerId: string): Promise<DeliveryRegionAdminResponse[]> {
+    await this.assertOfferIsPhysical(offerId);
+
+    const rows = UZ_DELIVERY_ZONES.map((zone, i) => {
+      const feeMinor = getStandardFeeMinor(zone.kind);
+      return {
+        offerId,
+        countryCode: "UZ",
+        regionCode: zone.code,
+        regionName: zone.name,
+        availability: "AVAILABLE" as const,
+        feeType: feeMinor === 0 ? ("FREE" as const) : ("FIXED" as const),
+        deliveryFeeMinor: feeMinor,
+        currency: "UZS",
+        active: true,
+        sortOrder: i,
+      };
+    });
+
+    // One query instead of ~190 sequential awaited creates — doing this one row at a time against
+    // a real (non-local) Postgres connection would take tens of seconds per offer.
+    await this.prisma.offerDeliveryRegion.createMany({ data: rows, skipDuplicates: true });
+
+    return this.listForAdmin(offerId);
   }
 
   // ---- Public ----

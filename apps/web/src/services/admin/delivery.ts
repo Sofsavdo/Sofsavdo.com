@@ -27,3 +27,7 @@ export function useUpdateDeliveryRegion(offerId: string) {
 export function useDeleteDeliveryRegion(offerId: string) {
   return useRegionMutation(offerId, (id: string) => api.deleteDeliveryRegion(id));
 }
+
+export function useSeedStandardDeliveryRegions(offerId: string) {
+  return useRegionMutation(offerId, () => api.seedStandardDeliveryRegions(offerId));
+}

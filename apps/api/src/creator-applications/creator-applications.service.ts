@@ -35,6 +35,10 @@ export interface MyCampaignResponse {
   joinedAt: Date;
   rejectionReason: string | null;
   campaign: unknown;
+  // Populated once a real ReferralLink exists for this (creator, campaign) pair — created
+  // automatically the moment the application is approved (see approveCapacitySafe), so this is
+  // never a separate "generate my link" step the creator has to find and click.
+  referralLink: { code: string; url: string; clicks: number; createdAt: Date } | null;
 }
 
 type ApplicationWithRelations = CampaignApplication & {
@@ -81,6 +85,20 @@ const WITHDRAW_FROM: CampaignApplicationStatus[] = ["SUBMITTED", "UNDER_REVIEW",
 const EDIT_DRAFT_FROM: CampaignApplicationStatus[] = ["DRAFT", "CHANGES_REQUESTED"];
 const START_REVIEW_FROM: CampaignApplicationStatus[] = ["SUBMITTED"];
 const DECIDE_FROM: CampaignApplicationStatus[] = ["UNDER_REVIEW"];
+
+// Deterministic per (creator, offer) pair — not random — so re-running the same join/approve
+// flow (the serialization-conflict retry in approveCapacitySafe, or a genuinely repeated call)
+// always computes the exact same code rather than needing a collision-retry loop. Including the
+// creator id's own tail guarantees global uniqueness against ReferralLink.code's unique
+// constraint even if two different creators share a display name and promote the same offer.
+function buildReferralLinkCode(creatorDisplayName: string, creatorId: string, offerId: string): string {
+  const slug = creatorDisplayName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 30);
+  return `${slug || "creator"}-${creatorId.slice(-6)}-${offerId.slice(-6)}`;
+}
 
 @Injectable()
 export class CreatorApplicationsService {
@@ -340,7 +358,7 @@ export class CreatorApplicationsService {
   // application/membership against a campaign, it must keep showing here regardless of whether
   // the campaign later gets paused/completed (see CampaignsService.findOneForCreatorOrThrow's
   // stricter LIVE-only gate, which is deliberately NOT reused here).
-  async listMyCampaigns(creatorId: string): Promise<MyCampaignResponse[]> {
+  async listMyCampaigns(creatorId: string, webAppUrl: string): Promise<MyCampaignResponse[]> {
     const apps = await this.prisma.campaignApplication.findMany({
       where: { creatorId, status: { not: "DRAFT" } },
       orderBy: { createdAt: "desc" },
@@ -353,6 +371,15 @@ export class CreatorApplicationsService {
           where: { creatorId, campaignId: { in: apps.map((a) => a.campaignId) } },
         })
       ).map((m) => [m.campaignId, m]),
+    );
+
+    const referralLinkByCampaignId = new Map(
+      (
+        await this.prisma.referralLink.findMany({
+          where: { creatorId, campaignId: { in: apps.map((a) => a.campaignId) } },
+          include: { _count: { select: { visits: true } } },
+        })
+      ).map((l) => [l.campaignId, l]),
     );
 
     return apps.map((a) => {
@@ -374,6 +401,7 @@ export class CreatorApplicationsService {
                     ? "CANCELLED"
                     : "APPROVED";
       }
+      const link = referralLinkByCampaignId.get(a.campaignId);
       return {
         id: a.id,
         campaignId: a.campaignId,
@@ -381,6 +409,14 @@ export class CreatorApplicationsService {
         joinedAt: a.submittedAt ?? a.createdAt,
         rejectionReason: a.rejectionReason,
         campaign: a.campaign,
+        referralLink: link
+          ? {
+              code: link.code,
+              url: `${webAppUrl}/o/${a.campaign.offer.slug}?ref=${link.code}`,
+              clicks: link._count.visits,
+              createdAt: link.createdAt,
+            }
+          : null,
       };
     });
   }
@@ -521,7 +557,10 @@ export class CreatorApplicationsService {
       try {
         await this.prisma.$transaction(
           async (tx) => {
-            const existing = await tx.campaignApplication.findUnique({ where: { id }, include: { campaign: true } });
+            const existing = await tx.campaignApplication.findUnique({
+              where: { id },
+              include: { campaign: true, creator: { select: { displayName: true } } },
+            });
             if (!existing) throw new DomainException("NOT_FOUND", "Ariza topilmadi.");
             if (!fromStatuses.includes(existing.status)) {
               throw new DomainException("INVALID_APPLICATION_TRANSITION", transitionErrorMessage, { from: existing.status });
@@ -542,6 +581,24 @@ export class CreatorApplicationsService {
               },
             });
             await tx.creatorCampaign.create({ data: { campaignId: existing.campaignId, creatorId: existing.creatorId, status: "ACTIVE" } });
+
+            // The whole point of joining a campaign is to get something to share — without this,
+            // approval left the creator with an "ACTIVE" membership and no actual referral link
+            // anywhere (confirmed: no code path in this repo ever created one outside of seed/test
+            // data). `upsert` on the (creatorId, campaignId) unique key makes this idempotent: a
+            // retried approval (e.g. the serialization-conflict retry this method already does)
+            // never regenerates or duplicates the link, it just leaves the existing one alone.
+            await tx.referralLink.upsert({
+              where: { creatorId_campaignId: { creatorId: existing.creatorId, campaignId: existing.campaignId } },
+              update: {},
+              create: {
+                code: buildReferralLinkCode(existing.creator.displayName, existing.creatorId, existing.campaign.offerId),
+                creatorId: existing.creatorId,
+                campaignId: existing.campaignId,
+                offerId: existing.campaign.offerId,
+                attributionWindowDays: existing.campaign.attributionWindowDays,
+              },
+            });
           },
           { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
         );

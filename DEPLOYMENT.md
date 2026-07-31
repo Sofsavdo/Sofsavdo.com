@@ -95,6 +95,33 @@ sofsavdo-web → apps/web/railway.toml → healthcheckPath /
 Configure every required environment variable per [ENVIRONMENT.md](ENVIRONMENT.md) directly in
 Railway's dashboard for each service — never in a committed file.
 
+## Persistent file storage (Railway Volume) — required if staying on LocalDiskStorage
+
+Two real production incidents traced back to this exact area (see DECISIONS.md ADR-046/048):
+uploaded images returned a URL nobody's browser could ever reach, and — separately — every
+uploaded file lives on the API container's own ephemeral disk, so it's wiped on every redeploy or
+restart unless a volume is attached. Both must be fixed for uploads to actually work and persist:
+
+1. **`STORAGE_PUBLIC_BASE_URL`** — set this on the `sofsavdo-api` Railway service to the API's real
+   public origin plus `/media` (e.g. `https://api.sofsavdo.com/media`, matching the static-file
+   prefix registered in `apps/api/src/main.ts`). Boot now refuses to start without this when
+   `STORAGE_DRIVER` isn't `s3` (see `env-validation.ts`) — a missing or `localhost` value here is
+   exactly what caused uploaded images to succeed but never display for any real visitor.
+2. **Attach a Railway Volume to `sofsavdo-api`, mounted at exactly `/app/apps/api/uploads`** — this
+   must be done through Railway's own dashboard or CLI (`railway volume add`), not this repo's
+   `railway.toml`; Railway volumes are a per-service resource attached out-of-band, not a
+   declarative config key this repo's config format supports. Steps: open the `sofsavdo-api`
+   service in the Railway dashboard → **Volumes** tab → **New Volume** → mount path
+   `/app/apps/api/uploads`. The Dockerfile/entrypoint (`apps/api/docker-entrypoint.sh`) already
+   handle a freshly-mounted, root-owned volume correctly — it re-`chown`s the mount to the
+   unprivileged runtime user at every container start before the app process runs, so no further
+   manual permission fix is needed after attaching it.
+
+Alternatively, switching `STORAGE_DRIVER=s3` (with real bucket credentials — see `S3Storage`,
+already fully implemented) replaces both of the above with a real cloud object store and needs no
+volume at all. Either path is valid; a volume is the faster path if a cloud storage account isn't
+already set up, S3/R2 is the more scalable one long-term.
+
 ## Safe migration process
 
 - **Never** run `prisma migrate dev` against a real environment — that command can generate a new

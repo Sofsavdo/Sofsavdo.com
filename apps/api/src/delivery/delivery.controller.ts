@@ -25,6 +25,12 @@ export class DeliveryController {
   create(@Param("offerId") offerId: string, @Body() dto: CreateDeliveryRegionDto) {
     return this.delivery.create(offerId, dto);
   }
+
+  @RequirePermissions("offer.write")
+  @Post("seed-standard")
+  seedStandard(@Param("offerId") offerId: string) {
+    return this.delivery.seedStandardRegions(offerId);
+  }
 }
 
 // Individually addressed by region id — same reasoning as LandingSectionsController.

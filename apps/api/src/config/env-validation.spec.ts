@@ -13,6 +13,7 @@ function baseProdEnv(overrides: Partial<NodeJS.ProcessEnv> = {}): NodeJS.Process
     CLICK_SERVICE_ID: "67890",
     CLICK_SECRET_KEY: "real-click-secret",
     CLICK_ENV: "production",
+    STORAGE_PUBLIC_BASE_URL: "https://api.sofsavdo.com/media",
     ...overrides,
   };
 }
@@ -66,9 +67,17 @@ describe("validateEnv", () => {
     expect(() => validateEnv(baseProdEnv({ DATABASE_URL: "not-a-url" }))).toThrow(/not a valid URL/);
   });
 
-  it("passes with STORAGE_DRIVER unset or local, even with no storage credentials configured", () => {
+  it("passes with STORAGE_DRIVER unset or local, given a real STORAGE_PUBLIC_BASE_URL", () => {
     expect(() => validateEnv(baseProdEnv())).not.toThrow();
     expect(() => validateEnv(baseProdEnv({ STORAGE_DRIVER: "local" }))).not.toThrow();
+  });
+
+  it("rejects a missing STORAGE_PUBLIC_BASE_URL when STORAGE_DRIVER is local or unset", () => {
+    expect(() => validateEnv(baseProdEnv({ STORAGE_PUBLIC_BASE_URL: undefined }))).toThrow(/STORAGE_PUBLIC_BASE_URL is not set/);
+  });
+
+  it("rejects a localhost STORAGE_PUBLIC_BASE_URL in production (the real incident this guards against)", () => {
+    expect(() => validateEnv(baseProdEnv({ STORAGE_PUBLIC_BASE_URL: "http://localhost:4000/media" }))).toThrow(/points at localhost/);
   });
 
   it("rejects STORAGE_DRIVER=s3 with no bucket/credentials configured", () => {

@@ -6,6 +6,7 @@ import { formatMoneyMinor } from "@sofsavdo/types";
 import { Skeleton } from "@sofsavdo/ui";
 import { Truck } from "lucide-react";
 import { useOfferQuote } from "@/services/offer";
+import { RegionSelect } from "./RegionSelect";
 
 // Only rendered for PHYSICAL_PRODUCT offers (see OfferLandingPageClient) — COURSE/DIGITAL/SERVICE
 // offers never show a region selector, delivery fee, or shipping copy at all. The backend's
@@ -32,18 +33,7 @@ export function DeliveryQuoteBox({ offerSlug, deliveryRegions }: { offerSlug: st
         <div className="flex items-center gap-2 font-body text-sm font-medium text-text-primary">
           <Truck className="size-5 text-text-secondary" /> Yetkazib berish hududi
         </div>
-        <select
-          value={regionCode}
-          onChange={(e) => setRegionCode(e.target.value)}
-          className="h-10 w-full rounded-input border border-border bg-surface px-3 font-body text-sm text-text-primary"
-        >
-          {deliveryRegions.map((r) => (
-            <option key={r.regionCode} value={r.regionCode}>
-              {r.regionName}
-              {r.feeType === "FREE" ? " — Bepul" : ` — ${formatMoneyMinor(r.deliveryFeeMinor, r.currency)}`}
-            </option>
-          ))}
-        </select>
+        <RegionSelect regions={deliveryRegions} value={regionCode} onChange={setRegionCode} />
 
         {quote.isLoading ? (
           <Skeleton className="h-16 w-full" />

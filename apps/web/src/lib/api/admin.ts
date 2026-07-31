@@ -200,6 +200,7 @@ export const getDeliveryRegions = (offerId: string) => realAdmin.getDeliveryRegi
 export const createDeliveryRegion = (offerId: string, input: realAdmin.DeliveryRegionInput) => realAdmin.createDeliveryRegion(offerId, input);
 export const updateDeliveryRegion = (id: string, input: Partial<realAdmin.DeliveryRegionInput>) => realAdmin.updateDeliveryRegion(id, input);
 export const deleteDeliveryRegion = (id: string) => realAdmin.deleteDeliveryRegion(id);
+export const seedStandardDeliveryRegions = (offerId: string) => realAdmin.seedStandardDeliveryRegions(offerId);
 
 export const getAdminReferrals = (query?: realAdmin.AdminReferralQuery) =>
   USE_REAL_API ? realAdmin.getAdminReferrals(query) : Promise.resolve({ items: [], page: 1, pageSize: 20, total: 0, totalPages: 1 });

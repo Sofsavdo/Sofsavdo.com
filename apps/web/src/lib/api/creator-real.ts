@@ -443,6 +443,7 @@ interface BackendMyCampaign {
     commissionCurrency: string;
     offer: { id: string; name: string; slug: string; priceMinor: number; compareAtPriceMinor: number | null; currency: string };
   };
+  referralLink: { code: string; url: string; clicks: number; createdAt: string } | null;
 }
 
 export async function getMyCampaigns(): Promise<CreatorCampaign[]> {
@@ -476,8 +477,12 @@ export async function getMyCampaigns(): Promise<CreatorCampaign[]> {
         currency: m.campaign.offer.currency,
       },
     } as Campaign,
-    // referralLink/promoCode intentionally absent — referral-asset generation is a later domain
-    // (promo-materials filters on their presence, so those cards simply don't render yet).
+    referralLink: m.referralLink
+      ? { code: m.referralLink.code, fullUrl: m.referralLink.url, shortUrl: m.referralLink.url, clicks: m.referralLink.clicks, createdAt: m.referralLink.createdAt }
+      : undefined,
+    // promoCode intentionally absent — a per-creator discount-code-on-top-of-the-referral-link is
+    // a separate, not-yet-built feature (see PromoCode model); the referral link alone is enough
+    // to attribute a sale, so this isn't a blocker for sharing.
   }));
 }
 

@@ -118,6 +118,21 @@ export function validateEnv(env: NodeJS.ProcessEnv): void {
       const value = env[key];
       if (!value || value.trim() === "") problems.push(`STORAGE_DRIVER=s3 but missing required environment variable: ${key}`);
     }
+  } else {
+    // A real, previously-shipped-and-hit bug: configuration.ts's STORAGE_PUBLIC_BASE_URL falls
+    // back to `http://localhost:${PORT}/media` when unset — a URL that only ever resolves to
+    // *the visitor's own machine*, never the API server, no matter where the API is actually
+    // deployed. That fallback is fine for local dev (where "localhost" really is the API), but a
+    // production deploy that never set this explicitly would upload real files successfully and
+    // return a URL that silently never renders for any real user — confirmed against a real
+    // production incident (product images uploaded fine, displayed nowhere). Every other storage
+    // misconfiguration in this validator fails loudly at boot; this one must too.
+    const publicBaseUrl = env.STORAGE_PUBLIC_BASE_URL;
+    if (!publicBaseUrl || publicBaseUrl.trim() === "") {
+      problems.push("STORAGE_DRIVER=local (or unset) but STORAGE_PUBLIC_BASE_URL is not set — it would silently fall back to a localhost URL that no real user's browser can ever reach. Set it to this API's real public origin, e.g. https://api.sofsavdo.com/media");
+    } else if (/localhost|127\.0\.0\.1/.test(publicBaseUrl)) {
+      problems.push(`STORAGE_PUBLIC_BASE_URL="${publicBaseUrl}" points at localhost — this must be the API's real public origin (e.g. https://api.sofsavdo.com/media), not a loopback address, or uploaded file URLs will never resolve for real users`);
+    }
   }
 
   if (problems.length > 0) throw new EnvironmentValidationError(problems);

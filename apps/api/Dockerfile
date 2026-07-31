@@ -50,6 +50,11 @@ FROM node:22-alpine AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
 RUN addgroup -S sofsavdo && adduser -S sofsavdo -G sofsavdo
+# su-exec: the standard, no-shell-required way to drop from root to an unprivileged user after a
+# root-only setup step (same package official Postgres/Redis Alpine images use for this exact
+# purpose) — needed by docker-entrypoint.sh below to re-chown a freshly-mounted Railway Volume
+# before running the app as `sofsavdo`.
+RUN apk add --no-cache su-exec
 COPY --from=prod-deps --chown=sofsavdo:sofsavdo /app/node_modules ./node_modules
 # Same non-hoisting behavior as the build stage's deps, just for the prod-only dependency subset —
 # verified `@nestjs/terminus` (a real runtime dependency, used by HealthController) is one of the
@@ -70,13 +75,20 @@ COPY --chown=sofsavdo:sofsavdo apps/api/prisma/migrations ./apps/api/prisma/migr
 COPY --chown=sofsavdo:sofsavdo apps/api/prisma.config.ts ./apps/api/prisma.config.ts
 # LocalDiskStorage (the default StoragePort when STORAGE_DRIVER isn't "s3") mkdir's this directory
 # at runtime the first time a file is stored — must exist and be owned by the unprivileged user
-# *before* USER switches to it, or the mkdir fails with EACCES (confirmed in production: a real
-# product-image upload's 500 traced to exactly this).
+# *before* the app writes to it, or the write fails with EACCES (confirmed in production: a real
+# product-image upload's 500 traced to exactly this). Re-chowned again at container start by
+# docker-entrypoint.sh, since a Railway Volume mounted here would otherwise replace this
+# build-time-owned directory with a fresh, root-owned one on every container start.
 RUN mkdir -p /app/apps/api/uploads && chown sofsavdo:sofsavdo /app/apps/api/uploads
-USER sofsavdo
+COPY apps/api/docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh
+# Deliberately NOT `USER sofsavdo` here — the container must start as root so the entrypoint can
+# chown a freshly-mounted volume; it re-execs as `sofsavdo` via su-exec before running anything
+# from apps/api/dist, so the Node process itself never actually runs as root.
 WORKDIR /app/apps/api
 EXPOSE 4000
 # Does NOT run `prisma migrate deploy` here — migrations are a separate, explicit CI/CD step (see
 # DEPLOYMENT.md) so that scaling this image to multiple replicas never races several instances
 # into applying the same migration concurrently on container start.
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
 CMD ["node", "dist/src/main.js"]

@@ -1130,6 +1130,10 @@ export async function updateDeliveryRegion(id: string, input: Partial<DeliveryRe
   return apiRequest<DeliveryRegionAdminItem>(`/admin/delivery-regions/${id}`, { method: "PATCH", body: input });
 }
 
+export async function seedStandardDeliveryRegions(offerId: string): Promise<DeliveryRegionAdminItem[]> {
+  return apiRequest<DeliveryRegionAdminItem[]>(`/admin/offers/${offerId}/delivery-regions/seed-standard`, { method: "POST" });
+}
+
 export async function deleteDeliveryRegion(id: string): Promise<void> {
   await apiRequest(`/admin/delivery-regions/${id}`, { method: "DELETE" });
 }

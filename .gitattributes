@@ -1,0 +1,5 @@
+# Shell scripts must always keep LF line endings — Alpine's `/bin/sh` (busybox ash) fails to parse
+# a shebang line ending in CRLF, and this repo's Windows dev machine has core.autocrlf=true, which
+# would otherwise leave the working-tree copy CRLF (git normalizes what's actually committed to LF
+# either way, but this makes the requirement explicit rather than relying on that behavior).
+*.sh text eol=lf

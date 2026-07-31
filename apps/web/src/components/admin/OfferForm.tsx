@@ -19,7 +19,13 @@ const CTA_TYPES = [
   { value: "PAY_INSTALLMENT", label: "Pay Installment" },
 ] as const;
 
-const PAYMENT_OPTIONS = ["CLICK", "PAYME", "CARD", "COD"];
+// PAY_LATER (checkout's "bo'lib to'lash" / installment option) is fully wired end-to-end
+// server-side (OrdersService.resolvePaymentProvider maps it to the MANUAL/human-reviewed
+// provider) but had no way to be enabled on any Offer through this form — the only gap was here.
+// UZUM_NASIYA is deliberately NOT listed: it has a Prisma enum value and display metadata but no
+// real payment adapter or Uzum API integration exists yet (see DECISIONS.md) — listing it here
+// would let an admin "enable" a payment method that silently can't actually process anything.
+const PAYMENT_OPTIONS = ["CLICK", "PAYME", "CARD", "COD", "PAY_LATER"];
 
 export function OfferForm({
   existing,

@@ -2581,3 +2581,127 @@ this form produces — which is the same condition `listForCreator` filters on. 
 "orphaned product, no offer" recovery path: `/admin/products/launch?productId=<id>` correctly
 skipped the product-creation fields and attached a real Offer + Campaign to an existing bare
 Product.
+
+## ADR-048: Uzbekistan Delivery Regions, Checkout Fixes, Persistent Uploads, and CPA-Simple Creator Join
+
+**Context:** one batched request covering six real, separately-reported problems. Per explicit
+instruction, all six were analyzed and implemented together, then verified in one final pass
+rather than tested incrementally.
+
+**1. Delivery regions were free-text, not selectable.** `DeliveryRegionsManager.tsx` had an admin
+type both `regionCode` and `regionName` by hand, per offer, with no canonical list backing it —
+real friction, and a source of spelling drift across offers. Built
+`apps/web/src/lib/uz-regions.ts` (mirrored to `apps/api/src/delivery/uz-regions.ts` for the same
+cross-app-raw-`.ts` reason `brand.ts` already has two copies — see that file's own comment) — all
+12 viloyats + Toshkent shahar + Qoraqalpog'iston Respublikasi, each viloyat's real tuman list,
+compiled from general knowledge of Uzbekistan's administrative-territorial division rather than a
+live government registry (a handful of district names may be stale after a renaming — each seeded
+row is a completely normal, independently editable `OfferDeliveryRegion` afterward, so a correction
+is a one-field edit, never a code change). Standard pricing, matching the requested rule exactly:
+Toshkent shahar free, every other viloyat's own center 35,000 so'm, every district 45,000 so'm.
+
+Rather than requiring per-offer manual entry against this list, added `DeliveryService.
+seedStandardRegions()` (`POST /admin/offers/:offerId/delivery-regions/seed-standard`) — one
+`createMany({ skipDuplicates: true })` call that bulk-populates all ~190 canonical zones for an
+offer in a single query (not ~190 sequential awaited creates, which would take tens of seconds
+against a real Postgres connection). Wired into `QuickProductLaunchForm` so a `PHYSICAL_PRODUCT`
+quick-launched offer gets its full delivery schedule automatically — the admin never has to touch
+delivery regions at all for the standard case. `DeliveryRegionsManager.tsx`'s manual-add form
+(still there for genuine one-off overrides) is now a real viloyat→tuman/shahar cascading `<select>`
+instead of free text.
+
+**2. Buyer checkout: region picker + mobile overflow.** Built a shared `RegionSelect` component
+(`apps/web/src/components/offer/RegionSelect.tsx`) — two cascading `<select>`s (viloyat, then
+tuman/shahar within it) instead of one flat list, since an offer can now carry ~190 zones and a
+buyer shouldn't scroll all of them to find their own. Used by both `DeliveryQuoteBox` (offer
+landing page) and `CheckoutPageClient` (checkout form). Selecting a region now also auto-fills the
+separate "Viloyat"/"Shahar" contact-info fields (still freely editable) so the buyer never types
+the same thing twice. Fixed two real mobile-overflow spots in `CheckoutPageClient.tsx`: the
+region/city grid (`grid-cols-2` → `grid-cols-1 sm:grid-cols-2`) and the promo-code row (added
+`min-w-0`/`flex-wrap`).
+
+**A real bug the browser-verification pass itself caught:** `regionCode`'s `useState("")`
+initializer only ever runs once, before `deliveryRegions` has loaded from the still-pending offer
+query — so the region `<select >`s visually rendered "Toshkent shahar" selected (an ordinary
+uncontrolled-select fallback to the first `<option>` for a `value` that matches none) while the
+actual `regionCode` state silently stayed `""`. Submitting would have failed with `REGION_REQUIRED`
+despite the UI looking correctly filled in. Same bug class already hit twice elsewhere in this
+codebase (`OfferForm`'s `productId`, `CampaignForm`'s `offerId`) — fixed the same way, with a
+`useEffect` that sets the real default once `deliveryRegions` actually arrives. Confirmed fixed by
+reading the live DOM's actual input values (not just what rendered), before and after.
+
+**3. Product images uploaded successfully but never displayed, for anyone.** Root cause:
+`STORAGE_PUBLIC_BASE_URL` defaults to `http://localhost:${PORT}/media` when unset
+(`configuration.ts`) — a URL that only ever resolves to *the visitor's own machine*, never the API
+server, regardless of where the API is actually deployed. `env-validation.ts` now refuses to boot
+in production when `STORAGE_DRIVER` isn't `s3` and `STORAGE_PUBLIC_BASE_URL` is missing or points
+at `localhost`/`127.0.0.1` — the same class of fail-loudly-at-boot guardrail already used for S3
+credentials. This is a real environment-configuration fix the user must apply in Railway (see
+DEPLOYMENT.md); the code change is the guardrail that stops it from silently recurring.
+
+**4. Uploaded files were lost on every redeploy (no persistent volume).** `apps/api/Dockerfile`
+previously dropped to the unprivileged `sofsavdo` user before running, which works for build-time-
+created directories but not for a Railway Volume — a volume mounted at `/app/apps/api/uploads`
+replaces whatever's there with a fresh, root-owned directory at container *start*, after the
+build-time `chown` already ran once at *build* time. Added `su-exec` (`apk add`) and
+`apps/api/docker-entrypoint.sh`: the container now starts as root, re-`chown`s the uploads mount,
+then execs `su-exec sofsavdo "$@"` to drop privileges before the Node process ever runs — the
+standard pattern official Postgres/Redis Alpine images use for exactly this "root-only setup step,
+then unprivileged run" shape. Added `.gitattributes` (`*.sh text eol=lf`) since Alpine's shell
+chokes on a CRLF shebang and this repo's Windows dev machine has `core.autocrlf=true`. Creating and
+attaching the actual Railway Volume is a dashboard/CLI action outside this repo — documented with
+exact steps in DEPLOYMENT.md's new "Persistent file storage" section and added to RUNBOOK.md's
+launch-day checklist, since I have no access to the user's Railway account to do it myself.
+
+**5. Creator campaign join never produced anything to actually share.** Confirmed by full audit:
+joining a campaign (`CreatorApplicationsService.approveCapacitySafe`, both the instant-join and
+admin-approve paths) already worked as one-click-simple for a `requiresApproval: false` campaign —
+but no code path anywhere in the repo ever created a `ReferralLink` row outside of seed/test data,
+despite the creator UI's own success message already claiming "Referral havolangiz tayyor" (your
+referral link is ready). Fixed at the source: `approveCapacitySafe` now `upsert`s a `ReferralLink`
+in the same transaction that creates the `CreatorCampaign` membership — keyed on the
+`(creatorId, campaignId)` unique constraint, so a retried approval never duplicates or regenerates
+it. The code itself (`buildReferralLinkCode`) is deterministic per (creator, offer) pair, not
+random, for the same idempotency reason. `GET /creator/my-campaigns` now returns the real link
+(code, share URL, click count via `_count.visits`) once one exists; the campaign-detail page
+(`/creator/campaigns/[id]`) now actually displays it (copy-to-share box) instead of only promising
+it in a success toast. Fixed the permanently-empty `/creator/promo-materials` page: its filter
+required both `referralLink` AND `promoCode` — `promoCode` (a per-creator discount code layered on
+the link) is a separate, genuinely not-yet-built feature, so gating on it meant this page could
+never show anything even with a real, working link. Confirmed Content/thumbnail creation was
+already correctly scoped as a downstream, optional step (gated on an already-`APPROVED`
+application, never required at join) — no change needed there, and the creator UI's "Content
+yaratish" button is now labeled "(ixtiyoriy)" to make that explicit. Confirmed admin-uploaded
+promotional images/videos (`CampaignMedia`, role `PROMOTIONAL`) already render on the campaign
+detail page — this part of "promo materials" already existed and needed no fix.
+
+**6. Payment options: Pay Later existed backend-side but wasn't selectable.** `OrdersService.
+resolvePaymentProvider` already maps `PAY_LATER` → the `MANUAL` (human-reviewed) provider, fully
+functional end-to-end — the only gap was `OfferForm.tsx`'s hardcoded `PAYMENT_OPTIONS` checkbox
+list never including it. Added `PAY_LATER`; `QuickProductLaunchForm`'s default `paymentOptions` now
+includes both `COD` and `PAY_LATER` so a quick-launched offer has cash-on-delivery and installment
+available without an extra admin step. **Uzum Nasiya deliberately not added**: it has a Prisma enum
+value and frontend display metadata but zero real payment adapter and no actual Uzum API
+integration — surfacing it as selectable would let an admin "enable" a payment method that silently
+can't process anything. A real Uzum Nasiya integration needs real Uzum API credentials/partnership
+this session has no access to; flagged to the user as a real follow-up decision, not silently
+skipped.
+
+**Verification:** `tsc --noEmit`/`eslint` clean on both apps. Full backend unit suite: 876/876
+passing (including new coverage: `env-validation.spec.ts` for the `STORAGE_PUBLIC_BASE_URL`
+guardrail, `delivery.service.spec.ts` for `seedStandardRegions` — bulk-create shape, correct
+per-tier pricing, idempotency — and `creator-applications.service.spec.ts` for the referral-link
+upsert — created on approval, correct fields, deterministic code, `listMyCampaigns` returning the
+real link/URL/click-count or `null`). Real browser walkthrough against the Railway test database:
+quick-launched a fresh physical product and confirmed all ~190 canonical delivery zones were
+seeded with correct tiered pricing on the real offer detail page; confirmed the buyer checkout's
+cascading region picker at a 375×812 mobile viewport with no overflow anywhere, confirmed switching
+viloyat correctly recomputed the delivery fee and total (0 so'm → 35,000 so'm, Toshkent shahar →
+Andijon shahri) and caught + fixed the `regionCode` initialization bug described above from the
+live DOM state, not a guess; confirmed all 5 payment methods (including COD/Pay Later) render
+correctly grouped by category at checkout. The full creator-join→referral-link chain was verified
+via the targeted unit tests described above (exercising the real Prisma transaction shape) rather
+than a full live walkthrough — the creator-onboarding wizard it depends on is an 8-step, pre-
+existing flow unrelated to this session's changes, and driving it fully via browser was deprioritized
+given the time already spent on the higher-risk, previously-unverified surfaces above; disclosed
+here rather than implied as covered.

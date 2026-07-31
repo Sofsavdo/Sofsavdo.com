@@ -28,6 +28,7 @@ describe("CreatorApplicationsService", () => {
     campaign: { findUnique: jest.Mock; findUniqueOrThrow: jest.Mock };
     creatorProfile: { findUnique: jest.Mock };
     creatorCampaign: { count: jest.Mock; create: jest.Mock };
+    referralLink: { findMany: jest.Mock; upsert: jest.Mock };
     $transaction: jest.Mock;
   };
   let campaigns: { computeAvailability: jest.Mock; computeApplicationAvailability: jest.Mock };
@@ -45,6 +46,8 @@ describe("CreatorApplicationsService", () => {
     platforms: ["INSTAGRAM"],
     creatorLimit: null as number | null,
     requiresApproval: true,
+    offerId: "offer1",
+    attributionWindowDays: 30,
   };
 
   const baseCreatorProfile = {
@@ -77,7 +80,16 @@ describe("CreatorApplicationsService", () => {
     createdAt: new Date(),
     updatedAt: new Date(),
     creator: { id: "creator1", displayName: "Test Creator", city: null },
-    campaign: { id: "camp1", name: "Campaign", slug: "campaign", category: "beauty", creatorLimit: null, status: "ACTIVE" },
+    campaign: {
+      id: "camp1",
+      name: "Campaign",
+      slug: "campaign",
+      category: "beauty",
+      creatorLimit: null,
+      status: "ACTIVE",
+      offerId: "offer1",
+      attributionWindowDays: 30,
+    },
     ...over,
   });
 
@@ -87,6 +99,7 @@ describe("CreatorApplicationsService", () => {
       campaign: { findUnique: jest.fn(), findUniqueOrThrow: jest.fn() },
       creatorProfile: { findUnique: jest.fn() },
       creatorCampaign: { count: jest.fn().mockResolvedValue(0), create: jest.fn() },
+      referralLink: { findMany: jest.fn().mockResolvedValue([]), upsert: jest.fn() },
       $transaction: jest.fn(),
     };
     // Runs the callback against the same mock — tx.* and prisma.* are interchangeable for these
@@ -381,14 +394,49 @@ describe("CreatorApplicationsService", () => {
 
     it("maps to ACTIVE when the membership is ACTIVE", async () => {
       withMembership("APPROVED", { status: "ACTIVE" });
-      const [result] = await service.listMyCampaigns("creator1");
+      const [result] = await service.listMyCampaigns("creator1", "https://sofsavdo.com");
       expect(result!.status).toBe("ACTIVE");
     });
 
     it("maps to COMPLETED when the membership has ENDED", async () => {
       withMembership("APPROVED", { status: "ENDED" });
-      const [result] = await service.listMyCampaigns("creator1");
+      const [result] = await service.listMyCampaigns("creator1", "https://sofsavdo.com");
       expect(result!.status).toBe("COMPLETED");
+    });
+
+    it("includes the real referral link + share URL once one exists for that (creator, campaign) pair", async () => {
+      prisma.campaignApplication.findMany.mockResolvedValue([
+        {
+          id: "app1",
+          campaignId: "camp1",
+          status: "APPROVED",
+          submittedAt: new Date("2026-01-01"),
+          createdAt: new Date("2026-01-01"),
+          rejectionReason: null,
+          campaign: { id: "camp1", name: "Campaign", offer: { slug: "malika-serum" } },
+        },
+      ]);
+      (prisma.creatorCampaign as unknown as { findMany: jest.Mock }).findMany = jest
+        .fn()
+        .mockResolvedValue([{ campaignId: "camp1", status: "ACTIVE" }]);
+      prisma.referralLink.findMany.mockResolvedValue([
+        { campaignId: "camp1", code: "malika-abc123", createdAt: new Date("2026-01-02"), _count: { visits: 4 } },
+      ]);
+
+      const [result] = await service.listMyCampaigns("creator1", "https://sofsavdo.com");
+
+      expect(result!.referralLink).toEqual({
+        code: "malika-abc123",
+        url: "https://sofsavdo.com/o/malika-serum?ref=malika-abc123",
+        clicks: 4,
+        createdAt: new Date("2026-01-02"),
+      });
+    });
+
+    it("returns null referralLink when none has been created yet for that pair", async () => {
+      withMembership("APPROVED", { status: "ACTIVE" });
+      const [result] = await service.listMyCampaigns("creator1", "https://sofsavdo.com");
+      expect(result!.referralLink).toBeNull();
     });
 
     it.each([
@@ -399,7 +447,7 @@ describe("CreatorApplicationsService", () => {
       ["WITHDRAWN", "CANCELLED"],
     ])("maps application status %s to %s when there's no membership yet", async (appStatus, expected) => {
       withMembership(appStatus, null);
-      const [result] = await service.listMyCampaigns("creator1");
+      const [result] = await service.listMyCampaigns("creator1", "https://sofsavdo.com");
       expect(result!.status).toBe(expected);
     });
   });
@@ -498,6 +546,34 @@ describe("CreatorApplicationsService", () => {
         "campaign_application.approved",
         expect.objectContaining({ applicationId: "app1", creatorId: "creator1", creatorName: "Test Creator" }),
       );
+      // The actual gap this was built to close: approval alone used to leave a creator ACTIVE
+      // with nothing to share. A real ReferralLink must exist the moment approval happens.
+      expect(prisma.referralLink.upsert).toHaveBeenCalledWith({
+        where: { creatorId_campaignId: { creatorId: "creator1", campaignId: "camp1" } },
+        update: {},
+        create: expect.objectContaining({
+          creatorId: "creator1",
+          campaignId: "camp1",
+          offerId: "offer1",
+          attributionWindowDays: 30,
+          code: expect.stringContaining("offer1".slice(-6)),
+        }),
+      });
+    });
+
+    it("generates the same referral link code deterministically for the same creator+offer, so a retry never orphans an already-shared link", async () => {
+      prisma.campaignApplication.findUnique.mockResolvedValue({
+        ...withRelations({ status: "UNDER_REVIEW" }),
+        campaign: { ...baseCampaign, creatorLimit: null },
+      });
+      prisma.campaignApplication.update.mockResolvedValue({});
+      await service.approve("app1", "admin1");
+      const firstCode = prisma.referralLink.upsert.mock.calls[0][0].create.code;
+
+      await service.approve("app1", "admin1");
+      const secondCode = prisma.referralLink.upsert.mock.calls[1][0].create.code;
+
+      expect(secondCode).toBe(firstCode);
     });
 
     it("retries once on a transient serialization conflict, then succeeds", async () => {

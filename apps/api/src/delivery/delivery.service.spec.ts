@@ -6,7 +6,7 @@ describe("DeliveryService", () => {
   let service: DeliveryService;
   let prisma: {
     offer: { findUnique: jest.Mock };
-    offerDeliveryRegion: { findUnique: jest.Mock; findFirst: jest.Mock; create: jest.Mock; update: jest.Mock; delete: jest.Mock; findMany: jest.Mock };
+    offerDeliveryRegion: { findUnique: jest.Mock; findFirst: jest.Mock; create: jest.Mock; createMany: jest.Mock; update: jest.Mock; delete: jest.Mock; findMany: jest.Mock };
   };
 
   const physicalOffer = { id: "offer1", priceMinor: 299_000_00, currency: "UZS", slug: "physical-offer", product: { type: "PHYSICAL_PRODUCT" } };
@@ -15,7 +15,15 @@ describe("DeliveryService", () => {
   beforeEach(async () => {
     prisma = {
       offer: { findUnique: jest.fn() },
-      offerDeliveryRegion: { findUnique: jest.fn(), findFirst: jest.fn(), create: jest.fn(), update: jest.fn(), delete: jest.fn(), findMany: jest.fn() },
+      offerDeliveryRegion: {
+        findUnique: jest.fn(),
+        findFirst: jest.fn(),
+        create: jest.fn(),
+        createMany: jest.fn(),
+        update: jest.fn(),
+        delete: jest.fn(),
+        findMany: jest.fn(),
+      },
     };
     const moduleRef = await Test.createTestingModule({
       providers: [DeliveryService, { provide: PrismaService, useValue: prisma }],
@@ -147,6 +155,62 @@ describe("DeliveryService", () => {
       prisma.offer.findUnique.mockResolvedValue(digitalOffer);
       await service.quote("digital-offer", undefined);
       expect(Object.keys(prisma)).not.toContain("order");
+    });
+  });
+
+  describe("seedStandardRegions", () => {
+    it("rejects for a non-physical product with PRODUCT_NOT_PHYSICAL", async () => {
+      prisma.offer.findUnique.mockResolvedValue(digitalOffer);
+      await expect(service.seedStandardRegions("offer2")).rejects.toMatchObject({ code: "PRODUCT_NOT_PHYSICAL" });
+      expect(prisma.offerDeliveryRegion.createMany).not.toHaveBeenCalled();
+    });
+
+    it("bulk-creates every canonical zone in one call, skipping ones that already exist", async () => {
+      prisma.offer.findUnique.mockResolvedValue(physicalOffer);
+      prisma.offerDeliveryRegion.createMany.mockResolvedValue({ count: 190 });
+      prisma.offerDeliveryRegion.findMany.mockResolvedValue([]);
+
+      await service.seedStandardRegions("offer1");
+
+      expect(prisma.offerDeliveryRegion.createMany).toHaveBeenCalledTimes(1);
+      const call = prisma.offerDeliveryRegion.createMany.mock.calls[0][0];
+      expect(call.skipDuplicates).toBe(true);
+      expect(call.data.length).toBeGreaterThan(100);
+      expect(call.data.every((row: { offerId: string }) => row.offerId === "offer1")).toBe(true);
+    });
+
+    it("prices Toshkent shahar free, regional centers and districts at their standard tiers", async () => {
+      prisma.offer.findUnique.mockResolvedValue(physicalOffer);
+      prisma.offerDeliveryRegion.createMany.mockResolvedValue({ count: 190 });
+      prisma.offerDeliveryRegion.findMany.mockResolvedValue([]);
+
+      await service.seedStandardRegions("offer1");
+
+      const rows = prisma.offerDeliveryRegion.createMany.mock.calls[0][0].data as Array<{
+        regionCode: string;
+        feeType: string;
+        deliveryFeeMinor: number;
+      }>;
+      const tashkentCity = rows.find((r) => r.regionCode === "toshkent-shahar:free")!;
+      expect(tashkentCity).toMatchObject({ feeType: "FREE", deliveryFeeMinor: 0 });
+
+      const regionalCenters = rows.filter((r) => r.regionCode.endsWith(":markaz"));
+      expect(regionalCenters.length).toBeGreaterThanOrEqual(13); // 12 viloyat + Qoraqalpog'iston, excluding Toshkent shahar
+      expect(regionalCenters.every((r) => r.feeType === "FIXED" && r.deliveryFeeMinor === 35_000_00)).toBe(true);
+
+      const districts = rows.filter((r) => !r.regionCode.endsWith(":markaz") && r.regionCode !== "toshkent-shahar:free");
+      expect(districts.length).toBeGreaterThan(150);
+      expect(districts.every((r) => r.feeType === "FIXED" && r.deliveryFeeMinor === 45_000_00)).toBe(true);
+    });
+
+    it("is idempotent — calling it twice never errors on the unique (offerId, regionCode) constraint", async () => {
+      prisma.offer.findUnique.mockResolvedValue(physicalOffer);
+      prisma.offerDeliveryRegion.createMany.mockResolvedValue({ count: 190 });
+      prisma.offerDeliveryRegion.findMany.mockResolvedValue([]);
+
+      await service.seedStandardRegions("offer1");
+      await expect(service.seedStandardRegions("offer1")).resolves.not.toThrow();
+      expect(prisma.offerDeliveryRegion.createMany).toHaveBeenCalledTimes(2);
     });
   });
 });

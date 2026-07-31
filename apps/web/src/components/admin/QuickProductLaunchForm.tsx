@@ -15,7 +15,7 @@ import {
   useUploadImage,
 } from "@/services/admin/catalog";
 import { useActivateCampaign, useCreateCampaign } from "@/services/admin/campaigns";
-import { ApiError } from "@/lib/api/admin";
+import { ApiError, seedStandardDeliveryRegions } from "@/lib/api/admin";
 
 const PRODUCT_TYPES: { value: ProductType; label: string }[] = [
   { value: "PHYSICAL_PRODUCT", label: "Fizik mahsulot" },
@@ -145,11 +145,22 @@ export function QuickProductLaunchForm({ existingProduct }: { existingProduct?: 
         currency: "UZS",
         variants: [{ id: "v1", name: "Standart", priceMinor: Math.round(Number(priceMinor) * 100), isDefault: true }],
         bonuses: [],
-        paymentOptions: ["CLICK", "PAYME", "CARD"],
+        // Includes COD ("naqd to'lov, yetkazilganda") and PAY_LATER ("bo'lib to'lash") by
+        // default — both are already fully wired end-to-end server-side, and buyers expect them
+        // available without the admin needing a separate step to turn them on.
+        paymentOptions: ["CLICK", "PAYME", "CARD", "COD", "PAY_LATER"],
         ctaType: "BUY_NOW",
         ctaLabel: "Sotib olish",
       });
       await activateOffer.mutateAsync(offer.id);
+
+      // Physical products need a real delivery-fee schedule before checkout works at all
+      // (DeliveryService.resolveDeliveryFee throws REGION_REQUIRED with zero regions configured)
+      // — bulk-seeding the standard Uzbekistan zone list here means the admin never has to
+      // manually configure ~190 regions per offer just to make checkout functional.
+      if (product.type === "PHYSICAL_PRODUCT") {
+        await seedStandardDeliveryRegions(offer.id);
+      }
 
       await createLanding.mutateAsync({ offerId: offer.id, input: {} });
       for (const sectionType of SCAFFOLD_SECTION_TYPES) {

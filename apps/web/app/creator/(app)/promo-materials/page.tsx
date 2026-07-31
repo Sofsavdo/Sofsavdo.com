@@ -11,7 +11,11 @@ export default function PromoMaterialsPage() {
   const query = useMyCampaigns();
   const [shared, setShared] = useState<string | null>(null);
 
-  const eligible = (query.data ?? []).filter((cc) => cc.referralLink && cc.promoCode);
+  // promoCode (a per-creator discount code layered on top of the referral link) is a separate,
+  // not-yet-built feature — gating this page on its presence meant this page was permanently
+  // empty even for a creator with a real, working referral link. The referral link alone is
+  // enough to attribute a sale; promoCode support can be added here later without another gate.
+  const eligible = (query.data ?? []).filter((cc) => cc.referralLink);
 
   async function handleShare(url: string, name: string) {
     if (navigator.share) {
@@ -88,16 +92,18 @@ export default function PromoMaterialsPage() {
                       <CopyButton value={cc.referralLink!.shortUrl} label="" />
                     </div>
                   </div>
-                  <div>
-                    <p className="mb-1 font-body text-xs text-text-muted">Promo kod</p>
-                    <div className="flex items-center gap-2">
-                      <code className="flex-1 truncate rounded-input bg-bg px-2.5 py-1.5 font-body text-sm font-semibold text-accent">
-                        {cc.promoCode!.code}
-                      </code>
-                      <CopyButton value={cc.promoCode!.code} label="" />
+                  {cc.promoCode ? (
+                    <div>
+                      <p className="mb-1 font-body text-xs text-text-muted">Promo kod</p>
+                      <div className="flex items-center gap-2">
+                        <code className="flex-1 truncate rounded-input bg-bg px-2.5 py-1.5 font-body text-sm font-semibold text-accent">
+                          {cc.promoCode.code}
+                        </code>
+                        <CopyButton value={cc.promoCode.code} label="" />
+                      </div>
+                      <p className="mt-1 font-body text-xs text-text-muted">{cc.promoCode.usageCount} marta ishlatilgan</p>
                     </div>
-                    <p className="mt-1 font-body text-xs text-text-muted">{cc.promoCode!.usageCount} marta ishlatilgan</p>
-                  </div>
+                  ) : null}
 
                   <div className="flex gap-2 pt-1">
                     <button
@@ -124,7 +130,7 @@ export default function PromoMaterialsPage() {
                   href={`/creator/campaigns/${cc.campaignId}`}
                   className="mt-2 inline-block font-body text-xs text-accent underline"
                 >
-                  Kampaniya tafsilotlarini ko&apos;rish
+                  Admin tayyorlagan rasm/video va reklama matnlarini ko&apos;rish →
                 </Link>
               </div>
             </Card>

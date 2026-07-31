@@ -7,10 +7,12 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery } from "@tanstack/react-query";
 import { formatMoneyMinor } from "@sofsavdo/types";
-import { Alert, Button, Card, CardHeader, CardTitle, SelectField, Skeleton, TextAreaField, TextField } from "@sofsavdo/ui";
+import { Alert, Button, Card, CardHeader, CardTitle, Skeleton, TextAreaField, TextField } from "@sofsavdo/ui";
 import { useOfferPublic, useCreateOrder, useValidatePromoCode, useTrackVisit } from "@/services/offer";
 import { checkoutSchema, type CheckoutInput } from "@/lib/schemas";
 import { PaymentMethodSelector } from "./PaymentMethodSelector";
+import { RegionSelect } from "./RegionSelect";
+import { UZ_DELIVERY_ZONES, UZ_VILOYATLAR } from "@/lib/uz-regions";
 import { ApiError } from "@/lib/api";
 import { useBuyerSession } from "@/services/buyerSession";
 import { getMyAddresses } from "@/lib/api/buyer-real";
@@ -108,6 +110,33 @@ export function CheckoutPageClient({ offerSlug }: { offerSlug: string }) {
   const selectedRegion = deliveryRegions.find((r) => r.regionCode === regionCode);
   const deliveryFeeMinor = isPhysical ? (selectedRegion?.deliveryFeeMinor ?? 0) : 0;
 
+  // `deliveryRegions` only resolves after this component has already mounted once (the offer
+  // query is still loading on the very first render, before `regionCode`'s `useState("")`
+  // initializer ever runs) — without this, the region <select> visually shows its first option
+  // (an ordinary uncontrolled-select fallback for a `value` that matches no `<option>`) while
+  // `regionCode` itself silently stays "", and submitting would fail with REGION_REQUIRED despite
+  // the UI looking like a region was already picked. Real bug caught in browser verification, not
+  // guessed — matches the same class of select/value-mismatch bug already hit twice elsewhere in
+  // this codebase (OfferForm's productId, CampaignForm's offerId).
+  useEffect(() => {
+    if (regionCode || deliveryRegions.length === 0) return;
+    setRegionCode(deliveryRegions[0]!.regionCode);
+  }, [regionCode, deliveryRegions]);
+
+  // Picking a delivery region already tells us the buyer's viloyat/shahar — auto-filling the
+  // separate "Viloyat"/"Shahar" contact fields below means the buyer never types the same thing
+  // twice. Still freely editable afterward (e.g. to add mahalla-level detail the canonical zone
+  // name doesn't capture) — this only pre-fills, never locks the field.
+  useEffect(() => {
+    if (!regionCode) return;
+    const zone = UZ_DELIVERY_ZONES.find((z) => z.code === regionCode);
+    if (!zone) return;
+    const viloyat = UZ_VILOYATLAR.find((v) => v.code === zone.viloyatCode);
+    if (viloyat) setValue("region", viloyat.name);
+    setValue("city", zone.name);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [regionCode]);
+
   if (offerQuery.isLoading) {
     return (
       <div className="mx-auto max-w-2xl space-y-4 px-pad-mobile py-12 md:px-pad-desktop">
@@ -189,21 +218,17 @@ export function CheckoutPageClient({ offerSlug }: { offerSlug: string }) {
 
           {isPhysical ? (
             <>
-              <div className="grid grid-cols-2 gap-3">
+              {deliveryRegions.length > 0 ? (
+                <div>
+                  <p className="mb-1.5 font-body text-sm font-medium text-text-primary">Yetkazib berish hududi</p>
+                  <RegionSelect regions={deliveryRegions} value={regionCode} onChange={setRegionCode} />
+                </div>
+              ) : null}
+              <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
                 <TextField label="Viloyat" {...register("region")} />
                 <TextField label="Shahar" {...register("city")} />
               </div>
-              <TextAreaField label="Manzil" {...register("address")} />
-              {deliveryRegions.length > 0 ? (
-                <SelectField label="Yetkazib berish regioni" value={regionCode} onChange={(e) => setRegionCode(e.target.value)}>
-                  <option value="">Tanlang</option>
-                  {deliveryRegions.map((r) => (
-                    <option key={r.regionCode} value={r.regionCode}>
-                      {r.regionName} — {r.deliveryFeeMinor === 0 ? "Bepul" : formatMoneyMinor(r.deliveryFeeMinor, offer.currency)}
-                    </option>
-                  ))}
-                </SelectField>
-              ) : null}
+              <TextAreaField label="Manzil (ko'cha, uy, mahalla)" {...register("address")} />
             </>
           ) : (
             <TextField label="Email (ixtiyoriy)" type="email" error={errors.email?.message} {...register("email")} />
@@ -215,7 +240,7 @@ export function CheckoutPageClient({ offerSlug }: { offerSlug: string }) {
 
           <div>
             <p className="mb-1.5 font-body text-sm font-medium text-text-primary">Promo kod</p>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <input
                 value={promoInput}
                 onChange={(e) => {
@@ -223,7 +248,7 @@ export function CheckoutPageClient({ offerSlug }: { offerSlug: string }) {
                   setAppliedPromo(null);
                 }}
                 placeholder="Masalan: MALIKA10"
-                className="h-10 flex-1 rounded-input border border-border bg-surface px-3 font-body text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                className="h-10 min-w-0 flex-1 rounded-input border border-border bg-surface px-3 font-body text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               />
               <Button type="button" variant="outline" onClick={onApplyPromo} disabled={validatePromo.isPending}>
                 {validatePromo.isPending ? "..." : "Qo'llash"}

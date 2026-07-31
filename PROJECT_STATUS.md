@@ -3466,7 +3466,8 @@ As of this pass, all four items `PRODUCTION_READINESS.md` had flagged since Phas
 user's own action are done: a real `docker build` has been run and verified for both images, a real
 Railway project exists and is serving real traffic at the real domain, real Click.uz production
 credentials have been entered, and the production database has a bootstrapped admin account. The
-checklists in RUNBOOK.md/DEPLOYMENT.md remain the reference for anything further
+checklists in RUNBOOK.md/DEPLOYMENT.md remain the reference for anything further, for each once
+the user is ready to perform them.
 
 ## Phase R — Real Production Incident Fixes: API Container Permissions + Quick Product Launch — DONE (2026-07-30)
 
@@ -3503,4 +3504,49 @@ root cause rather than patched symptomatically.
   API Dockerfile fix could not be verified with a live `docker build` (Docker Desktop daemon
   unavailable in this environment) — verified by manual reading of the Dockerfile and standard
   `COPY --chown=`/`RUN mkdir` semantics instead; awaits the user's next Railway deploy to confirm.
-for each once the user is ready to perform them.
+
+## Phase S — Uzbekistan Delivery Regions, Checkout Fixes, Persistent Uploads, CPA-Simple Creator Join — DONE (2026-07-31)
+
+One batched request covering six real, separately-reported problems, analyzed and implemented
+together per explicit instruction, then verified in one final pass. See DECISIONS.md ADR-048 for
+full detail; summary:
+
+- **Delivery regions**: replaced free-text region entry with a real canonical Uzbekistan
+  region/district picklist (12 viloyat + Toshkent shahar + Qoraqalpog'iston, standard pricing —
+  Toshkent shahar free, viloyat markazi 35,000 so'm, tuman 45,000 so'm) plus a one-click bulk-seed
+  endpoint wired into the Quick Launch flow, so a physical-product offer gets its full ~190-zone
+  delivery schedule automatically with zero manual admin entry.
+- **Buyer checkout**: cascading viloyat→tuman/shahar region picker (was a flat list, unworkable at
+  ~190 entries); fixed two real mobile-overflow spots; caught and fixed a real bug during browser
+  verification — the region select visually showed a default but the underlying form state stayed
+  empty, which would have failed checkout with `REGION_REQUIRED` despite looking correct.
+- **Product images uploaded but never displayed**: root cause was `STORAGE_PUBLIC_BASE_URL`
+  defaulting to a `localhost` URL that can never resolve for a real visitor; added a production
+  boot-time guardrail refusing to start without a real value configured.
+- **Uploads lost on every redeploy**: `apps/api/Dockerfile` + new `docker-entrypoint.sh` now
+  correctly handle a Railway Volume mounted at `/app/apps/api/uploads` (re-chowns at container
+  start via `su-exec`, since a fresh volume mount is root-owned regardless of the build-time
+  ownership fix). Creating/attaching the actual volume is a Railway dashboard action documented in
+  DEPLOYMENT.md/RUNBOOK.md — outside this session's access.
+- **Creator campaign join never produced a real referral link**: fixed at the source —
+  `CreatorApplicationsService.approveCapacitySafe` now creates a real `ReferralLink` the moment a
+  creator joins (instant-join or admin-approved), idempotently. The creator UI's pre-existing
+  "your referral link is ready" success message is no longer false — the link is now actually
+  displayed. Fixed the permanently-empty `/creator/promo-materials` page (was gated on a separate,
+  not-yet-built `promoCode` feature in addition to the referral link). Confirmed Content/thumbnail
+  creation was already correctly optional/downstream, not a join-time blocker — no change needed.
+- **Payment options**: added `PAY_LATER` to the admin Offer form (backend already fully supported
+  it) and defaulted Quick Launch to include COD + Pay Later. Uzum Nasiya deliberately left
+  unselectable — no real payment adapter or API credentials exist for it yet.
+
+**Verification**: `tsc --noEmit`/`eslint` clean on both apps. Full backend unit suite: 876/876
+passing, including new coverage for the `STORAGE_PUBLIC_BASE_URL` guardrail, `seedStandardRegions`
+(bulk-create shape, per-tier pricing, idempotency), and the referral-link upsert (creation,
+determinism, `listMyCampaigns` shape). Real browser walkthrough: quick-launched a physical product
+and confirmed all ~190 delivery zones seeded with correct pricing on the real offer page; confirmed
+the checkout region picker at a 375×812 mobile viewport with zero overflow, confirmed switching
+region correctly recomputed the delivery fee/total, and confirmed all 5 payment methods render
+correctly grouped. The creator-join→referral-link chain was verified via targeted unit tests
+exercising the real transaction shape rather than a full live walkthrough — the pre-existing 8-step
+creator-onboarding wizard it depends on was out of scope for this pass; disclosed rather than
+implied as covered.

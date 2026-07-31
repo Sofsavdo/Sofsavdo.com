@@ -3,7 +3,7 @@
 import { use, useState } from "react";
 import Link from "next/link";
 import { formatMoneyMinor, type Campaign, type CampaignApplicationCreatorView, type SocialPlatform } from "@sofsavdo/types";
-import { Alert, Badge, Button, Card, CardHeader, CardTitle, Skeleton } from "@sofsavdo/ui";
+import { Alert, Badge, Button, Card, CardHeader, CardTitle, CopyButton, Skeleton } from "@sofsavdo/ui";
 import { ArrowLeft, Award, CheckCircle2, FileText, Image as ImageIcon, Video } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
@@ -397,6 +397,21 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                 <Link href="/creator/my-campaigns" className="font-body text-sm text-accent underline">
                   Mening kampaniyalarimda ko&apos;rish
                 </Link>
+
+                {existing.status === "ACTIVE" && existing.referralLink ? (
+                  <div className="mt-3 w-full space-y-1.5 rounded-input border border-border bg-bg p-3 text-left">
+                    <p className="font-body text-xs font-medium text-text-muted">
+                      Sizning referral havolangiz — shu havola bilan ulashing
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 min-w-0 truncate rounded-input bg-surface px-2.5 py-1.5 font-body text-xs text-text-secondary">
+                        {existing.referralLink.fullUrl}
+                      </code>
+                      <CopyButton value={existing.referralLink.fullUrl} label="" />
+                    </div>
+                  </div>
+                ) : null}
+
                 {USE_REAL_API && existing.status === "ACTIVE" ? (
                   <Button
                     variant="outline"
@@ -410,7 +425,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                       )
                     }
                   >
-                    {createContentMutation.isPending ? "Yaratilmoqda..." : "Content yaratish"}
+                    {createContentMutation.isPending ? "Yaratilmoqda..." : "Content yaratish (ixtiyoriy)"}
                   </Button>
                 ) : null}
               </div>

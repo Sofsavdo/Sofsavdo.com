@@ -162,6 +162,11 @@ Run through this every business day, roughly in this order:
       domain, not a staging/localhost URL.
 - [ ] `SWAGGER_ENABLED` left unset (or `false`) in production, unless a protected staging-style docs
       view is genuinely wanted.
+- [ ] `STORAGE_PUBLIC_BASE_URL` set to the API's real public origin (e.g.
+      `https://api.sofsavdo.com/media`) and a Railway Volume attached to `sofsavdo-api` mounted at
+      `/app/apps/api/uploads` — see [DEPLOYMENT.md](DEPLOYMENT.md)'s "Persistent file storage"
+      section. Skipping this means uploaded images never display for real users and/or are wiped
+      on every redeploy (both are real incidents this project already hit once).
 - [ ] At least one other staff member (not just the bootstrap super admin) has a working
       manager/admin account, so a single person's lost session doesn't block operations.
 - [ ] Rollback plan reviewed (see [DEPLOYMENT.md](DEPLOYMENT.md)'s rollback section) in case
