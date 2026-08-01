@@ -1,12 +1,13 @@
 "use client";
 
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Skeleton } from "@sofsavdo/ui";
 import { QuickProductLaunchForm } from "@/components/admin/QuickProductLaunchForm";
 import { useAdminProduct } from "@/services/admin/catalog";
 
-export default function ProductLaunchPage() {
+function ProductLaunchContent() {
   const searchParams = useSearchParams();
   const productId = searchParams.get("productId") ?? undefined;
   const productQuery = useAdminProduct(productId ?? "");
@@ -29,5 +30,17 @@ export default function ProductLaunchPage() {
         </Link>
       </p>
     </div>
+  );
+}
+
+export default function ProductLaunchPage() {
+  return (
+    <Suspense fallback={
+      <div className="mx-auto max-w-2xl">
+        <Skeleton className="h-96 w-full" />
+      </div>
+    }>
+      <ProductLaunchContent />
+    </Suspense>
   );
 }
