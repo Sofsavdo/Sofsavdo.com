@@ -6,6 +6,10 @@
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
+interface ApiResponse<T> {
+  data: T;
+}
+
 export const api = {
   async get<T>(path: string): Promise<T> {
     const response = await fetch(`${API_URL}${path}`, {
@@ -19,7 +23,8 @@ export const api = {
       throw new Error(`API error: ${response.status}`);
     }
 
-    return response.json();
+    const data: ApiResponse<T> = await response.json();
+    return data.data;
   },
 
   async post<T>(path: string, body: unknown): Promise<T> {
@@ -35,7 +40,8 @@ export const api = {
       throw new Error(`API error: ${response.status}`);
     }
 
-    return response.json();
+    const data: ApiResponse<T> = await response.json();
+    return data.data;
   },
 
   async put<T>(path: string, body: unknown): Promise<T> {
@@ -51,7 +57,8 @@ export const api = {
       throw new Error(`API error: ${response.status}`);
     }
 
-    return response.json();
+    const data: ApiResponse<T> = await response.json();
+    return data.data;
   },
 
   async delete<T>(path: string): Promise<T> {
@@ -66,6 +73,7 @@ export const api = {
       throw new Error(`API error: ${response.status}`);
     }
 
-    return response.json();
+    const data: ApiResponse<T> = await response.json();
+    return data.data;
   },
 };
