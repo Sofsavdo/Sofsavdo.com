@@ -12,6 +12,7 @@ import { SimplifiedButton } from '@/components/simplified/simplified-button';
 import { SimplifiedLoading } from '@/components/simplified/simplified-loading';
 import { SimplifiedModal } from '@/components/simplified/simplified-modal';
 import { SimplifiedInput } from '@/components/simplified/simplified-input';
+import { creatorsV2Service, type CreatorEarningsDto } from '@/services/v2/creators-v2.service';
 
 export default function EarningsPage() {
   const [loading, setLoading] = useState(true);
@@ -19,27 +20,27 @@ export default function EarningsPage() {
   const [withdrawing, setWithdrawing] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState('');
   
-  // Placeholder data - will be fetched from API
-  const [earnings, setEarnings] = useState({
-    availableBalanceMinor: 250000,
-    pendingEarningsMinor: 75000,
-    totalEarningsMinor: 1500000,
-    lifetimeSales: 45,
-  });
-  
-  const [transactions, setTransactions] = useState([
-    { id: '1', type: 'sale', amountMinor: 30000, description: 'Face Serum sale', date: '2 hours ago' },
-    { id: '2', type: 'withdrawal', amountMinor: -100000, description: 'Withdrawal to card', date: '1 day ago' },
-    { id: '3', type: 'sale', amountMinor: 25000, description: 'Vitamin C sale', date: '2 days ago' },
-    { id: '4', type: 'sale', amountMinor: 35000, description: 'Face Serum sale', date: '3 days ago' },
-  ]);
+  const [earnings, setEarnings] = useState<CreatorEarningsDto | null>(null);
   
   useEffect(() => {
-    // Simulate loading
-    setTimeout(() => setLoading(false), 1000);
+    loadEarnings();
   }, []);
   
+  const loadEarnings = async () => {
+    setLoading(true);
+    try {
+      const data = await creatorsV2Service.getMyEarnings();
+      setEarnings(data);
+    } catch (error) {
+      console.error('Failed to load earnings:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
   const handleWithdraw = async () => {
+    if (!earnings) return;
+    
     const amount = parseInt(withdrawAmount, 10);
     if (!amount || amount <= 0) {
       alert('Iltimos, to\'g\'ri miqdorni kiriting');
@@ -53,15 +54,11 @@ export default function EarningsPage() {
     
     setWithdrawing(true);
     try {
-      // TODO: Call API to withdraw
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await creatorsV2Service.requestWithdrawal(amount);
       
       setWithdrawModalOpen(false);
       setWithdrawAmount('');
-      setEarnings({
-        ...earnings,
-        availableBalanceMinor: earnings.availableBalanceMinor - amount,
-      });
+      await loadEarnings();
       
       alert('Muvaffaqiyatli! Pul kartangizga o\'tkazildi.');
     } catch (error) {
@@ -83,7 +80,15 @@ export default function EarningsPage() {
       </div>
     );
   }
-  
+
+  if (!earnings) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-gray-600">Daromad ma'lumotlarini yuklab bo'lmadi</p>
+      </div>
+    );
+  }
+
   return (
     <div>
       <div className="mb-6">
@@ -150,20 +155,24 @@ export default function EarningsPage() {
         </SimplifiedCardHeader>
         <SimplifiedCardContent>
           <div className="space-y-3">
-            {transactions.map((tx) => (
-              <div
-                key={tx.id}
-                className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0"
-              >
-                <div>
-                  <p className="font-medium text-gray-900">{tx.description}</p>
-                  <p className="text-sm text-gray-600">{tx.date}</p>
+            {earnings.transactions.length === 0 ? (
+              <p className="text-center text-gray-600 py-4">Tranzaksiyalar yo'q</p>
+            ) : (
+              earnings.transactions.map((tx) => (
+                <div
+                  key={tx.id}
+                  className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0"
+                >
+                  <div>
+                    <p className="font-medium text-gray-900">{tx.description}</p>
+                    <p className="text-sm text-gray-600">{tx.date}</p>
+                  </div>
+                  <p className={`font-semibold ${tx.type === 'sale' ? 'text-green-600' : 'text-red-600'}`}>
+                    {tx.type === 'sale' ? '+' : ''}{formatPrice(tx.amountMinor)}
+                  </p>
                 </div>
-                <p className={`font-semibold ${tx.type === 'sale' ? 'text-green-600' : 'text-red-600'}`}>
-                  {tx.type === 'sale' ? '+' : ''}{formatPrice(tx.amountMinor)}
-                </p>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </SimplifiedCardContent>
       </SimplifiedCard>

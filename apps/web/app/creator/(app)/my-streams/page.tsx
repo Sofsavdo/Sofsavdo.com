@@ -12,23 +12,10 @@ import { SimplifiedButton } from '@/components/simplified/simplified-button';
 import { SimplifiedLoading } from '@/components/simplified/simplified-loading';
 import { SimplifiedBadge } from '@/components/simplified/simplified-badge';
 import Link from 'next/link';
-
-interface MyStream {
-  id: string;
-  productId: string;
-  productName: string;
-  productImage: string;
-  productPriceMinor: number;
-  commissionPercent: number;
-  referralLink: string;
-  totalClicks: number;
-  totalSales: number;
-  totalEarningsMinor: number;
-  createdAt: Date;
-}
+import { creatorsV2Service, type CreatorStreamDto } from '@/services/v2/creators-v2.service';
 
 export default function MyStreamsPage() {
-  const [streams, setStreams] = useState<MyStream[]>([]);
+  const [streams, setStreams] = useState<CreatorStreamDto[]>([]);
   const [loading, setLoading] = useState(true);
   
   useEffect(() => {
@@ -38,36 +25,8 @@ export default function MyStreamsPage() {
   const loadStreams = async () => {
     setLoading(true);
     try {
-      // TODO: Load from API
-      const mockData: MyStream[] = [
-        {
-          id: '1',
-          productId: 'p1',
-          productName: 'Face Serum for Glowing Skin',
-          productImage: 'https://via.placeholder.com/150',
-          productPriceMinor: 150000,
-          commissionPercent: 20,
-          referralLink: 'https://sofsavdo.com/buyer/v2/f/p1',
-          totalClicks: 156,
-          totalSales: 12,
-          totalEarningsMinor: 360000,
-          createdAt: new Date('2024-07-15'),
-        },
-        {
-          id: '2',
-          productId: 'p2',
-          productName: 'Vitamin C Serum',
-          productImage: 'https://via.placeholder.com/150',
-          productPriceMinor: 120000,
-          commissionPercent: 25,
-          referralLink: 'https://sofsavdo.com/buyer/v2/f/p2',
-          totalClicks: 89,
-          totalSales: 5,
-          totalEarningsMinor: 150000,
-          createdAt: new Date('2024-07-20'),
-        },
-      ];
-      setStreams(mockData);
+      const data = await creatorsV2Service.getMyStreams();
+      setStreams(data);
     } catch (error) {
       console.error('Failed to load streams:', error);
     } finally {

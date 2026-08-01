@@ -3,7 +3,7 @@
  * 
  * Controller for the simplified v2 creators API.
  * Hides technical fields like tier, compliance status.
- * Focuses on profile, products, and link generation.
+ * Focuses on profile, streams, earnings, and link generation.
  */
 
 import { Controller, Get, Post, Put, Body, Param } from '@nestjs/common';
@@ -13,6 +13,8 @@ import {
   SimplifiedCreatorProfileDto,
   UpdateSimplifiedCreatorProfileDto,
   SimplifiedCreatorProductDto,
+  CreatorStreamDto,
+  CreatorEarningsDto,
 } from './dto/simplified-creator.dto';
 
 @ApiTags('Creators V2')
@@ -41,25 +43,45 @@ export class CreatorsV2Controller {
     return this.creatorsViewService.updateMyProfile(creatorId, dto);
   }
 
-  @Get('me/products')
-  @ApiOperation({ summary: 'Get my simplified products' })
-  @ApiResponse({ status: 200, description: 'Products retrieved', type: [SimplifiedCreatorProductDto] })
-  async getMyProducts(/* @CurrentUser('creatorId') creatorId: string */): Promise<SimplifiedCreatorProductDto[]> {
+  @Get('me/streams')
+  @ApiOperation({ summary: 'Get my active streams with stats' })
+  @ApiResponse({ status: 200, description: 'Streams retrieved', type: [CreatorStreamDto] })
+  async getMyStreams(/* @CurrentUser('creatorId') creatorId: string */): Promise<CreatorStreamDto[]> {
     // Placeholder - will use auth guard in Phase 2
     const creatorId = 'placeholder-creator-id';
-    return this.creatorsViewService.getMyProducts(creatorId);
+    return this.creatorsViewService.getMyStreams(creatorId);
   }
 
-  @Post('me/products/:productId/link')
-  @ApiOperation({ summary: 'Generate instant sharing link for a product' })
-  @ApiResponse({ status: 200, description: 'Link generated' })
-  async generateSharingLink(
+  @Get('me/streams/:productId')
+  @ApiOperation({ summary: 'Get stream detail with referral link' })
+  @ApiResponse({ status: 200, description: 'Stream detail retrieved', type: CreatorStreamDto })
+  async getStreamDetail(
     /* @CurrentUser('creatorId') creatorId: string, */
     @Param('productId') productId: string,
-  ): Promise<{ link: string }> {
+  ): Promise<CreatorStreamDto> {
     // Placeholder - will use auth guard in Phase 2
     const creatorId = 'placeholder-creator-id';
-    const link = await this.creatorsViewService.generateSharingLink(creatorId, productId);
-    return { link };
+    return this.creatorsViewService.getStreamDetail(creatorId, productId);
+  }
+
+  @Get('me/earnings')
+  @ApiOperation({ summary: 'Get my earnings data' })
+  @ApiResponse({ status: 200, description: 'Earnings retrieved', type: CreatorEarningsDto })
+  async getMyEarnings(/* @CurrentUser('creatorId') creatorId: string */): Promise<CreatorEarningsDto> {
+    // Placeholder - will use auth guard in Phase 2
+    const creatorId = 'placeholder-creator-id';
+    return this.creatorsViewService.getMyEarnings(creatorId);
+  }
+
+  @Post('me/earnings/withdraw')
+  @ApiOperation({ summary: 'Request withdrawal' })
+  @ApiResponse({ status: 200, description: 'Withdrawal requested' })
+  async requestWithdrawal(
+    /* @CurrentUser('creatorId') creatorId: string, */
+    @Body() body: { amountMinor: number },
+  ): Promise<{ success: boolean }> {
+    // Placeholder - will use auth guard in Phase 2
+    const creatorId = 'placeholder-creator-id';
+    return this.creatorsViewService.requestWithdrawal(creatorId, body.amountMinor);
   }
 }

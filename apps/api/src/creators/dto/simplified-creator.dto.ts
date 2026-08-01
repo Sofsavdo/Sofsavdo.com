@@ -268,3 +268,133 @@ export class SimplifiedCreatorProductDto {
   @IsUrl()
   sharingLink!: string;
 }
+
+export class CreatorStreamDto {
+  @ApiProperty({
+    description: 'Stream ID',
+    example: 'clh123abc456def'
+  })
+  @IsString()
+  id!: string;
+
+  @ApiProperty({
+    description: 'Product ID',
+    example: 'clh789xyz012abc'
+  })
+  @IsString()
+  productId!: string;
+
+  @ApiProperty({
+    description: 'Product name',
+    example: 'Face Serum for Glowing Skin'
+  })
+  @IsString()
+  productName!: string;
+
+  @ApiProperty({
+    description: 'Product image',
+    example: 'https://cdn.sofsavdo.com/products/serum-1.jpg'
+  })
+  @IsUrl()
+  productImage!: string;
+
+  @ApiProperty({
+    description: 'Product price in minor units',
+    example: 150000
+  })
+  @IsNumber()
+  @Min(0)
+  productPriceMinor!: number;
+
+  @ApiProperty({
+    description: 'Commission percentage',
+    example: 20
+  })
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  commissionPercent!: number;
+
+  @ApiProperty({
+    description: 'Referral link',
+    example: 'https://sofsavdo.com/buyer/v2/f/p1'
+  })
+  @IsUrl()
+  referralLink!: string;
+
+  @ApiProperty({
+    description: 'Total clicks',
+    example: 156
+  })
+  @IsNumber()
+  @Min(0)
+  totalClicks!: number;
+
+  @ApiProperty({
+    description: 'Total sales',
+    example: 12
+  })
+  @IsNumber()
+  @Min(0)
+  totalSales!: number;
+
+  @ApiProperty({
+    description: 'Total earnings in minor units',
+    example: 360000
+  })
+  @IsNumber()
+  @Min(0)
+  totalEarningsMinor!: number;
+
+  @ApiProperty({
+    description: 'Stream creation date',
+    example: '2024-07-15T10:00:00Z'
+  })
+  createdAt!: Date;
+}
+
+export class CreatorEarningsDto {
+  @ApiProperty({
+    description: 'Available balance in minor units',
+    example: 250000
+  })
+  @IsNumber()
+  @Min(0)
+  availableBalanceMinor!: number;
+
+  @ApiProperty({
+    description: 'Pending earnings in minor units',
+    example: 75000
+  })
+  @IsNumber()
+  @Min(0)
+  pendingEarningsMinor!: number;
+
+  @ApiProperty({
+    description: 'Total lifetime earnings in minor units',
+    example: 1500000
+  })
+  @IsNumber()
+  @Min(0)
+  totalEarningsMinor!: number;
+
+  @ApiProperty({
+    description: 'Lifetime sales count',
+    example: 45
+  })
+  @IsNumber()
+  @Min(0)
+  lifetimeSales!: number;
+
+  @ApiProperty({
+    description: 'Recent transactions',
+    type: [Object]
+  })
+  transactions!: Array<{
+    id: string;
+    type: 'sale' | 'withdrawal';
+    amountMinor: number;
+    description: string;
+    date: string;
+  }>;
+}

@@ -17,6 +17,8 @@ import {
   SimplifiedCreatorProfileDto,
   UpdateSimplifiedCreatorProfileDto,
   SimplifiedCreatorProductDto,
+  CreatorStreamDto,
+  CreatorEarningsDto,
 } from './dto/simplified-creator.dto';
 
 @Injectable()
@@ -151,6 +153,48 @@ export class CreatorsViewService {
   async getMyProducts(creatorId: string): Promise<SimplifiedCreatorProductDto[]> {
     // Placeholder - will be implemented in Phase 2
     return [];
+  }
+
+  /**
+   * Get my active streams with stats.
+   */
+  async getMyStreams(creatorId: string): Promise<CreatorStreamDto[]> {
+    // Placeholder - will be implemented with real data in Phase 2
+    // This should return creator's active product streams with click/sales/earnings stats
+    return [];
+  }
+
+  /**
+   * Get stream detail with referral link.
+   */
+  async getStreamDetail(creatorId: string, productId: string): Promise<CreatorStreamDto> {
+    // Placeholder - will be implemented in Phase 2
+    // This should return detailed stream info including the referral link
+    throw new Error('Not implemented yet');
+  }
+
+  /**
+   * Get my earnings data.
+   */
+  async getMyEarnings(creatorId: string): Promise<CreatorEarningsDto> {
+    // Placeholder - will be implemented with real data in Phase 2
+    // This should calculate earnings from commissions
+    return {
+      availableBalanceMinor: 0,
+      pendingEarningsMinor: 0,
+      totalEarningsMinor: 0,
+      lifetimeSales: 0,
+      transactions: [],
+    };
+  }
+
+  /**
+   * Request withdrawal.
+   */
+  async requestWithdrawal(creatorId: string, amountMinor: number): Promise<{ success: boolean }> {
+    // Placeholder - will be implemented in Phase 2
+    // This should create a payout request
+    return { success: true };
   }
 
   /**
