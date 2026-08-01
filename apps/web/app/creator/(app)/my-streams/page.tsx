@@ -11,12 +11,19 @@ import { SimplifiedCard, SimplifiedCardHeader, SimplifiedCardTitle, SimplifiedCa
 import { SimplifiedButton } from '@/components/simplified/simplified-button';
 import { SimplifiedLoading } from '@/components/simplified/simplified-loading';
 import { SimplifiedBadge } from '@/components/simplified/simplified-badge';
+import { Alert } from '@sofsavdo/ui';
 import Link from 'next/link';
 import { creatorsV2Service, type CreatorStreamDto } from '@/services/v2/creators-v2.service';
+import { useSession } from '@/services/session';
+import { canWorkAsCreator } from '@/lib/routing';
 
 export default function MyStreamsPage() {
+  const { user, isLoading: sessionLoading } = useSession();
   const [streams, setStreams] = useState<CreatorStreamDto[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Check if creator is approved
+  const isApproved = user ? canWorkAsCreator(user.application.status) : false;
   
   useEffect(() => {
     loadStreams();
@@ -38,10 +45,37 @@ export default function MyStreamsPage() {
     return (minor / 100).toLocaleString('uz-UZ') + " so'm";
   };
   
-  if (loading) {
+  if (loading || sessionLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <SimplifiedLoading size="lg" />
+      </div>
+    );
+  }
+
+  // Show activation message if not approved
+  if (!isApproved) {
+    return (
+      <div>
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Mening Oqimlarim</h1>
+          <p className="text-gray-600">Sizning faol oqimlaringiz va ularning statistikasi</p>
+        </div>
+        
+        <SimplifiedCard>
+          <SimplifiedCardContent>
+            <Alert tone="warning">
+              <p className="font-semibold mb-2">Hisobingiz hali aktivlashtirilmagan</p>
+              <p className="text-sm">
+                Oqimlarni ko'rish uchun arizangiz tasdiqlanishi kerak. Arizangiz hozirda ko&apos;rib chiqilmoqda.
+                Tasdiqlanishidan so&apos;ng oqimlarni ko'rishingiz mumkin bo&apos;ladi.
+              </p>
+              <p className="text-sm mt-2 text-gray-600">
+                Arizangiz 6 soat ichida ko&apos;rib chiqiladi.
+              </p>
+            </Alert>
+          </SimplifiedCardContent>
+        </SimplifiedCard>
       </div>
     );
   }

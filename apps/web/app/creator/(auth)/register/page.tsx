@@ -30,8 +30,11 @@ function RegisterForm() {
 
   async function onSubmit(values: RegisterInput) {
     try {
-      const created = await registerAccount(values.email, values.fullName, values.password, referralCode);
-      router.replace(postAuthRoute(created.application.status));
+      await registerAccount(values.email, values.fullName, values.password, referralCode);
+      // Wait for session to be updated, then redirect
+      setTimeout(() => {
+        router.replace("/creator/onboarding");
+      }, 100);
     } catch {
       // surfaced via registerError below
     }

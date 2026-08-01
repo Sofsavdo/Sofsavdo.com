@@ -13,13 +13,20 @@ import { SimplifiedButton } from '@/components/simplified/simplified-button';
 import { SimplifiedInput } from '@/components/simplified/simplified-input';
 import { SimplifiedLoading } from '@/components/simplified/simplified-loading';
 import { SimplifiedBadge } from '@/components/simplified/simplified-badge';
+import { Alert } from '@sofsavdo/ui';
 import { productsV2Service, type SimplifiedProductDto } from '@/services/v2/products-v2.service';
+import { useSession } from '@/services/session';
+import { canWorkAsCreator } from '@/lib/routing';
 import Link from 'next/link';
 
 export default function StreamsPage() {
+  const { user, isLoading: sessionLoading } = useSession();
   const [products, setProducts] = useState<SimplifiedProductDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  
+  // Check if creator is approved
+  const isApproved = user ? canWorkAsCreator(user.application.status) : false;
   
   useEffect(() => {
     loadProducts();
@@ -45,10 +52,37 @@ export default function StreamsPage() {
     product.title.toLowerCase().includes(search.toLowerCase())
   );
   
-  if (loading) {
+  if (loading || sessionLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <SimplifiedLoading size="lg" />
+      </div>
+    );
+  }
+
+  // Show activation message if not approved
+  if (!isApproved) {
+    return (
+      <div>
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Oqimlar</h1>
+          <p className="text-gray-600">Barcha mahsulotlar va xizmatlarni ko'ring va oqim yarating</p>
+        </div>
+        
+        <SimplifiedCard>
+          <SimplifiedCardContent>
+            <Alert tone="warning">
+              <p className="font-semibold mb-2">Hisobingiz hali aktivlashtirilmagan</p>
+              <p className="text-sm">
+                Oqim yaratish uchun arizangiz tasdiqlanishi kerak. Arizangiz hozirda ko&apos;rib chiqilmoqda.
+                Tasdiqlanishidan so&apos;ng oqim yaratish imkoniyati bo&apos;ladi.
+              </p>
+              <p className="text-sm mt-2 text-gray-600">
+                Arizangiz 6 soat ichida ko&apos;rib chiqiladi.
+              </p>
+            </Alert>
+          </SimplifiedCardContent>
+        </SimplifiedCard>
       </div>
     );
   }
