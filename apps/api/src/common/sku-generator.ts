@@ -82,6 +82,11 @@ export class SKUGenerator {
     const numericPart = parts[parts.length - 1];
     const prefix = parts.slice(0, -1).join('-');
 
+    if (!numericPart) {
+      // If no numeric part, append -001
+      return `${baseSKU}-001`;
+    }
+
     let counter = parseInt(numericPart, 10) + 1;
     let uniqueSKU: string;
 

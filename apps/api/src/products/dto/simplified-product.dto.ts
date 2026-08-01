@@ -15,14 +15,14 @@ export class SimplifiedProductDto {
     example: 'clh123abc456def'
   })
   @IsString()
-  id: string;
+  id!: string;
 
   @ApiProperty({
     description: 'Product title',
     example: 'Face Serum for Glowing Skin'
   })
   @IsString()
-  title: string;
+  title!: string;
 
   @ApiProperty({
     description: 'Product description',
@@ -39,7 +39,7 @@ export class SimplifiedProductDto {
   })
   @IsNumber()
   @Min(0)
-  priceMinor: number;
+  priceMinor!: number;
 
   @ApiProperty({
     description: 'Commission percentage',
@@ -48,7 +48,7 @@ export class SimplifiedProductDto {
   @IsNumber()
   @Min(0)
   @Max(100)
-  commissionPercent: number;
+  commissionPercent!: number;
 
   @ApiProperty({
     description: 'Product images',
@@ -57,7 +57,7 @@ export class SimplifiedProductDto {
   })
   @IsArray()
   @IsUrl({}, { each: true })
-  images: string[];
+  images!: string[];
 
   @ApiProperty({
     description: 'Product category',
@@ -74,7 +74,7 @@ export class SimplifiedProductDto {
     enum: ['ACTIVE', 'INACTIVE', 'ARCHIVED']
   })
   @IsString()
-  status: string;
+  status!: string;
 
   @ApiProperty({
     description: 'Estimated earnings per sale for creators',
@@ -82,19 +82,19 @@ export class SimplifiedProductDto {
   })
   @IsNumber()
   @Min(0)
-  estimatedEarningsPerSaleMinor: number;
+  estimatedEarningsPerSaleMinor!: number;
 
   @ApiProperty({
     description: 'Creation date',
     example: '2026-08-01T10:00:00Z'
   })
-  createdAt: Date;
+  createdAt!: Date;
 
   @ApiProperty({
     description: 'Last update date',
     example: '2026-08-01T10:00:00Z'
   })
-  updatedAt: Date;
+  updatedAt!: Date;
 }
 
 export class CreateSimplifiedProductDto {
@@ -103,7 +103,7 @@ export class CreateSimplifiedProductDto {
     example: 'Face Serum for Glowing Skin'
   })
   @IsString()
-  title: string;
+  title!: string;
 
   @ApiProperty({
     description: 'Product description',
@@ -120,7 +120,7 @@ export class CreateSimplifiedProductDto {
   })
   @IsNumber()
   @Min(0)
-  priceMinor: number;
+  priceMinor!: number;
 
   @ApiProperty({
     description: 'Commission percentage',
@@ -129,7 +129,7 @@ export class CreateSimplifiedProductDto {
   @IsNumber()
   @Min(0)
   @Max(100)
-  commissionPercent: number;
+  commissionPercent!: number;
 
   @ApiProperty({
     description: 'Product images (max 5)',
@@ -139,7 +139,7 @@ export class CreateSimplifiedProductDto {
   })
   @IsArray()
   @IsUrl({}, { each: true })
-  images: string[];
+  images!: string[];
 
   @ApiProperty({
     description: 'Product category',
@@ -228,29 +228,29 @@ export class SimplifiedProductListDto {
     description: 'List of simplified products',
     type: [SimplifiedProductDto]
   })
-  items: SimplifiedProductDto[];
+  items!: SimplifiedProductDto[];
 
   @ApiProperty({
     description: 'Total number of products',
     example: 100
   })
-  total: number;
+  total!: number;
 
   @ApiProperty({
     description: 'Current page number',
     example: 1
   })
-  page: number;
+  page!: number;
 
   @ApiProperty({
     description: 'Number of items per page',
     example: 20
   })
-  pageSize: number;
+  pageSize!: number;
 
   @ApiProperty({
     description: 'Total number of pages',
     example: 5
   })
-  totalPages: number;
+  totalPages!: number;
 }
