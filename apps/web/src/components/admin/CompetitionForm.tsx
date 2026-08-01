@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Alert, Button, Card, CardHeader, CardTitle, TextAreaField, TextField } from "@sofsavdo/ui";
 import { competitionSchema, type CompetitionInput } from "@/lib/schemas-admin";
 import { useCreateCompetition, useUpdateCompetition } from "@/services/admin/competitions";
-import { ApiError, type CompetitionAdmin } from "@/lib/api/admin";
+import { ApiError, type CompetitionAdmin } from "@/lib/api/admin-real";
 
 // datetime-local input needs "YYYY-MM-DDTHH:mm", not a full ISO string with seconds/Z.
 function toDatetimeLocal(iso: string): string {
