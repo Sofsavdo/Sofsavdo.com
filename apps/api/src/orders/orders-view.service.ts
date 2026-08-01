@@ -27,16 +27,39 @@ export class OrdersViewService {
    * Transform an Order entity to a SimplifiedOrderDto.
    */
   private async toSimplifiedDto(order: any): Promise<SimplifiedOrderDto> {
-    // Placeholder - will implement proper transformation in Phase 2
+    // Get order items
+    const orderItems = await this.prisma.orderItem.findMany({
+      where: { orderId: order.id },
+      include: {
+        variant: {
+          include: {
+            offer: {
+              include: {
+                product: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const items = orderItems.map((item) => ({
+      productId: item.variant?.offer?.product?.id || '',
+      title: item.nameSnapshot,
+      quantity: item.quantity,
+      priceMinor: item.unitPriceMinor,
+      totalMinor: item.totalMinor,
+    }));
+
     return {
       id: order.id,
-      customerName: 'Placeholder',
-      customerPhone: '+998 90 123 45 67',
-      customerAddress: undefined,
-      items: [],
-      totalMinor: 0,
-      status: order.status || 'PAID',
-      paymentMethod: 'click',
+      customerName: order.customerName || '',
+      customerPhone: order.customerPhone || '',
+      customerAddress: order.deliveryAddress || undefined,
+      items,
+      totalMinor: order.totalMinor,
+      status: order.status,
+      paymentMethod: order.paymentMethod || 'click',
       createdAt: order.createdAt,
     };
   }
@@ -107,24 +130,105 @@ export class OrdersViewService {
    * Create a simplified order (for buyer checkout).
    */
   async create(dto: CreateSimplifiedOrderDto): Promise<SimplifiedOrderDto> {
-    // Placeholder - will implement in Phase 2 with proper order creation
-    // For now, return a mock response
-    return {
-      id: 'placeholder-order-id',
-      customerName: dto.customerName,
-      customerPhone: dto.customerPhone,
-      customerAddress: dto.customerAddress,
-      items: [{
-        productId: dto.productId,
-        title: 'Placeholder Product',
+    // Get product/offer info
+    const product = await this.prisma.product.findUnique({
+      where: { id: dto.productId },
+      include: {
+        offers: {
+          where: { status: 'ACTIVE' },
+          take: 1,
+        },
+      },
+    });
+
+    if (!product || product.offers.length === 0) {
+      throw new Error('Product not available');
+    }
+
+    const offer = product.offers[0];
+    if (!offer) {
+      throw new Error('No active offer found');
+    }
+
+    const offerVariant = await this.prisma.offerVariant.findFirst({
+      where: { offerId: offer.id, isDefault: true },
+    });
+
+    if (!offerVariant) {
+      throw new Error('No variant available');
+    }
+
+    const unitPriceMinor = offerVariant.priceMinor;
+    const totalMinor = unitPriceMinor * dto.quantity;
+
+    // Create or find customer
+    let customer = await this.prisma.customer.findFirst({
+      where: { phone: dto.customerPhone },
+    });
+
+    if (!customer) {
+      customer = await this.prisma.customer.create({
+        data: {
+          fullName: dto.customerName,
+          phone: dto.customerPhone,
+        },
+      });
+    }
+
+    // Create address if provided
+    let addressId = undefined;
+    if (dto.customerAddress) {
+      const address = await this.prisma.address.create({
+        data: {
+          customerId: customer.id,
+          region: 'Toshkent',
+          city: 'Tashkent',
+          line1: dto.customerAddress,
+        },
+      });
+      addressId = address.id;
+    }
+
+    // Create order
+    const order = await this.prisma.order.create({
+      data: {
+        type: 'PHYSICAL',
+        offerId: offer.id,
+        customerId: customer.id,
+        addressId,
+        status: 'CREATED',
+        subtotalMinor: totalMinor,
+        totalMinor,
+        currency: 'UZS',
+        deliveryMethod: 'courier',
+        idempotencyKey: `${dto.customerPhone}-${Date.now()}`,
+        offerSnapshot: {
+          offer: {
+            id: offer.id,
+            name: offer.name,
+            priceMinor: offer.priceMinor,
+          },
+          variant: {
+            id: offerVariant.id,
+            name: offerVariant.name,
+            priceMinor: offerVariant.priceMinor,
+          },
+        },
+      },
+    });
+
+    // Create order item
+    await this.prisma.orderItem.create({
+      data: {
+        orderId: order.id,
+        variantId: offerVariant.id,
+        nameSnapshot: product.name,
         quantity: dto.quantity,
-        priceMinor: 0,
-        totalMinor: 0,
-      }],
-      totalMinor: 0,
-      status: 'PAID',
-      paymentMethod: dto.paymentMethod,
-      createdAt: new Date(),
-    };
+        unitPriceMinor,
+        totalMinor,
+      },
+    });
+
+    return this.toSimplifiedDto(order);
   }
 }
