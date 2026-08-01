@@ -32,22 +32,13 @@ export default function SimplifiedLeaderboardPage() {
   const loadLeaderboard = async () => {
     setLoading(true);
     try {
-      // TODO: Load from API
-      const mockData: LeaderboardEntry[] = [
-        { rank: 1, name: 'Malika Karimova', earningsMinor: 2500000, isCurrentUser: false },
-        { rank: 2, name: 'Aziz Rahimov', earningsMinor: 1800000, isCurrentUser: false },
-        { rank: 3, name: 'Nilufar Saidova', earningsMinor: 1500000, isCurrentUser: false },
-        { rank: 4, name: 'Jasur Toshmatov', earningsMinor: 1200000, isCurrentUser: false },
-        { rank: 5, name: 'Kamola Aliyeva', earningsMinor: 950000, isCurrentUser: false },
-        { rank: 6, name: 'Bekzod Nurmatov', earningsMinor: 800000, isCurrentUser: false },
-        { rank: 7, name: 'Zarina Nematova', earningsMinor: 750000, isCurrentUser: false },
-        { rank: 8, name: 'Sardor Karimov', earningsMinor: 600000, isCurrentUser: false },
-        { rank: 9, name: 'Dilnoza Akhmedova', earningsMinor: 550000, isCurrentUser: false },
-        { rank: 10, name: 'You', earningsMinor: 450000, isCurrentUser: true },
-      ];
-      setLeaderboard(mockData);
+      const response = await fetch('/api/creator/leaderboard');
+      if (!response.ok) throw new Error('Failed to load leaderboard');
+      const data = await response.json();
+      setLeaderboard(data);
     } catch (error) {
       console.error('Failed to load leaderboard:', error);
+      setLeaderboard([]);
     } finally {
       setLoading(false);
     }

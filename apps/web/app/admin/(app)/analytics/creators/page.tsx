@@ -50,7 +50,8 @@ export default function CreatorAnalyticsPage() {
         />
       ))}
     >
-      <table className="w-full text-left font-body text-sm">
+      <div className="overflow-x-auto">
+        <table className="w-full text-left font-body text-sm">
         <thead className="bg-bg text-text-secondary">
           <tr>
             <th className="whitespace-nowrap px-4 py-2.5 font-medium">Creator</th>
@@ -76,6 +77,7 @@ export default function CreatorAnalyticsPage() {
           ))}
         </tbody>
       </table>
+      </div>
     </DataTableShell>
   );
 }

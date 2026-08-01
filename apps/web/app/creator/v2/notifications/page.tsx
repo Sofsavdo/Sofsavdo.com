@@ -32,52 +32,13 @@ export default function SimplifiedNotificationsPage() {
   const loadNotifications = async () => {
     setLoading(true);
     try {
-      // TODO: Load from API
-      const mockData: Notification[] = [
-        {
-          id: '1',
-          title: 'New sale!',
-          message: 'You earned 25,000 so\'m from Serum sale',
-          type: 'earnings',
-          date: '2 hours ago',
-          read: false,
-        },
-        {
-          id: '2',
-          title: 'Payout processed',
-          message: 'Your withdrawal of 100,000 so\'m has been processed',
-          type: 'success',
-          date: '1 day ago',
-          read: false,
-        },
-        {
-          id: '3',
-          title: 'New product available',
-          message: 'Check out the new Vitamin C serum - 25% commission',
-          type: 'info',
-          date: '2 days ago',
-          read: true,
-        },
-        {
-          id: '4',
-          title: 'Weekly summary',
-          message: 'You earned 150,000 so\'m this week. Keep it up!',
-          type: 'info',
-          date: '3 days ago',
-          read: true,
-        },
-        {
-          id: '5',
-          title: 'Payment reminder',
-          message: 'Don\'t forget to update your payout method',
-          type: 'warning',
-          date: '5 days ago',
-          read: true,
-        },
-      ];
-      setNotifications(mockData);
+      const response = await fetch('/api/creator/notifications');
+      if (!response.ok) throw new Error('Failed to load notifications');
+      const data = await response.json();
+      setNotifications(data);
     } catch (error) {
       console.error('Failed to load notifications:', error);
+      setNotifications([]);
     } finally {
       setLoading(false);
     }

@@ -35,25 +35,25 @@ const websiteJsonLd = {
 export const metadata: Metadata = {
   metadataBase: new URL(BRAND.url),
   title: {
-    default: `${BRAND.name} — ${BRAND.tagline}`,
+    default: `${BRAND.name} — Affiliate Marketing va Blogger Hamkorlik Dasturi`,
     template: `%s | ${BRAND.name}`,
   },
-  description: `${BRAND.name} (${BRAND.domain}) — tanlangan mahsulotlar, ishonchli to'lov va tez yetkazib berish. Rasmiy sayt.`,
-  keywords: [BRAND.name, "Sofsavdo", BRAND.domain, "sofsavdo online do'kon", "sofsavdo creator"],
+  description: `${BRAND.name} — blogerlar va kontent yaratuvchilar uchun affiliate marketing platformasi. Mahsulotlarni targ'ib qiling, komissiya oling va daromad yarating. Pul tikmasdan daromad olish imkoniyati.`,
+  keywords: [BRAND.name, "Sofsavdo", BRAND.domain, "affiliate marketing", "blogger hamkorlik", "creator platformasi", "komissiya", "daromad", "pul tikmasdan daromad", "blogerlar uchun"],
   alternates: { canonical: BRAND.url },
   robots: { index: true, follow: true },
   openGraph: {
     type: "website",
     locale: "uz_UZ",
     siteName: BRAND.name,
-    title: `${BRAND.name} — ${BRAND.tagline}`,
-    description: `${BRAND.name} (${BRAND.domain}) — rasmiy sayt.`,
+    title: `${BRAND.name} — Affiliate Marketing va Blogger Hamkorlik Dasturi`,
+    description: `${BRAND.name} — blogerlar va kontent yaratuvchilar uchun affiliate marketing platformasi. Mahsulotlarni targ'ib qiling va daromad yarating.`,
     url: BRAND.url,
   },
   twitter: {
     card: "summary",
-    title: BRAND.name,
-    description: `${BRAND.name} (${BRAND.domain}) — rasmiy sayt.`,
+    title: `${BRAND.name} — Affiliate Marketing Platformasi`,
+    description: `${BRAND.name} — blogerlar va kontent yaratuvchilar uchun affiliate marketing platformasi. Daromad yarating!`,
   },
 };
 

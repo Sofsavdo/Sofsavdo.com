@@ -101,61 +101,63 @@ function RealAdminCommissionsPage() {
         />
       ))}
     >
-      <table className="w-full text-left font-body text-sm">
-        <thead className="bg-bg text-text-secondary">
-          <tr>
-            <th className="whitespace-nowrap px-4 py-2.5 font-medium">Creator</th>
-            <th className="whitespace-nowrap px-4 py-2.5 font-medium">Campaign</th>
-            <th className="whitespace-nowrap px-4 py-2.5 font-medium">Rule</th>
-            <th className="whitespace-nowrap px-4 py-2.5 text-right font-medium">Baza</th>
-            <th className="whitespace-nowrap px-4 py-2.5 text-right font-medium">Komissiya</th>
-            <th className="whitespace-nowrap px-4 py-2.5 font-medium">Holat</th>
-            {canAdjust ? <th className="whitespace-nowrap px-4 py-2.5 font-medium"></th> : null}
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((c) => (
-            <tr key={c.id} className="border-t border-border hover:bg-bg">
-              <td className="px-4 py-2.5 text-text-primary">{c.creator.displayName}</td>
-              <td className="px-4 py-2.5 text-text-secondary">{c.campaign.name}</td>
-              <td className="whitespace-nowrap px-4 py-2.5 text-xs text-text-muted">
-                {formatCommissionValue(c.commissionType, c.commissionType === "PERCENTAGE" ? (c.baseAmountMinor > 0 ? Math.round((c.amountMinor / c.baseAmountMinor) * 10000) : 0) : c.amountMinor)}
-              </td>
-              <td className="whitespace-nowrap px-4 py-2.5 text-right font-numeric tabular-nums text-text-secondary">{formatMoneyMinor(c.baseAmountMinor, c.currency)}</td>
-              <td className="whitespace-nowrap px-4 py-2.5 text-right font-numeric tabular-nums text-text-primary">{formatMoneyMinor(c.amountMinor, c.currency)}</td>
-              <td className="whitespace-nowrap px-4 py-2.5">
-                <StatusBadge tone={commissionStatusMeta[c.status].tone} label={commissionStatusMeta[c.status].label} />
-              </td>
-              {canAdjust ? (
-                <td className="whitespace-nowrap px-4 py-2.5">
-                  <div className="flex gap-1.5">
-                    {c.status === "PENDING" ? (
-                      <>
-                        <Button size="sm" disabled={approve.isPending} onClick={() => approve.mutate(c.id)}>
-                          Tasdiqlash
-                        </Button>
-                        <Button size="sm" variant="outline" className="border-error text-error" onClick={() => setModal({ id: c.id, mode: "reject" })}>
-                          Rad etish
-                        </Button>
-                      </>
-                    ) : null}
-                    {c.status === "APPROVED" ? (
-                      <>
-                        <Button size="sm" disabled={markPayable.isPending} onClick={() => markPayable.mutate(c.id)}>
-                          To&apos;lovga tayyor
-                        </Button>
-                        <Button size="sm" variant="outline" className="border-error text-error" onClick={() => setModal({ id: c.id, mode: "reject" })}>
-                          Rad etish
-                        </Button>
-                      </>
-                    ) : null}
-                  </div>
-                </td>
-              ) : null}
+      <div className="overflow-x-auto">
+        <table className="w-full text-left font-body text-sm">
+          <thead className="bg-bg text-text-secondary">
+            <tr>
+              <th className="whitespace-nowrap px-4 py-2.5 font-medium">Creator</th>
+              <th className="whitespace-nowrap px-4 py-2.5 font-medium">Campaign</th>
+              <th className="whitespace-nowrap px-4 py-2.5 font-medium">Rule</th>
+              <th className="whitespace-nowrap px-4 py-2.5 text-right font-medium">Baza</th>
+              <th className="whitespace-nowrap px-4 py-2.5 text-right font-medium">Komissiya</th>
+              <th className="whitespace-nowrap px-4 py-2.5 font-medium">Holat</th>
+              {canAdjust ? <th className="whitespace-nowrap px-4 py-2.5 font-medium"></th> : null}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {items.map((c) => (
+              <tr key={c.id} className="border-t border-border hover:bg-bg">
+                <td className="px-4 py-2.5 text-text-primary">{c.creator.displayName}</td>
+                <td className="px-4 py-2.5 text-text-secondary">{c.campaign.name}</td>
+                <td className="whitespace-nowrap px-4 py-2.5 text-xs text-text-muted">
+                  {formatCommissionValue(c.commissionType, c.commissionType === "PERCENTAGE" ? (c.baseAmountMinor > 0 ? Math.round((c.amountMinor / c.baseAmountMinor) * 10000) : 0) : c.amountMinor)}
+                </td>
+                <td className="whitespace-nowrap px-4 py-2.5 text-right font-numeric tabular-nums text-text-secondary">{formatMoneyMinor(c.baseAmountMinor, c.currency)}</td>
+                <td className="whitespace-nowrap px-4 py-2.5 text-right font-numeric tabular-nums text-text-primary">{formatMoneyMinor(c.amountMinor, c.currency)}</td>
+                <td className="whitespace-nowrap px-4 py-2.5">
+                  <StatusBadge tone={commissionStatusMeta[c.status].tone} label={commissionStatusMeta[c.status].label} />
+                </td>
+                {canAdjust ? (
+                  <td className="whitespace-nowrap px-4 py-2.5">
+                    <div className="flex gap-1.5">
+                      {c.status === "PENDING" ? (
+                        <>
+                          <Button size="sm" disabled={approve.isPending} onClick={() => approve.mutate(c.id)}>
+                            Tasdiqlash
+                          </Button>
+                          <Button size="sm" variant="outline" className="border-error text-error" onClick={() => setModal({ id: c.id, mode: "reject" })}>
+                            Rad etish
+                          </Button>
+                        </>
+                      ) : null}
+                      {c.status === "APPROVED" ? (
+                        <>
+                          <Button size="sm" disabled={markPayable.isPending} onClick={() => markPayable.mutate(c.id)}>
+                            To&apos;lovga tayyor
+                          </Button>
+                          <Button size="sm" variant="outline" className="border-error text-error" onClick={() => setModal({ id: c.id, mode: "reject" })}>
+                            Rad etish
+                          </Button>
+                        </>
+                      ) : null}
+                    </div>
+                  </td>
+                ) : null}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       <ConfirmModal
         open={!!modal}
@@ -227,47 +229,49 @@ function MockAdminCommissionsPage() {
         />
       ))}
     >
-      <table className="w-full text-left font-body text-sm">
-        <thead className="bg-bg text-text-secondary">
-          <tr>
-            <th className="whitespace-nowrap px-4 py-2.5 font-medium">Creator</th>
-            <th className="whitespace-nowrap px-4 py-2.5 font-medium">Campaign</th>
-            <th className="whitespace-nowrap px-4 py-2.5 font-medium">Rule</th>
-            <th className="whitespace-nowrap px-4 py-2.5 text-right font-medium">Baza</th>
-            <th className="whitespace-nowrap px-4 py-2.5 text-right font-medium">Komissiya</th>
-            <th className="whitespace-nowrap px-4 py-2.5 font-medium">Holat</th>
-            {canAdjust ? <th className="whitespace-nowrap px-4 py-2.5 font-medium"></th> : null}
-          </tr>
-        </thead>
-        <tbody>
-          {filtered.map((c) => (
-            <tr key={c.id} className="border-t border-border hover:bg-bg">
-              <td className="px-4 py-2.5 text-text-primary">{c.creatorName}</td>
-              <td className="px-4 py-2.5 text-text-secondary">{c.campaignName}</td>
-              <td className="whitespace-nowrap px-4 py-2.5 text-xs text-text-muted">{formatCommissionValue(c.commissionType, c.commissionValue)}</td>
-              <td className="whitespace-nowrap px-4 py-2.5 text-right font-numeric tabular-nums text-text-secondary">{formatMoneyMinor(c.baseAmountMinor)}</td>
-              <td className="whitespace-nowrap px-4 py-2.5 text-right font-numeric tabular-nums text-text-primary">{formatMoneyMinor(c.amountMinor)}</td>
-              <td className="whitespace-nowrap px-4 py-2.5">
-                <StatusBadge tone={commissionStatusMeta[c.status].tone} label={commissionStatusMeta[c.status].label} />
-              </td>
-              {canAdjust ? (
-                <td className="whitespace-nowrap px-4 py-2.5">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => {
-                      setAdjustModal({ id: c.id, currentMinor: c.amountMinor });
-                      setNewAmount(String(c.amountMinor / 100));
-                    }}
-                  >
-                    Tuzatish
-                  </Button>
-                </td>
-              ) : null}
+      <div className="overflow-x-auto">
+        <table className="w-full text-left font-body text-sm">
+          <thead className="bg-bg text-text-secondary">
+            <tr>
+              <th className="whitespace-nowrap px-4 py-2.5 font-medium">Creator</th>
+              <th className="whitespace-nowrap px-4 py-2.5 font-medium">Campaign</th>
+              <th className="whitespace-nowrap px-4 py-2.5 font-medium">Rule</th>
+              <th className="whitespace-nowrap px-4 py-2.5 text-right font-medium">Baza</th>
+              <th className="whitespace-nowrap px-4 py-2.5 text-right font-medium">Komissiya</th>
+              <th className="whitespace-nowrap px-4 py-2.5 font-medium">Holat</th>
+              {canAdjust ? <th className="whitespace-nowrap px-4 py-2.5 font-medium"></th> : null}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {filtered.map((c) => (
+              <tr key={c.id} className="border-t border-border hover:bg-bg">
+                <td className="px-4 py-2.5 text-text-primary">{c.creatorName}</td>
+                <td className="px-4 py-2.5 text-text-secondary">{c.campaignName}</td>
+                <td className="whitespace-nowrap px-4 py-2.5 text-xs text-text-muted">{formatCommissionValue(c.commissionType, c.commissionValue)}</td>
+                <td className="whitespace-nowrap px-4 py-2.5 text-right font-numeric tabular-nums text-text-secondary">{formatMoneyMinor(c.baseAmountMinor)}</td>
+                <td className="whitespace-nowrap px-4 py-2.5 text-right font-numeric tabular-nums text-text-primary">{formatMoneyMinor(c.amountMinor)}</td>
+                <td className="whitespace-nowrap px-4 py-2.5">
+                  <StatusBadge tone={commissionStatusMeta[c.status].tone} label={commissionStatusMeta[c.status].label} />
+                </td>
+                {canAdjust ? (
+                  <td className="whitespace-nowrap px-4 py-2.5">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setAdjustModal({ id: c.id, currentMinor: c.amountMinor });
+                        setNewAmount(String(c.amountMinor / 100));
+                      }}
+                    >
+                      Tuzatish
+                    </Button>
+                  </td>
+                ) : null}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       <ConfirmModal
         open={!!adjustModal}

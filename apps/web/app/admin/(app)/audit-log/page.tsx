@@ -95,7 +95,8 @@ export default function AdminAuditLogPage() {
         />
       ))}
     >
-      <table className="w-full text-left font-body text-sm">
+      <div className="overflow-x-auto">
+        <table className="w-full text-left font-body text-sm">
         <thead className="bg-bg text-text-secondary">
           <tr>
             <th className="whitespace-nowrap px-4 py-2.5 font-medium">Vaqt</th>
@@ -119,6 +120,7 @@ export default function AdminAuditLogPage() {
           ))}
         </tbody>
       </table>
+      </div>
     </DataTableShell>
   );
 }
