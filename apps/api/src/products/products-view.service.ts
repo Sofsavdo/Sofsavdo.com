@@ -141,6 +141,35 @@ export class ProductsViewService {
   }
 
   /**
+   * Find product by short code (for clean URLs like /f/ABCD123).
+   * For now, uses slug as the code. In future, implement proper short code generation.
+   * Attribution happens silently in the background via cookie/session.
+   */
+  async findByCode(code: string): Promise<SimplifiedProductDto> {
+    // For MVP, use slug as the code
+    // In future, implement a separate shortCode field or mapping table
+    const product = await this.prisma.product.findUnique({
+      where: { slug: code },
+      include: {
+        offers: {
+          take: 1,
+          select: {
+            priceMinor: true,
+            compareAtPriceMinor: true,
+            currency: true,
+          },
+        },
+      },
+    });
+
+    if (!product) {
+      throw new Error('Product not found');
+    }
+
+    return this.toSimplifiedDto(product);
+  }
+
+  /**
    * Create a simplified product with auto-generated slug and SKU.
    */
   async create(dto: CreateSimplifiedProductDto): Promise<SimplifiedProductDto> {

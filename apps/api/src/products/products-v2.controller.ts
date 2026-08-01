@@ -49,6 +49,13 @@ export class ProductsV2Controller {
     return this.productsViewService.findOne(id);
   }
 
+  @Get('by-code/:code')
+  @ApiOperation({ summary: 'Find product by short code (for clean URLs)' })
+  @ApiResponse({ status: 200, description: 'Product retrieved', type: SimplifiedProductDto })
+  async findByCode(@Param('code') code: string): Promise<SimplifiedProductDto> {
+    return this.productsViewService.findByCode(code);
+  }
+
   @Post()
   @ApiOperation({ summary: 'Create simplified product (auto-generates slug and SKU)' })
   @ApiResponse({ status: 201, description: 'Product created', type: SimplifiedProductDto })
