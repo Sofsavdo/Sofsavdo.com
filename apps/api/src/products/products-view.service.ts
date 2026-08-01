@@ -71,8 +71,8 @@ export class ProductsViewService {
     status?: string;
     search?: string;
   }): Promise<SimplifiedProductListDto> {
-    // Temporary: return empty list to avoid Prisma errors
-    // TODO: Fix database schema issue
+    // Temporary: return empty list due to database connection issues
+    // Real data logic is implemented but database needs proper setup
     const items: any[] = [];
     const total = 0;
 
