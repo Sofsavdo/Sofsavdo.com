@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 export default async function HomePage() {
   let products: SimplifiedProductDto[] = [];
   try {
-    const response = await productsV2Service.list({ status: 'ACTIVE', take: 8 });
+    const response = await productsV2Service.list({ status: 'ACTIVE', take: 12 });
     products = response.items;
   } catch (error) {
     console.error('Failed to load products:', error);
@@ -64,9 +64,9 @@ export default async function HomePage() {
       <section className="max-w-7xl mx-auto px-4 py-8">
         <h3 className="text-2xl font-bold text-gray-900 mb-6">Mashhur mahsulotlar</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {products.slice(0, 8).map((product) => (
-            <Link key={product.id} href={`/buyer/v2/products/${product.id}`}>
-              <div className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+          {products.slice(0, 12).map((product, index) => (
+            <Link key={product.id} href={`/buyer/v2/products/${product.id}`} className={index >= 6 ? 'hidden md:block' : ''}>
+              <div className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden border border-gray-200">
                 <div className="aspect-square bg-gray-100">
                   <img
                     src={product.images[0] || '/placeholder.png'}
@@ -95,36 +95,6 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* How It Works */}
-      <section className="bg-white py-12 px-4">
-        <div className="max-w-7xl mx-auto">
-          <h3 className="text-2xl font-bold text-gray-900 mb-8 text-center">Qanday ishlaydi?</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl">🛍️</span>
-              </div>
-              <h4 className="font-semibold text-gray-900 mb-2">Mahsulot tanlang</h4>
-              <p className="text-gray-600 text-sm">Katalogdan mahsulotlarni ko'ring va tanlang</p>
-            </div>
-            <div className="text-center">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl">💳</span>
-              </div>
-              <h4 className="font-semibold text-gray-900 mb-2">To'lov qiling</h4>
-              <p className="text-gray-600 text-sm">Ishonchli to'lov tizimlari orqali xavfsiz to'lov</p>
-            </div>
-            <div className="text-center">
-              <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl">🚚</span>
-              </div>
-              <h4 className="font-semibold text-gray-900 mb-2">Yetkazib berish</h4>
-              <p className="text-gray-600 text-sm">Tez va ishonchli yetkazib berish xizmati</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* Creator CTA */}
       <section className="bg-gradient-to-r from-purple-600 to-pink-600 text-white py-12 px-4">
         <div className="max-w-7xl mx-auto text-center">
@@ -142,8 +112,32 @@ export default async function HomePage() {
 
       {/* Footer */}
       <footer className="bg-gray-900 text-white py-8 px-4">
-        <div className="max-w-7xl mx-auto text-center">
-          <p className="text-gray-400">© 2024 {BRAND.name}. Barcha huquqlar himoyalangan.</p>
+        <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-6">
+            <div>
+              <h4 className="font-bold mb-4">{BRAND.name}</h4>
+              <p className="text-gray-400 text-sm">
+                Tanlangan mahsulotlar, ishonchli to'lov va tez yetkazib berish.
+              </p>
+            </div>
+            <div>
+              <h4 className="font-bold mb-4">Foydalanish shartlari</h4>
+              <ul className="space-y-2 text-gray-400 text-sm">
+                <li><Link href="/legal/privacy" className="hover:text-white">Maxfiylik siyosati</Link></li>
+                <li><Link href="/legal/terms" className="hover:text-white">Foydalanish shartlari</Link></li>
+                <li><Link href="/legal/returns" className="hover:text-white">Qaytarish siyosati</Link></li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-bold mb-4">Biz bilan bog'lanish</h4>
+              <p className="text-gray-400 text-sm">
+                Email: info@sofsavdo.com
+              </p>
+            </div>
+          </div>
+          <div className="border-t border-gray-800 pt-6 text-center">
+            <p className="text-gray-400">© 2024 {BRAND.name}. Barcha huquqlar himoyalangan.</p>
+          </div>
         </div>
       </footer>
     </div>

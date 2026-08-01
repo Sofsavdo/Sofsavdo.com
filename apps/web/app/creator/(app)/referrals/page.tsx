@@ -43,8 +43,8 @@ export default function CreatorReferralsPage() {
       </div>
 
       <Alert tone="info">
-        <strong>Mukofot tizimi:</strong> Do&apos;stingiz creator sifatida ro&apos;yxatdan o&apos;tganda va kampaniyaga ariza topshirganda sizga mukofot beriladi.
-        Har bir tasdiqlangan creator arizasi uchun <strong>50,000 so'm</strong> mukofot olasiz.
+        <strong>Mukofot tizimi:</strong> Do&apos;stingiz creator sifatida ro&apos;yxatdan o&apos;tganda va haqiqiy daromad topshirganda sizga mukofot beriladi.
+        Har bir daromad keltirgan creator uchun <strong>20,000 so'm</strong> mukofot olasiz.
       </Alert>
 
       <Card>
