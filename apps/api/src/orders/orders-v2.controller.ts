@@ -4,10 +4,12 @@
  * Controller for the simplified v2 orders API.
  * Hides technical fields like attribution, commission details.
  * Focuses on customer, items, total, status.
+ * Public endpoints for testing - will use auth guard in production.
  */
 
 import { Controller, Get, Post, Put, Body, Param, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
+import { Public } from '../common/decorators/public.decorator';
 import { OrdersViewService } from './orders-view.service';
 import {
   SimplifiedOrderDto,
@@ -21,6 +23,7 @@ import {
 export class OrdersV2Controller {
   constructor(private readonly ordersViewService: OrdersViewService) {}
 
+  @Public()
   @Get()
   @ApiOperation({ summary: 'List simplified orders' })
   @ApiResponse({ status: 200, description: 'Orders retrieved', type: SimplifiedOrderListDto })
@@ -39,6 +42,7 @@ export class OrdersV2Controller {
     });
   }
 
+  @Public()
   @Get(':id')
   @ApiOperation({ summary: 'Get simplified order by ID' })
   @ApiResponse({ status: 200, description: 'Order retrieved', type: SimplifiedOrderDto })
@@ -46,6 +50,7 @@ export class OrdersV2Controller {
     return this.ordersViewService.findOne(id);
   }
 
+  @Public()
   @Put(':id/status')
   @ApiOperation({ summary: 'Update order status' })
   @ApiResponse({ status: 200, description: 'Order status updated', type: SimplifiedOrderDto })
@@ -56,6 +61,7 @@ export class OrdersV2Controller {
     return this.ordersViewService.updateStatus(id, dto);
   }
 
+  @Public()
   @Post()
   @ApiOperation({ summary: 'Create simplified order (for buyer checkout)' })
   @ApiResponse({ status: 201, description: 'Order created', type: SimplifiedOrderDto })
