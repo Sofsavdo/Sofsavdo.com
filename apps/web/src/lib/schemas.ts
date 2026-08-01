@@ -6,18 +6,11 @@ export const loginSchema = z.object({
 });
 export type LoginInput = z.infer<typeof loginSchema>;
 
-export const registerSchema = z
-  .object({
-    fullName: z.string().min(3, "To'liq ismingizni kiriting"),
-    email: z.string().min(1, "Email kiritilishi shart").email("Email formati noto'g'ri"),
-    password: z.string().min(6, "Parol kamida 6 belgidan iborat bo'lishi kerak"),
-    confirmPassword: z.string().min(1, "Parolni tasdiqlang"),
-    termsAccepted: z.boolean().refine((v) => v === true, "Davom etish uchun shartlarga rozilik bildiring"),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: "Parollar mos kelmadi",
-    path: ["confirmPassword"],
-  });
+export const registerSchema = z.object({
+  fullName: z.string().min(3, "To'liq ismingizni kiriting"),
+  email: z.string().min(1, "Email kiritilishi shart").email("Email formati noto'g'ri"),
+  password: z.string().min(6, "Parol kamida 6 belgidan iborat bo'lishi kerak"),
+});
 export type RegisterInput = z.infer<typeof registerSchema>;
 
 export const forgotPasswordSchema = z.object({

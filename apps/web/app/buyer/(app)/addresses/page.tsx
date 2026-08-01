@@ -14,7 +14,6 @@ const addressSchema = z.object({
   label: z.string().optional(),
   region: z.string().min(2, "Viloyatni kiriting"),
   city: z.string().min(2, "Shaharni kiriting"),
-  district: z.string().optional(),
   line1: z.string().min(3, "Manzilni kiriting"),
   comment: z.string().optional(),
 });
@@ -73,7 +72,6 @@ export default function BuyerAddressesPage() {
               <TextField label="Viloyat" error={errors.region?.message} {...register("region")} />
               <TextField label="Shahar" error={errors.city?.message} {...register("city")} />
             </div>
-            <TextField label="Tuman (ixtiyoriy)" {...register("district")} />
             <TextField label="Manzil" error={errors.line1?.message} {...register("line1")} />
             <TextField label="Izoh (ixtiyoriy)" {...register("comment")} />
             {createMutation.isError ? <Alert tone="error">{(createMutation.error as ApiError).message}</Alert> : null}
@@ -99,8 +97,7 @@ export default function BuyerAddressesPage() {
                     {a.isDefault ? <Badge tone="accent">Standart</Badge> : null}
                   </div>
                   <p className="mt-1 font-body text-sm text-text-secondary">
-                    {a.region}, {a.city}
-                    {a.district ? `, ${a.district}` : ""}, {a.line1}
+                    {a.region}, {a.city}, {a.line1}
                   </p>
                 </div>
                 <div className="flex items-center gap-1">

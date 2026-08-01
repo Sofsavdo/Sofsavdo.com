@@ -85,112 +85,113 @@ export default function SimplifiedBuyerLandingPage({ params }: { params: { code:
         </div>
       </div>
       
-      {/* Content */}
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Product Images */}
-          <div className="space-y-4">
-            <div className="aspect-square bg-white rounded-xl overflow-hidden shadow-sm">
-              <img
-                src={product.images[0] || '/placeholder.png'}
-                alt={product.title}
-                className="w-full h-full object-cover"
-              />
+      {/* Content - Mobile First Layout */}
+      <div className="max-w-7xl mx-auto px-4 py-4">
+        {/* Product Images - Full width on mobile, side-by-side on desktop */}
+        <div className="mb-6">
+          <div className="aspect-[3/4] bg-white rounded-xl overflow-hidden shadow-sm max-w-md mx-auto">
+            <img
+              src={product.images[0] || '/placeholder.png'}
+              alt={product.title}
+              className="w-full h-full object-contain"
+            />
+          </div>
+          
+          {product.images.length > 1 && (
+            <div className="grid grid-cols-4 gap-2 mt-4 max-w-md mx-auto">
+              {product.images.slice(1).map((image, index) => (
+                <div key={index} className="aspect-square bg-white rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-blue-500">
+                  <img
+                    src={image}
+                    alt={`${product.title} ${index + 2}`}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              ))}
             </div>
-            
-            {product.images.length > 1 && (
-              <div className="grid grid-cols-4 gap-2">
-                {product.images.slice(1).map((image, index) => (
-                  <div key={index} className="aspect-square bg-white rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-blue-500">
-                    <img
-                      src={image}
-                      alt={`${product.title} ${index + 2}`}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                ))}
-              </div>
+          )}
+        </div>
+        
+        {/* Product Info - Below images */}
+        <div className="space-y-4 max-w-md mx-auto">
+          {/* Title */}
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">{product.title}</h1>
+            {product.category && (
+              <SimplifiedBadge variant="neutral">{product.category}</SimplifiedBadge>
             )}
           </div>
           
-          {/* Product Info */}
-          <div className="space-y-6">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">{product.title}</h1>
-              {product.category && (
-                <SimplifiedBadge variant="neutral">{product.category}</SimplifiedBadge>
-              )}
+          {/* Price */}
+          <div className="bg-blue-50 p-4 rounded-lg">
+            <p className="text-3xl font-bold text-blue-600">{formatPrice(product.priceMinor)}</p>
+          </div>
+          
+          {/* Description */}
+          {product.description && (
+            <SimplifiedCard>
+              <SimplifiedCardContent>
+                <div 
+                  className="text-gray-600"
+                  dangerouslySetInnerHTML={{ __html: product.description }}
+                />
+              </SimplifiedCardContent>
+            </SimplifiedCard>
+          )}
+          
+          {/* Quantity Selector */}
+          <div className="flex items-center gap-4">
+            <label className="font-medium text-gray-900">Quantity:</label>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                className="w-10 h-10 rounded-lg border border-gray-300 flex items-center justify-center hover:bg-gray-50"
+              >
+                -
+              </button>
+              <span className="w-12 text-center font-medium">{quantity}</span>
+              <button
+                onClick={() => setQuantity(quantity + 1)}
+                className="w-10 h-10 rounded-lg border border-gray-300 flex items-center justify-center hover:bg-gray-50"
+              >
+                +
+              </button>
             </div>
-            
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <p className="text-3xl font-bold text-blue-600">{formatPrice(product.priceMinor)}</p>
+          </div>
+          
+          {/* Total */}
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600">Total:</span>
+              <span className="text-2xl font-bold text-gray-900">
+                {formatPrice(product.priceMinor * quantity)}
+              </span>
             </div>
-            
-            {product.description && (
-              <SimplifiedCard>
-                <SimplifiedCardHeader>
-                  <SimplifiedCardTitle>Description</SimplifiedCardTitle>
-                </SimplifiedCardHeader>
-                <SimplifiedCardContent>
-                  <p className="text-gray-600 whitespace-pre-line">{product.description}</p>
-                </SimplifiedCardContent>
-              </SimplifiedCard>
-            )}
-            
-            {/* Quantity Selector */}
-            <div className="flex items-center gap-4">
-              <label className="font-medium text-gray-900">Quantity:</label>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  className="w-10 h-10 rounded-lg border border-gray-300 flex items-center justify-center hover:bg-gray-50"
-                >
-                  -
-                </button>
-                <span className="w-12 text-center font-medium">{quantity}</span>
-                <button
-                  onClick={() => setQuantity(quantity + 1)}
-                  className="w-10 h-10 rounded-lg border border-gray-300 flex items-center justify-center hover:bg-gray-50"
-                >
-                  +
-                </button>
-              </div>
+          </div>
+          
+          {/* Buy Button */}
+          <SimplifiedButton
+            variant="primary"
+            fullWidth
+            size="lg"
+            onClick={handleBuyNow}
+          >
+            Buy Now
+          </SimplifiedButton>
+          
+          {/* Trust Badges */}
+          <div className="flex items-center justify-center gap-4 text-sm text-gray-600">
+            <div className="flex items-center gap-2">
+              <span className="text-green-600">✓</span>
+              <span>Secure Payment</span>
             </div>
-            
-            {/* Total */}
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">Total:</span>
-                <span className="text-2xl font-bold text-gray-900">
-                  {formatPrice(product.priceMinor * quantity)}
-                </span>
-              </div>
+            <div className="flex items-center gap-2">
+              <span className="text-green-600">✓</span>
+              <span>Fast Delivery</span>
             </div>
-            
-            {/* Buy Button */}
-            <SimplifiedButton
-              variant="primary"
-              fullWidth
-              size="lg"
-              onClick={handleBuyNow}
-            >
-              Buy Now
-            </SimplifiedButton>
-            
-            {/* Trust Badges */}
-            <div className="flex items-center justify-center gap-6 text-sm text-gray-600">
-              <div className="flex items-center gap-2">
-                <span className="text-green-600">✓</span>
-                <span>Secure Payment</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-green-600">✓</span>
-                <span>Fast Delivery</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-green-600">✓</span>
-                <span>Quality Guaranteed</span>
-              </div>
+            <div className="flex items-center gap-2">
+              <span className="text-green-600">✓</span>
+              <span>Quality Guaranteed</span>
             </div>
           </div>
         </div>
