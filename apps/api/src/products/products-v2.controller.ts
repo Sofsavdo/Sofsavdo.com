@@ -4,10 +4,12 @@
  * Controller for the simplified v2 products API.
  * Hides technical fields like slug, SKU, internal codes.
  * Auto-generates slugs and SKUs when creating products.
+ * Public endpoints - no authentication required for buyer-facing operations.
  */
 
-import { Controller, Get, Post, Put, Delete, Body, Param, Query } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
+import { Public } from '../common/decorators/public.decorator';
 import { ProductsViewService } from './products-view.service';
 import {
   SimplifiedProductDto,
@@ -21,6 +23,7 @@ import {
 export class ProductsV2Controller {
   constructor(private readonly productsViewService: ProductsViewService) {}
 
+  @Public()
   @Get()
   @ApiOperation({ summary: 'List simplified products' })
   @ApiResponse({ status: 200, description: 'Products retrieved', type: SimplifiedProductListDto })
@@ -42,6 +45,7 @@ export class ProductsV2Controller {
     });
   }
 
+  @Public()
   @Get(':id')
   @ApiOperation({ summary: 'Get simplified product by ID' })
   @ApiResponse({ status: 200, description: 'Product retrieved', type: SimplifiedProductDto })
@@ -49,6 +53,7 @@ export class ProductsV2Controller {
     return this.productsViewService.findOne(id);
   }
 
+  @Public()
   @Get('by-code/:code')
   @ApiOperation({ summary: 'Find product by short code (for clean URLs)' })
   @ApiResponse({ status: 200, description: 'Product retrieved', type: SimplifiedProductDto })
