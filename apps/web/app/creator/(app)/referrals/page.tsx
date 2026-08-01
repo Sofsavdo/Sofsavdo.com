@@ -38,10 +38,14 @@ export default function CreatorReferralsPage() {
       <div>
         <h1 className="font-heading text-2xl font-bold text-text-primary">Do&apos;stlarni taklif qilish</h1>
         <p className="font-body text-sm text-text-secondary">
-          Do&apos;stingizni {BRAND.name}&apos;ga taklif qiling. Mukofot faqat do&apos;stingiz haqiqiy ish boshlaganda (kampaniyaga ariza,
-          tasdiqlangan ariza va h.k.) beriladi — shunchaki ro&apos;yxatdan o&apos;tish uchun emas.
+          Do&apos;stingizni {BRAND.name}&apos;ga taklif qiling va har bir faol creator uchun mukofot oling.
         </p>
       </div>
+
+      <Alert tone="info">
+        <strong>Mukofot tizimi:</strong> Do&apos;stingiz creator sifatida ro&apos;yxatdan o&apos;tganda va kampaniyaga ariza topshirganda sizga mukofot beriladi.
+        Har bir tasdiqlangan creator arizasi uchun <strong>50,000 so'm</strong> mukofot olasiz.
+      </Alert>
 
       <Card>
         <CardHeader>
