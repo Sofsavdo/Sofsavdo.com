@@ -80,21 +80,6 @@ export function Solution({ text }: { text: string }) {
   );
 }
 
-export function Benefits({ items, title = "Asosiy foydalar" }: { items: string[]; title?: string }) {
-  return (
-    <section className="mx-auto max-w-page px-pad-mobile py-6 md:px-pad-desktop">
-      <h2 className="font-heading text-xl font-bold text-text-primary">{title}</h2>
-      <ul className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-        {items.map((item) => (
-          <li key={item} className="flex items-start gap-2 font-body text-sm text-text-secondary">
-            <Check className="mt-0.5 size-4 shrink-0 text-success" /> {item}
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
 export function HowItWorks({ steps }: { steps: { step: string; text: string }[] }) {
   return (
     <section className="bg-surface px-pad-mobile py-6 md:px-pad-desktop">
@@ -281,24 +266,6 @@ export function PaymentSection({ paymentOptions }: { paymentOptions: string[] })
   );
 }
 
-export function Faq({ items }: { items: { q: string; a: string }[] }) {
-  return (
-    <section className="bg-surface px-pad-mobile py-6 md:px-pad-desktop">
-      <div className="mx-auto max-w-page">
-        <h2 className="font-heading text-xl font-bold text-text-primary">Ko&apos;p so&apos;raladigan savollar</h2>
-        <div className="mt-3 divide-y divide-border rounded-card border border-border bg-bg">
-          {items.map((item, i) => (
-            <div key={i} className="p-3">
-              <p className="font-body text-sm font-medium text-text-primary">{item.q}</p>
-              <p className="mt-1 font-body text-sm text-text-secondary">{item.a}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
 export function FinalCta({ ctaLabel, onBuyClick }: { ctaLabel: string; onBuyClick: () => void }) {
   return (
     <section className="mx-auto max-w-page px-pad-mobile py-10 text-center md:px-pad-desktop">
@@ -386,8 +353,6 @@ export function LandingSectionRenderer({
       return <Problem text={(c.text as string) ?? ""} />;
     case "SOLUTION":
       return <Solution text={(c.text as string) ?? ""} />;
-    case "BENEFITS":
-      return <Benefits items={(c.items as string[]) ?? []} />;
     case "HOW_IT_WORKS":
       return <HowItWorks steps={(c.steps as { step: string; text: string }[]) ?? []} />;
     case "AUDIENCE":
@@ -412,8 +377,6 @@ export function LandingSectionRenderer({
       return <DeliverySection text={(c.text as string) ?? offer.deliveryInfo ?? ""} />;
     case "PAYMENT":
       return <PaymentSection paymentOptions={offer.paymentOptions} />;
-    case "FAQ":
-      return <Faq items={(c.items as { q: string; a: string }[]) ?? []} />;
     case "FINAL_CTA":
       return <FinalCta ctaLabel={offer.ctaLabel} onBuyClick={onBuyClick} />;
     case "CUSTOM_RICH_TEXT":
