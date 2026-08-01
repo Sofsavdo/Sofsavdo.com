@@ -1,6 +1,7 @@
 "use client";
 
-import { Badge, Card, CardHeader, CardTitle, Skeleton } from "@sofsavdo/ui";
+import { useState } from "react";
+import { Badge, Card, CardHeader, CardTitle, Skeleton, Button, TextField, Alert } from "@sofsavdo/ui";
 import { useSession } from "@/services/session";
 import { applicationStatusMeta } from "@/lib/status";
 
@@ -18,6 +19,13 @@ function maskCardNumber(digits: string): string {
 
 export default function CreatorProfilePage() {
   const { user, isLoading } = useSession();
+  const [isEditing, setIsEditing] = useState(false);
+  const [socialLinks, setSocialLinks] = useState({
+    instagram: "",
+    tiktok: "",
+    youtube: "",
+    telegram: "",
+  });
 
   if (isLoading || !user) {
     return (
@@ -32,16 +40,29 @@ export default function CreatorProfilePage() {
   const data = application.data;
   const statusMeta = applicationStatusMeta[application.status];
 
+  const handleSave = () => {
+    // TODO: Save social links to backend
+    setIsEditing(false);
+    alert("Ijtimoiy tarmoq havolalari saqlandi!");
+  };
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-bold text-text-primary">Profil</h1>
-        <p className="font-body text-sm text-text-secondary">Ariza ma&apos;lumotlaringiz — tahrirlash uchun support bilan bog&apos;laning.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="font-heading text-2xl font-bold text-text-primary">Profil</h1>
+          <p className="font-body text-sm text-text-secondary">Ijtimoiy tarmoq havolalaringizni qo'shing</p>
+        </div>
+        {!isEditing && (
+          <Button onClick={() => setIsEditing(true)} variant="outline">
+            Tahrirlash
+          </Button>
+        )}
       </div>
 
       <Card>
         <CardHeader className="flex-row items-center justify-between">
-          <CardTitle>Shaxsiy ma&apos;lumot</CardTitle>
+          <CardTitle>Shaxsiy ma'lumot</CardTitle>
           {statusMeta ? <Badge tone={statusMeta.tone}>{statusMeta.label}</Badge> : null}
         </CardHeader>
         <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -63,7 +84,7 @@ export default function CreatorProfilePage() {
           </div>
           {data.bio ? (
             <div className="sm:col-span-2">
-              <dt className="font-body text-xs text-text-muted">O&apos;zi haqida</dt>
+              <dt className="font-body text-xs text-text-muted">O'zi haqida</dt>
               <dd className="font-body text-sm text-text-primary">{data.bio}</dd>
             </div>
           ) : null}
@@ -72,47 +93,71 @@ export default function CreatorProfilePage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Kontent yo&apos;nalishlari</CardTitle>
+          <CardTitle>Ijtimoiy tarmoq havolalari</CardTitle>
         </CardHeader>
-        {data.contentNiches && data.contentNiches.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
-            {data.contentNiches.map((niche) => (
-              <Badge key={niche} tone="neutral">
-                {niche}
-              </Badge>
-            ))}
-          </div>
-        ) : (
-          <p className="font-body text-sm text-text-muted">Kiritilmagan.</p>
-        )}
+        <div className="space-y-4">
+          {isEditing ? (
+            <div className="space-y-4">
+              <TextField
+                label="Instagram"
+                placeholder="https://instagram.com/username"
+                value={socialLinks.instagram}
+                onChange={(e) => setSocialLinks({ ...socialLinks, instagram: e.target.value })}
+              />
+              <TextField
+                label="TikTok"
+                placeholder="https://tiktok.com/@username"
+                value={socialLinks.tiktok}
+                onChange={(e) => setSocialLinks({ ...socialLinks, tiktok: e.target.value })}
+              />
+              <TextField
+                label="YouTube"
+                placeholder="https://youtube.com/@username"
+                value={socialLinks.youtube}
+                onChange={(e) => setSocialLinks({ ...socialLinks, youtube: e.target.value })}
+              />
+              <TextField
+                label="Telegram"
+                placeholder="https://t.me/username"
+                value={socialLinks.telegram}
+                onChange={(e) => setSocialLinks({ ...socialLinks, telegram: e.target.value })}
+              />
+              <div className="flex gap-2">
+                <Button onClick={handleSave}>Saqlash</Button>
+                <Button variant="outline" onClick={() => setIsEditing(false)}>
+                  Bekor qilish
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <>
+              {data.socialAccounts && data.socialAccounts.length > 0 ? (
+                <ul className="divide-y divide-border">
+                  {data.socialAccounts.map((account) => (
+                    <li key={account.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5">
+                      <div className="min-w-0">
+                        <p className="font-body text-sm font-medium text-text-primary">{PLATFORM_LABELS[account.platform] ?? account.platform}</p>
+                        <p className="truncate font-body text-xs text-text-muted">{account.handle}</p>
+                      </div>
+                      <span className="shrink-0 font-numeric text-sm tabular-nums text-text-secondary">
+                        {account.followerCount.toLocaleString("uz-UZ")} obunachi
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <Alert tone="info">
+                  Ijtimoiy tarmoq havolalari qo'shilmagan. Sofsavdo reklamasini qilganingiz uchun avtomatik ravishda "Tasdiqlangan Creator" badgesini olishingiz mumkin.
+                </Alert>
+              )}
+            </>
+          )}
+        </div>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Ijtimoiy tarmoqlar</CardTitle>
-        </CardHeader>
-        {data.socialAccounts && data.socialAccounts.length > 0 ? (
-          <ul className="divide-y divide-border">
-            {data.socialAccounts.map((account) => (
-              <li key={account.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5">
-                <div className="min-w-0">
-                  <p className="font-body text-sm font-medium text-text-primary">{PLATFORM_LABELS[account.platform] ?? account.platform}</p>
-                  <p className="truncate font-body text-xs text-text-muted">{account.handle}</p>
-                </div>
-                <span className="shrink-0 font-numeric text-sm tabular-nums text-text-secondary">
-                  {account.followerCount.toLocaleString("uz-UZ")} obunachi
-                </span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="font-body text-sm text-text-muted">Ijtimoiy tarmoq hisobi qo&apos;shilmagan.</p>
-        )}
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>To&apos;lov ma&apos;lumoti</CardTitle>
+          <CardTitle>To'lov ma'lumoti</CardTitle>
         </CardHeader>
         {data.payoutMethodType === "CARD" && data.payoutCardNumber ? (
           <p className="font-body text-sm text-text-primary">
@@ -124,7 +169,7 @@ export default function CreatorProfilePage() {
             {data.payoutBankName} — {data.payoutBankAccount ? maskCardNumber(data.payoutBankAccount) : "—"}
           </p>
         ) : (
-          <p className="font-body text-sm text-text-muted">To&apos;lov usuli kiritilmagan.</p>
+          <p className="font-body text-sm text-text-muted">To'lov usuli kiritilmagan.</p>
         )}
       </Card>
     </div>

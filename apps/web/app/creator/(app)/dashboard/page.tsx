@@ -238,58 +238,33 @@ export default function DashboardPage() {
 
       <DashboardChart dailyRevenue30d={d.dailyRevenue30d} />
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Bajarilishi kerak bo&apos;lgan vazifalar</CardTitle>
-          </CardHeader>
-          {requiredActions.length === 0 ? (
-            <p className="font-body text-sm text-text-muted">Hozircha bajarilishi kerak bo&apos;lgan vazifa yo&apos;q.</p>
-          ) : (
-            <ul className="flex flex-col gap-2">
-              {requiredActions.map((action) => (
-                <li key={action.key}>
-                  <Link
-                    href={action.href}
-                    className="flex items-center justify-between rounded-input border border-border px-3 py-2 font-body text-sm text-text-primary hover:border-accent"
-                  >
-                    {action.text}
-                    <span className="text-accent">→</span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Faol kampaniyalar</CardTitle>
-          </CardHeader>
-          {activeCampaigns.length === 0 ? (
-            <EmptyState
-              title="Faol kampaniya yo'q"
-              description="Katalogdan kampaniya tanlab, hamkorlikni boshlang."
-              action={
-                <Button asChild size="sm" variant="outline">
-                  <Link href="/creator/campaigns">Kampaniyalarni ko&apos;rish</Link>
-                </Button>
-              }
-            />
-          ) : (
-            <ul className="flex flex-col gap-2">
-              {activeCampaigns.map((cc) => (
-                <li key={cc.id} className="flex items-center justify-between rounded-input border border-border px-3 py-2">
-                  <span className="font-body text-sm text-text-primary">{cc.campaign.name}</span>
-                  <Badge tone={creatorCampaignStatusMeta[cc.status].tone}>
-                    {creatorCampaignStatusMeta[cc.status].label}
-                  </Badge>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Faol kampaniyalar</CardTitle>
+        </CardHeader>
+        {activeCampaigns.length === 0 ? (
+          <EmptyState
+            title="Faol kampaniya yo'q"
+            description="Katalogdan kampaniya tanlab, hamkorlikni boshlang."
+            action={
+              <Button asChild size="sm" variant="outline">
+                <Link href="/creator/campaigns">Kampaniyalarni ko&apos;rish</Link>
+              </Button>
+            }
+          />
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {activeCampaigns.map((cc) => (
+              <li key={cc.id} className="flex items-center justify-between rounded-input border border-border px-3 py-2">
+                <span className="font-body text-sm text-text-primary">{cc.campaign.name}</span>
+                <Badge tone={creatorCampaignStatusMeta[cc.status].tone}>
+                  {creatorCampaignStatusMeta[cc.status].label}
+                </Badge>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
 
       <Card>
         <CardHeader>
