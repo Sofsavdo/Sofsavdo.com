@@ -58,32 +58,33 @@ export const productsV2Service = {
     status?: string;
     search?: string;
   } = {}): Promise<SimplifiedProductListDto> {
-    const response = await api.get('/v2/products', { params: query });
-    return response.data;
+    const params = new URLSearchParams();
+    if (query.skip) params.append('skip', query.skip.toString());
+    if (query.take) params.append('take', query.take.toString());
+    if (query.status) params.append('status', query.status);
+    if (query.search) params.append('search', query.search);
+    return await api.get(`/v2/products?${params.toString()}`);
   },
 
   /**
    * Get simplified product by ID.
    */
   async findOne(id: string): Promise<SimplifiedProductDto> {
-    const response = await api.get(`/v2/products/${id}`);
-    return response.data;
+    return await api.get(`/v2/products/${id}`);
   },
 
   /**
    * Create simplified product (auto-generates slug and SKU).
    */
   async create(dto: CreateSimplifiedProductDto): Promise<SimplifiedProductDto> {
-    const response = await api.post('/v2/products', dto);
-    return response.data;
+    return await api.post('/v2/products', dto);
   },
 
   /**
    * Update simplified product.
    */
   async update(id: string, dto: UpdateSimplifiedProductDto): Promise<SimplifiedProductDto> {
-    const response = await api.put(`/v2/products/${id}`, dto);
-    return response.data;
+    return await api.put(`/v2/products/${id}`, dto);
   },
 
   /**

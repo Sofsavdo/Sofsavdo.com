@@ -42,31 +42,27 @@ export const creatorsV2Service = {
    * Get my simplified profile.
    */
   async getMyProfile(): Promise<SimplifiedCreatorProfileDto> {
-    const response = await api.get('/v2/creators/me');
-    return response.data;
+    return await api.get('/v2/creators/me');
   },
 
   /**
    * Update my simplified profile.
    */
   async updateMyProfile(dto: UpdateSimplifiedCreatorProfileDto): Promise<SimplifiedCreatorProfileDto> {
-    const response = await api.put('/v2/creators/me', dto);
-    return response.data;
+    return await api.put('/v2/creators/me', dto);
   },
 
   /**
    * Get my simplified products.
    */
   async getMyProducts(): Promise<SimplifiedCreatorProductDto[]> {
-    const response = await api.get('/v2/creators/me/products');
-    return response.data;
+    return await api.get('/v2/creators/me/products');
   },
 
   /**
    * Generate instant sharing link for a product.
    */
   async generateSharingLink(productId: string): Promise<{ link: string }> {
-    const response = await api.post(`/v2/creators/me/products/${productId}/link`);
-    return response.data;
+    return await api.post(`/v2/creators/me/products/${productId}/link`, {});
   },
 };

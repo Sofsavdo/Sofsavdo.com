@@ -36,23 +36,20 @@ export const authV2Service = {
    * Simplified registration - 3 steps only.
    */
   async register(dto: SimplifiedRegisterDto): Promise<AuthResponseDto> {
-    const response = await api.post('/v2/auth/register', dto);
-    return response.data;
+    return await api.post('/v2/auth/register', dto);
   },
 
   /**
    * Phone-only login.
    */
   async phoneLogin(dto: SimplifiedPhoneLoginDto): Promise<{ message: string }> {
-    const response = await api.post('/v2/auth/login/phone', dto);
-    return response.data;
+    return await api.post('/v2/auth/login/phone', dto);
   },
 
   /**
    * Verify SMS code and complete login.
    */
   async verifySms(dto: VerifySmsDto): Promise<AuthResponseDto> {
-    const response = await api.post('/v2/auth/verify-sms', dto);
-    return response.data;
+    return await api.post('/v2/auth/verify-sms', dto);
   },
 };
