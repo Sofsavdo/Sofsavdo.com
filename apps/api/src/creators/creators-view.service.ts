@@ -183,7 +183,11 @@ export class CreatorsViewService {
         // Get orders attributed to this referral link
         const orders = await this.prisma.order.findMany({
           where: {
-            referralLinkId: referralLink.id,
+            attribution: {
+              referralVisit: {
+                referralLinkId: referralLink.id,
+              },
+            },
             status: 'PAID',
           },
         });
@@ -193,7 +197,7 @@ export class CreatorsViewService {
         // Calculate total earnings from commissions
         const commissions = await this.prisma.commission.findMany({
           where: {
-            referralLinkId: referralLink.id,
+            creatorId,
             status: 'PAID',
           },
         });
@@ -252,7 +256,11 @@ export class CreatorsViewService {
     
     const orders = await this.prisma.order.findMany({
       where: {
-        referralLinkId: referralLink.id,
+        attribution: {
+          referralVisit: {
+            referralLinkId: referralLink.id,
+          },
+        },
         status: 'PAID',
       },
     });
@@ -261,7 +269,7 @@ export class CreatorsViewService {
     
     const commissions = await this.prisma.commission.findMany({
       where: {
-        referralLinkId: referralLink.id,
+        creatorId,
         status: 'PAID',
       },
     });
@@ -309,7 +317,7 @@ export class CreatorsViewService {
     // Get lifetime sales count
     const orders = await this.prisma.order.findMany({
       where: {
-        referralLink: {
+        attribution: {
           creatorId,
         },
         status: 'PAID',
