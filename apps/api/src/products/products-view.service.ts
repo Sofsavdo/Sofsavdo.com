@@ -71,22 +71,63 @@ export class ProductsViewService {
     status?: string;
     search?: string;
   }): Promise<SimplifiedProductListDto> {
-    // Temporary: return empty list due to database connection issues
-    // Real data logic is implemented but database needs proper setup
-    const items: any[] = [];
-    const total = 0;
+    try {
+      // Try to fetch real data from database
+      const where: Prisma.ProductWhereInput = {};
+      
+      if (query.status) {
+        where.status = query.status as any;
+      }
+      
+      if (query.search) {
+        where.OR = [
+          { name: { contains: query.search, mode: 'insensitive' } },
+          { shortDescription: { contains: query.search, mode: 'insensitive' } },
+        ];
+      }
 
-    const simplifiedItems = await Promise.all(
-      items.map((item) => this.toSimplifiedDto(item))
-    );
+      const [items, total] = await Promise.all([
+        this.prisma.product.findMany({
+          where,
+          skip: query.skip,
+          take: query.take,
+          include: {
+            offers: {
+              take: 1,
+              select: {
+                priceMinor: true,
+                compareAtPriceMinor: true,
+                currency: true,
+              },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+        }),
+        this.prisma.product.count({ where }),
+      ]);
 
-    return {
-      items: simplifiedItems,
-      total,
-      page: Math.floor((query.skip || 0) / (query.take || 20)) + 1,
-      pageSize: query.take || 20,
-      totalPages: Math.ceil(total / (query.take || 20)),
-    };
+      const simplifiedItems = await Promise.all(
+        items.map((item) => this.toSimplifiedDto(item))
+      );
+
+      return {
+        items: simplifiedItems,
+        total,
+        page: Math.floor((query.skip || 0) / (query.take || 20)) + 1,
+        pageSize: query.take || 20,
+        totalPages: Math.ceil(total / (query.take || 20)),
+      };
+    } catch (error) {
+      // If database query fails, return empty list with valid structure
+      console.error('Error fetching products:', error);
+      return {
+        items: [],
+        total: 0,
+        page: Math.floor((query.skip || 0) / (query.take || 20)) + 1,
+        pageSize: query.take || 20,
+        totalPages: 0,
+      };
+    }
   }
 
   /**
