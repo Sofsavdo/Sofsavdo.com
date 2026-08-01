@@ -918,6 +918,11 @@ export async function getCompetitionLeaderboard(competitionId: string): Promise<
   return apiRequest<CompetitionLeaderboardResponse>(`/creator/competitions/${competitionId}/leaderboard`);
 }
 
+export async function joinCompetition(competitionId: string): Promise<{ joined: boolean }> {
+  if (!USE_REAL_API) throw new Error("Competition join is only available in real-API mode.");
+  return apiRequest<{ joined: boolean }>(`/creator/competitions/${competitionId}/join`, { method: "POST" });
+}
+
 // ---- Activity ticker (Phase N) — real backend only, no mock counterpart. Field names match
 // ActivityTickerResponse (apps/api/src/activity-ticker/activity-ticker.service.ts) 1:1.
 

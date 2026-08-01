@@ -197,6 +197,7 @@ model CreatorProfile {
   referralReceived     CreatorReferral?          @relation("ReferralReferred")
   contents             Content[]                 @relation("ContentByCreator")
   fundContributions    CreatorFundContribution[]
+  competitionParticipants CompetitionParticipant[]
 
   @@index([city])
 }
@@ -813,8 +814,26 @@ model Competition {
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 
+  participants     CompetitionParticipant[]
+
   @@index([status])
   @@index([startAt, endAt])
+}
+
+// Competition participants - tracks when a creator joins a competition
+// This allows competition-specific scoring (orders/referrals counted from join date)
+model CompetitionParticipant {
+  id            String   @id @default(cuid())
+  competitionId String
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  creatorId     String
+  creator       CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  joinedAt      DateTime @default(now())
+  createdAt     DateTime @default(now())
+
+  @@unique([competitionId, creatorId])
+  @@index([competitionId])
+  @@index([creatorId])
 }
 
 // ────────────────────────────────────────────────────────────────────────────

@@ -202,6 +202,30 @@ export class CompetitionsService {
     return rows.map((r) => this.toResponse(r)).filter((r) => r.availability === "LIVE" || r.availability === "SCHEDULED");
   }
 
+  async join(competitionId: string, creatorId: string): Promise<{ joined: boolean }> {
+    const competition = await this.prisma.competition.findUnique({ where: { id: competitionId } });
+    if (!competition) throw new DomainException("NOT_FOUND", "Musobaqa topilmadi.");
+    if (competition.status !== "ACTIVE") {
+      throw new DomainException("VALIDATION_ERROR", "Faqat faol musobaqalarga qo'shilish mumkin.");
+    }
+    if (this.computeAvailability(competition) !== "LIVE") {
+      throw new DomainException("VALIDATION_ERROR", "Musobaqa hali boshlanmagan yoki tugagan.");
+    }
+
+    // Check if already joined
+    const existing = await this.prisma.competitionParticipant.findUnique({
+      where: { competitionId_creatorId: { competitionId, creatorId } },
+    });
+    if (existing) return { joined: false };
+
+    // Join the competition
+    await this.prisma.competitionParticipant.create({
+      data: { competitionId, creatorId },
+    });
+
+    return { joined: true };
+  }
+
   async getLeaderboard(competitionId: string, creatorId: string): Promise<CompetitionLeaderboardResponse> {
     const competition = await this.prisma.competition.findUnique({ where: { id: competitionId } });
     if (!competition) throw new DomainException("NOT_FOUND", "Musobaqa topilmadi.");
@@ -210,10 +234,11 @@ export class CompetitionsService {
     let ranked = await this.cache.get<RankedCreator[]>(cacheKey);
     if (!ranked) {
       // Use the appropriate ranking function based on the competition's metric
+      // Count orders/referrals from the creator's join date, not from competition start
       if (competition.metric === "ORDER_COUNT") {
-        ranked = await rankCreatorsByOrderCount(this.prisma, { from: competition.startAt, to: competition.endAt });
+        ranked = await this.rankCreatorsByOrderCountWithJoinDate(this.prisma, competitionId, competition.startAt, competition.endAt);
       } else if (competition.metric === "REFERRAL_COUNT") {
-        ranked = await rankCreatorsByReferralCount(this.prisma, { from: competition.startAt, to: competition.endAt });
+        ranked = await this.rankCreatorsByReferralCountWithJoinDate(this.prisma, competitionId, competition.startAt, competition.endAt);
       } else {
         // Default to commission ranking for backward compatibility
         ranked = await rankCreatorsByCommission(this.prisma, { from: competition.startAt, to: competition.endAt });
@@ -227,5 +252,95 @@ export class CompetitionsService {
       top: ranked.slice(0, LEADERBOARD_TOP_N).map((r, i) => ({ ...r, rank: i + 1 })),
       me: myIndex >= 0 ? { ...ranked[myIndex]!, rank: myIndex + 1 } : null,
     };
+  }
+
+  // Modified ranking functions that consider join date
+  private async rankCreatorsByOrderCountWithJoinDate(
+    prisma: PrismaService,
+    competitionId: string,
+    competitionStart: Date,
+    competitionEnd: Date,
+  ): Promise<RankedCreator[]> {
+    // Get all participants with their join dates
+    const participants = await prisma.competitionParticipant.findMany({
+      where: { competitionId },
+      include: { creator: true },
+    });
+
+    // For each participant, count orders from their join date
+    const results = await Promise.all(
+      participants.map(async (p: any) => {
+        const from = p.joinedAt > competitionStart ? p.joinedAt : competitionStart;
+        const ordersCount = await prisma.order.count({
+          where: {
+            commission: { creatorId: p.creatorId },
+            status: "PAID",
+            createdAt: { gte: from, lte: competitionEnd },
+          },
+        });
+
+        const commissions = await prisma.commission.aggregate({
+          where: {
+            creatorId: p.creatorId,
+            order: { status: "PAID", createdAt: { gte: from, lte: competitionEnd } },
+          },
+          _sum: { amountMinor: true },
+        });
+
+        return {
+          creatorId: p.creatorId,
+          displayName: p.creator.displayName,
+          ordersCount,
+          commissionMinor: commissions._sum.amountMinor || 0,
+        };
+      }),
+    );
+
+    // Sort by orders count descending
+    return results.sort((a: any, b: any) => b.ordersCount - a.ordersCount);
+  }
+
+  private async rankCreatorsByReferralCountWithJoinDate(
+    prisma: PrismaService,
+    competitionId: string,
+    competitionStart: Date,
+    competitionEnd: Date,
+  ): Promise<RankedCreator[]> {
+    // Get all participants with their join dates
+    const participants = await prisma.competitionParticipant.findMany({
+      where: { competitionId },
+      include: { creator: true },
+    });
+
+    // For each participant, count referrals from their join date
+    const results = await Promise.all(
+      participants.map(async (p: any) => {
+        const from = p.joinedAt > competitionStart ? p.joinedAt : competitionStart;
+        const referralCount = await prisma.creatorReferral.count({
+          where: {
+            referrerId: p.creatorId,
+            createdAt: { gte: from, lte: competitionEnd },
+          },
+        });
+
+        const commissions = await prisma.commission.aggregate({
+          where: {
+            creatorId: p.creatorId,
+            order: { status: "PAID", createdAt: { gte: from, lte: competitionEnd } },
+          },
+          _sum: { amountMinor: true },
+        });
+
+        return {
+          creatorId: p.creatorId,
+          displayName: p.creator.displayName,
+          ordersCount: referralCount, // Use referralCount as the metric
+          commissionMinor: commissions._sum.amountMinor || 0,
+        };
+      }),
+    );
+
+    // Sort by referral count descending
+    return results.sort((a: any, b: any) => b.ordersCount - a.ordersCount);
   }
 }

@@ -3,14 +3,15 @@
 import { use } from "react";
 import Link from "next/link";
 import { formatMoneyMinor } from "@sofsavdo/types";
-import { Badge, Card, EmptyState, Skeleton, cn } from "@sofsavdo/ui";
-import { Trophy } from "lucide-react";
-import { useCompetitionLeaderboard, useMyCompetitions } from "@/services/competitions";
+import { Badge, Button, Card, EmptyState, Skeleton, cn } from "@sofsavdo/ui";
+import { Trophy, UserPlus } from "lucide-react";
+import { useCompetitionLeaderboard, useMyCompetitions, useJoinCompetition } from "@/services/competitions";
 
 export default function CompetitionDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const competitions = useMyCompetitions();
   const leaderboard = useCompetitionLeaderboard(id);
+  const joinCompetition = useJoinCompetition();
 
   if (leaderboard.isLoading || competitions.isLoading) {
     return (
@@ -26,6 +27,15 @@ export default function CompetitionDetailPage({ params }: { params: Promise<{ id
   const top = data?.top ?? [];
   const me = data?.me ?? null;
   const meInTop = me ? top.some((r) => r.creatorId === me.creatorId) : false;
+  const hasJoined = me !== null;
+
+  async function handleJoin() {
+    try {
+      await joinCompetition.mutateAsync(id);
+    } catch (error) {
+      console.error("Failed to join competition:", error);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -37,20 +47,36 @@ export default function CompetitionDetailPage({ params }: { params: Promise<{ id
         <span className="text-text-primary">{competition?.name ?? "Musobaqa"}</span>
       </div>
 
-      <div>
-        <h1 className="flex items-center gap-2 font-heading text-2xl font-bold text-text-primary">
-          <Trophy className="size-6 text-accent" /> {competition?.name ?? "Musobaqa"}
-        </h1>
-        {competition?.description ? <p className="mt-1 font-body text-sm text-text-secondary">{competition.description}</p> : null}
-        {competition?.prizeDescription ? (
-          <p className="mt-2 rounded-input border border-accent/20 bg-accent/5 p-3 font-body text-sm text-text-primary">
-            🏆 {competition.prizeDescription}
-          </p>
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex-1">
+          <h1 className="flex items-center gap-2 font-heading text-2xl font-bold text-text-primary">
+            <Trophy className="size-6 text-accent" /> {competition?.name ?? "Musobaqa"}
+          </h1>
+          {competition?.description ? <p className="mt-1 font-body text-sm text-text-secondary">{competition.description}</p> : null}
+          {competition?.prizeDescription ? (
+            <p className="mt-2 rounded-input border border-accent/20 bg-accent/5 p-3 font-body text-sm text-text-primary">
+              🏆 {competition.prizeDescription}
+            </p>
+          ) : null}
+        </div>
+        {!hasJoined && competition?.availability === "LIVE" ? (
+          <Button onClick={handleJoin} disabled={joinCompetition.isPending} className="shrink-0">
+            <UserPlus className="mr-2 size-4" />
+            {joinCompetition.isPending ? "Qo'shilmoqda..." : "Qo'shilish"}
+          </Button>
+        ) : hasJoined ? (
+          <Badge tone="success" className="shrink-0">Qo'shilgan</Badge>
         ) : null}
       </div>
 
-      {top.length === 0 ? (
-        <EmptyState title="Reyting hali bo'sh" description="Bu musobaqada hali hech kim sotuv qilmagan — birinchi bo'ling!" />
+      {top.length === 0 && !hasJoined ? (
+        <EmptyState title="Reyting hali bo'sh" description="Bu musobaqada hali hech kim qatnashmagan — birinchi bo'ling!" />
+      ) : top.length === 0 && hasJoined ? (
+        <Card>
+          <p className="font-body text-sm text-text-secondary">
+            Siz musobaqaga qo'shildingiz. Sotuvlaringiz reytingda ko'rinadi.
+          </p>
+        </Card>
       ) : (
         <Card>
           <div className="flex flex-col divide-y divide-border">

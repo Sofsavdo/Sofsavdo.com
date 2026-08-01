@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as api from "../lib/api";
 import { useSession } from "./session";
 
@@ -19,5 +19,15 @@ export function useCompetitionLeaderboard(competitionId: string) {
     enabled: !!user && !!competitionId,
     refetchInterval: 30_000,
     refetchIntervalInBackground: false,
+  });
+}
+
+export function useJoinCompetition() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (competitionId: string) => api.joinCompetition(competitionId),
+    onSuccess: (_, competitionId) => {
+      qc.invalidateQueries({ queryKey: ["competition-leaderboard", competitionId] });
+    },
   });
 }

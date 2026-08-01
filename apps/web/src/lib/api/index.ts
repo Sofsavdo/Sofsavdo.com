@@ -193,6 +193,8 @@ export const getMyCompetitions = (): Promise<creatorRealApi.CreatorCompetition[]
   USE_REAL_API ? creatorRealApi.getMyCompetitions() : Promise.resolve([]);
 export const getCompetitionLeaderboard = (competitionId: string): Promise<creatorRealApi.CompetitionLeaderboardResponse> =>
   USE_REAL_API ? creatorRealApi.getCompetitionLeaderboard(competitionId) : Promise.resolve({ competitionId, top: [], me: null });
+export const joinCompetition = (competitionId: string): Promise<{ joined: boolean }> =>
+  USE_REAL_API ? creatorRealApi.joinCompetition(competitionId) : Promise.reject(new Error("Competition join is only available in real-API mode."));
 
 // ---- Activity ticker (Phase N) — real backend only, no mock counterpart: mock mode resolves to
 // an empty feed rather than a mock reimplementation of the sale/payout/contribution merge.
