@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as api from "@/lib/api/admin";
-import type { CreateCompetitionInput } from "@/lib/api/admin";
+import type { CreateCompetitionInput } from "@/lib/api/admin-real";
 
 export function useAdminCompetitions() {
   return useQuery({ queryKey: ["admin-competitions"], queryFn: api.getCompetitions });
