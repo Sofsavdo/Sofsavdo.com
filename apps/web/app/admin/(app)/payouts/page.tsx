@@ -73,6 +73,7 @@ function RealAdminPayoutsPage() {
           meta={<StatusBadge tone={realPayoutStatusMeta[p.status].tone} label={realPayoutStatusMeta[p.status].label} />}
           fields={[
             { label: "Usul", value: p.payoutMethodLabel },
+            { label: "Karta raqami", value: p.cardNumber || "—" },
             { label: "So'ralgan", value: new Date(p.requestedAt).toLocaleDateString("uz-UZ") },
             { label: "Summa", value: formatMoneyMinor(p.amountMinor, p.currency), emphasis: true },
           ]}
@@ -119,6 +120,7 @@ function RealAdminPayoutsPage() {
             <th className="whitespace-nowrap px-4 py-2.5 font-medium">Creator</th>
             <th className="whitespace-nowrap px-4 py-2.5 text-right font-medium">Summa</th>
             <th className="whitespace-nowrap px-4 py-2.5 font-medium">Usul</th>
+            <th className="whitespace-nowrap px-4 py-2.5 font-medium">Karta raqami</th>
             <th className="whitespace-nowrap px-4 py-2.5 font-medium">So&apos;ralgan</th>
             <th className="whitespace-nowrap px-4 py-2.5 font-medium">Holat</th>
             <th className="whitespace-nowrap px-4 py-2.5 font-medium"></th>
@@ -130,6 +132,7 @@ function RealAdminPayoutsPage() {
               <td className="px-4 py-2.5 text-text-primary">{p.creator.displayName}</td>
               <td className="whitespace-nowrap px-4 py-2.5 text-right font-numeric tabular-nums text-text-primary">{formatMoneyMinor(p.amountMinor, p.currency)}</td>
               <td className="whitespace-nowrap px-4 py-2.5 text-text-secondary">{p.payoutMethodLabel}</td>
+              <td className="whitespace-nowrap px-4 py-2.5 text-xs text-text-muted font-numeric">{p.cardNumber || "—"}</td>
               <td className="whitespace-nowrap px-4 py-2.5 text-xs text-text-muted">{new Date(p.requestedAt).toLocaleDateString("uz-UZ")}</td>
               <td className="whitespace-nowrap px-4 py-2.5">
                 <StatusBadge tone={realPayoutStatusMeta[p.status].tone} label={realPayoutStatusMeta[p.status].label} />

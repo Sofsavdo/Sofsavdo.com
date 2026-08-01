@@ -988,6 +988,7 @@ export interface RealAdminPayout {
   id: string;
   creator: { id: string; displayName: string };
   payoutMethodLabel: string;
+  cardNumber?: string; // Creator's card number for payout
   amountMinor: number;
   currency: string;
   status: RealPayoutStatus;

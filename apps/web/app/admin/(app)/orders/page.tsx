@@ -6,11 +6,39 @@ import type { OrderStatus, RealOrderStatus } from "@sofsavdo/types";
 import { formatMoneyMinor } from "@sofsavdo/types";
 import { DataTableShell, MobileDataCard, StatusBadge } from "@sofsavdo/ui";
 import { useAdminOrders } from "@/services/admin/orders";
-import { useOrderReviewList } from "@/services/admin/orders";
+import { useOrderReviewList, useUpdateRealOrderStatus } from "@/services/admin/orders";
+import { useUpdateOrderStatus } from "@/services/admin/orders";
 import { orderStatusMeta, realOrderStatusMeta } from "@/lib/status";
 
 const STATUSES: OrderStatus[] = ["NEW", "CONFIRMED", "PROCESSING", "SHIPPED", "DELIVERED", "COMPLETED", "CANCELLED", "RETURNED", "REFUNDED"];
+
+const NEXT_STATUSES: Record<OrderStatus, OrderStatus[]> = {
+  NEW: ["CONFIRMED", "CANCELLED"],
+  CONFIRMED: ["PROCESSING", "CANCELLED"],
+  PROCESSING: ["SHIPPED", "COMPLETED", "CANCELLED"],
+  SHIPPED: ["DELIVERED", "RETURNED"],
+  DELIVERED: ["COMPLETED", "RETURNED"],
+  COMPLETED: ["REFUNDED"],
+  CANCELLED: [],
+  RETURNED: ["REFUNDED"],
+  REFUNDED: [],
+};
+
 const REAL_STATUSES: RealOrderStatus[] = ["CREATED", "PAYMENT_PENDING", "PAID", "PROCESSING", "SHIPPED", "IN_TRANSIT", "DELIVERED", "CANCELLED", "REFUNDED"];
+
+// Mirrors the order detail page's transitions
+const REAL_NEXT_STATUSES: Record<RealOrderStatus, RealOrderStatus[]> = {
+  CREATED: ["PAYMENT_PENDING", "CANCELLED"],
+  PAYMENT_PENDING: ["PAID", "CANCELLED"],
+  PAID: ["PROCESSING", "CANCELLED"],
+  PROCESSING: ["SHIPPED", "CANCELLED"],
+  SHIPPED: ["IN_TRANSIT", "DELIVERED", "CANCELLED"],
+  IN_TRANSIT: ["DELIVERED"],
+  DELIVERED: [],
+  CANCELLED: [],
+  REFUNDED: [],
+};
+
 const USE_REAL_API = process.env.NEXT_PUBLIC_API_MODE === "real";
 
 function RealAdminOrdersPage() {
@@ -24,6 +52,7 @@ function RealAdminOrdersPage() {
     page,
     pageSize: 50,
   });
+  const updateStatus = useUpdateRealOrderStatus();
 
   return (
     <DataTableShell
@@ -84,25 +113,46 @@ function RealAdminOrdersPage() {
             <th className="whitespace-nowrap px-4 py-2.5 text-right font-medium">Jami</th>
             <th className="whitespace-nowrap px-4 py-2.5 font-medium">Sana</th>
             <th className="whitespace-nowrap px-4 py-2.5 font-medium">Holat</th>
+            <th className="whitespace-nowrap px-4 py-2.5 font-medium">O'zgartirish</th>
           </tr>
         </thead>
         <tbody>
-          {(query.data?.items ?? []).map((o) => (
-            <tr key={o.id} className="border-t border-border hover:bg-bg">
-              <td className="px-4 py-2.5">
-                <Link href={`/admin/orders/${o.id}`} className="font-medium text-text-primary hover:text-accent">
-                  {o.offer.name}
-                </Link>
-              </td>
-              <td className="whitespace-nowrap px-4 py-2.5 text-text-secondary">{o.customer.fullName}</td>
-              <td className="whitespace-nowrap px-4 py-2.5 text-text-secondary">{o.commission?.creatorName ?? "Direct"}</td>
-              <td className="whitespace-nowrap px-4 py-2.5 text-right font-numeric tabular-nums text-text-primary">{formatMoneyMinor(o.totalMinor, o.currency)}</td>
-              <td className="whitespace-nowrap px-4 py-2.5 text-xs text-text-muted">{new Date(o.createdAt).toLocaleDateString("uz-UZ")}</td>
-              <td className="whitespace-nowrap px-4 py-2.5">
-                <StatusBadge tone={realOrderStatusMeta[o.status].tone} label={realOrderStatusMeta[o.status].label} />
-              </td>
-            </tr>
-          ))}
+          {(query.data?.items ?? []).map((o) => {
+            const nextStatuses = REAL_NEXT_STATUSES[o.status];
+            return (
+              <tr key={o.id} className="border-t border-border hover:bg-bg">
+                <td className="px-4 py-2.5">
+                  <Link href={`/admin/orders/${o.id}`} className="font-medium text-text-primary hover:text-accent">
+                    {o.offer.name}
+                  </Link>
+                </td>
+                <td className="whitespace-nowrap px-4 py-2.5 text-text-secondary">{o.customer.fullName}</td>
+                <td className="whitespace-nowrap px-4 py-2.5 text-text-secondary">{o.commission?.creatorName ?? "Direct"}</td>
+                <td className="whitespace-nowrap px-4 py-2.5 text-right font-numeric tabular-nums text-text-primary">{formatMoneyMinor(o.totalMinor, o.currency)}</td>
+                <td className="whitespace-nowrap px-4 py-2.5 text-xs text-text-muted">{new Date(o.createdAt).toLocaleDateString("uz-UZ")}</td>
+                <td className="whitespace-nowrap px-4 py-2.5">
+                  <StatusBadge tone={realOrderStatusMeta[o.status].tone} label={realOrderStatusMeta[o.status].label} />
+                </td>
+                <td className="whitespace-nowrap px-4 py-2.5">
+                  {nextStatuses.length > 0 ? (
+                    <select
+                      value={o.status}
+                      onChange={(e) => updateStatus.mutate({ id: o.id, status: e.target.value as RealOrderStatus })}
+                      disabled={updateStatus.isPending}
+                      className="h-8 rounded-input border border-border bg-bg px-2 text-xs font-body"
+                    >
+                      <option value={o.status}>{realOrderStatusMeta[o.status].label}</option>
+                      {nextStatuses.map((s) => (
+                        <option key={s} value={s}>
+                          → {realOrderStatusMeta[s].label}
+                        </option>
+                      ))}
+                    </select>
+                  ) : null}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </DataTableShell>
@@ -113,6 +163,7 @@ function MockAdminOrdersPage() {
   const query = useAdminOrders();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<OrderStatus | "ALL">("ALL");
+  const updateStatus = useUpdateOrderStatus();
 
   const filtered = useMemo(
     () =>
@@ -170,25 +221,46 @@ function MockAdminOrdersPage() {
             <th className="whitespace-nowrap px-4 py-2.5 text-right font-medium">Jami</th>
             <th className="whitespace-nowrap px-4 py-2.5 font-medium">Sana</th>
             <th className="whitespace-nowrap px-4 py-2.5 font-medium">Holat</th>
+            <th className="whitespace-nowrap px-4 py-2.5 font-medium">O'zgartirish</th>
           </tr>
         </thead>
         <tbody>
-          {filtered.map((o) => (
-            <tr key={o.id} className="border-t border-border hover:bg-bg">
-              <td className="px-4 py-2.5">
-                <Link href={`/admin/orders/${o.id}`} className="font-medium text-text-primary hover:text-accent">
-                  {o.offerName}
-                </Link>
-              </td>
-              <td className="whitespace-nowrap px-4 py-2.5 text-text-secondary">{o.customer.fullName}</td>
-              <td className="whitespace-nowrap px-4 py-2.5 text-text-secondary">{o.attributedCreatorName ?? "Direct"}</td>
-              <td className="whitespace-nowrap px-4 py-2.5 text-right font-numeric tabular-nums text-text-primary">{formatMoneyMinor(o.totalMinor, o.currency)}</td>
-              <td className="whitespace-nowrap px-4 py-2.5 text-xs text-text-muted">{new Date(o.createdAt).toLocaleDateString("uz-UZ")}</td>
-              <td className="whitespace-nowrap px-4 py-2.5">
-                <StatusBadge tone={orderStatusMeta[o.status].tone} label={orderStatusMeta[o.status].label} />
-              </td>
-            </tr>
-          ))}
+          {filtered.map((o) => {
+            const nextStatuses = NEXT_STATUSES[o.status];
+            return (
+              <tr key={o.id} className="border-t border-border hover:bg-bg">
+                <td className="px-4 py-2.5">
+                  <Link href={`/admin/orders/${o.id}`} className="font-medium text-text-primary hover:text-accent">
+                    {o.offerName}
+                  </Link>
+                </td>
+                <td className="whitespace-nowrap px-4 py-2.5 text-text-secondary">{o.customer.fullName}</td>
+                <td className="whitespace-nowrap px-4 py-2.5 text-text-secondary">{o.attributedCreatorName ?? "Direct"}</td>
+                <td className="whitespace-nowrap px-4 py-2.5 text-right font-numeric tabular-nums text-text-primary">{formatMoneyMinor(o.totalMinor, o.currency)}</td>
+                <td className="whitespace-nowrap px-4 py-2.5 text-xs text-text-muted">{new Date(o.createdAt).toLocaleDateString("uz-UZ")}</td>
+                <td className="whitespace-nowrap px-4 py-2.5">
+                  <StatusBadge tone={orderStatusMeta[o.status].tone} label={orderStatusMeta[o.status].label} />
+                </td>
+                <td className="whitespace-nowrap px-4 py-2.5">
+                  {nextStatuses.length > 0 ? (
+                    <select
+                      value={o.status}
+                      onChange={(e) => updateStatus.mutate({ id: o.id, status: e.target.value as OrderStatus })}
+                      disabled={updateStatus.isPending}
+                      className="h-8 rounded-input border border-border bg-bg px-2 text-xs font-body"
+                    >
+                      <option value={o.status}>{orderStatusMeta[o.status].label}</option>
+                      {nextStatuses.map((s) => (
+                        <option key={s} value={s}>
+                          → {orderStatusMeta[s].label}
+                        </option>
+                      ))}
+                    </select>
+                  ) : null}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </DataTableShell>
