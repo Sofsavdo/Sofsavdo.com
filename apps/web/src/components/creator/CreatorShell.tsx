@@ -61,7 +61,7 @@ export function CreatorShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-bg md:flex">
       {/* Desktop sidebar */}
-      <aside className="hidden w-64 shrink-0 border-r border-border bg-surface px-4 py-6 md:flex md:flex-col md:justify-between">
+      <aside className="hidden w-64 shrink-0 border-r border-border bg-surface px-4 py-6 md:flex md:flex-col md:justify-between md:sticky md:top-0 md:h-screen md:overflow-y-auto">
         <div>
           <Link href="/creator/dashboard" className="mb-8 block font-heading text-xl font-bold text-text-primary">
             {BRAND.name}
