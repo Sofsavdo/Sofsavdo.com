@@ -136,7 +136,7 @@ export default async function HomePage() {
             </div>
           </div>
           <div className="border-t border-gray-800 pt-6 text-center">
-            <p className="text-gray-400">© 2024 {BRAND.name}. Barcha huquqlar himoyalangan.</p>
+            <p className="text-gray-400">© {new Date().getFullYear()} {BRAND.name}. Barcha huquqlar himoyalangan.</p>
           </div>
         </div>
       </footer>

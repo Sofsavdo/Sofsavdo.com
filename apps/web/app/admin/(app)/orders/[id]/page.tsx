@@ -134,17 +134,9 @@ function RealOrderDetailPage({ id }: { id: string }) {
 
       <Card>
         <CardHeader>
-          <CardTitle>To&apos;lov</CardTitle>
+          <CardTitle>To&apos;lov va Yetkazib berish</CardTitle>
         </CardHeader>
         <dl className="grid grid-cols-2 gap-3 font-body text-sm sm:grid-cols-4">
-          <div>
-            <dt className="text-text-muted">Usul</dt>
-            <dd className="text-text-primary">{order.payment?.provider ?? "—"}</dd>
-          </div>
-          <div>
-            <dt className="text-text-muted">Holat</dt>
-            <dd className="text-text-primary">{order.payment?.status ?? "—"}</dd>
-          </div>
           <div>
             <dt className="text-text-muted">Mijoz</dt>
             <dd className="text-text-primary">{order.customer.fullName}</dd>
@@ -153,7 +145,27 @@ function RealOrderDetailPage({ id }: { id: string }) {
             <dt className="text-text-muted">Telefon</dt>
             <dd className="text-text-primary">{order.customer.phone}</dd>
           </div>
+          <div>
+            <dt className="text-text-muted">To&apos;lov usuli</dt>
+            <dd className="text-text-primary">{order.payment?.provider ?? "—"}</dd>
+          </div>
+          <div>
+            <dt className="text-text-muted">To&apos;lov holati</dt>
+            <dd className="text-text-primary">{order.payment?.status ?? "—"}</dd>
+          </div>
+          <div>
+            <dt className="text-text-muted">Jami summa</dt>
+            <dd className="font-numeric tabular-nums text-text-primary">{formatMoneyMinor(order.totalMinor, order.currency)}</dd>
+          </div>
         </dl>
+        <Button
+          size="sm"
+          variant="outline"
+          className="mt-4"
+          onClick={() => window.print()}
+        >
+          Chop etish
+        </Button>
       </Card>
 
       <Card>

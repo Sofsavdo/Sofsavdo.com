@@ -22,7 +22,7 @@ function RealAdminOrdersPage() {
     status: statusFilter === "ALL" ? undefined : statusFilter,
     search: search || undefined,
     page,
-    pageSize: 20,
+    pageSize: 50,
   });
 
   return (
