@@ -62,7 +62,14 @@ export default function CreatorProfilePage() {
 
       <Card>
         <CardHeader className="flex-row items-center justify-between">
-          <CardTitle>Shaxsiy ma'lumot</CardTitle>
+          <div className="flex items-center gap-3">
+            <CardTitle>Shaxsiy ma'lumot</CardTitle>
+            {data.socialAccounts && data.socialAccounts.length > 0 && (
+              <Badge tone="accent" className="flex items-center gap-1">
+                ✓ Tasdiqlangan Creator
+              </Badge>
+            )}
+          </div>
           {statusMeta ? <Badge tone={statusMeta.tone}>{statusMeta.label}</Badge> : null}
         </CardHeader>
         <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
