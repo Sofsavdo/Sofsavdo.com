@@ -42,8 +42,8 @@ export class NotificationEventsListener {
   @OnEvent(NOTIFICATION_EVENTS.CAMPAIGN_APPLICATION_APPROVED)
   async onCampaignApplicationApproved(event: CampaignApplicationApprovedEvent): Promise<void> {
     const vars = { creatorName: event.creatorName, campaignName: event.campaignName };
+    // Send only one notification to avoid duplicates
     await this.notifications.dispatchToCreator(event.creatorId, "campaign_application.approved", vars, `campaign_application.approved:${event.applicationId}`);
-    await this.notifications.dispatchToCreator(event.creatorId, "campaign.joined", vars, `campaign.joined:${event.applicationId}`);
   }
 
   @OnEvent(NOTIFICATION_EVENTS.CAMPAIGN_APPLICATION_REJECTED)
