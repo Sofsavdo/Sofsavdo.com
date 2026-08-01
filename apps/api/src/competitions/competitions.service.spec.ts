@@ -12,12 +12,15 @@ describe("CompetitionsService", () => {
   const base = {
     id: "comp1",
     name: "Yozgi musobaqa",
-    slug: "yozgi-musobaqa",
     description: null,
-    prizeDescription: null,
     startAt: new Date("2026-08-01T00:00:00Z"),
     endAt: new Date("2026-08-31T00:00:00Z"),
     status: "DRAFT" as const,
+    metric: "ORDER_COUNT" as const,
+    firstPrize: "iPhone 15 Pro",
+    secondPrize: "AirPods Pro",
+    thirdPrize: "500,000 so'm",
+    imageUrl: null,
     archivedAt: null,
     createdById: null,
     updatedById: null,
@@ -59,22 +62,29 @@ describe("CompetitionsService", () => {
 
   describe("create", () => {
     it("rejects startAt >= endAt", async () => {
-      await expect(service.create({ name: "x", slug: "x", startAt: "2026-08-31T00:00:00Z", endAt: "2026-08-01T00:00:00Z" }, null)).rejects.toThrow(
-        DomainException,
-      );
-    });
-
-    it("rejects a slug that's already taken", async () => {
-      prisma.competition.findUnique.mockResolvedValue(base);
-      await expect(service.create({ name: "x", slug: "yozgi-musobaqa", startAt: "2026-08-01T00:00:00Z", endAt: "2026-08-31T00:00:00Z" }, null)).rejects.toMatchObject(
-        { code: "SLUG_TAKEN" },
-      );
+      await expect(service.create({ 
+        name: "x", 
+        metric: "ORDER_COUNT",
+        firstPrize: "iPhone",
+        secondPrize: "AirPods",
+        thirdPrize: "100,000 so'm",
+        startAt: "2026-08-31T00:00:00Z", 
+        endAt: "2026-08-01T00:00:00Z" 
+      }, null)).rejects.toThrow(DomainException);
     });
 
     it("creates with DRAFT status by default (via the model default, not passed explicitly)", async () => {
       prisma.competition.findUnique.mockResolvedValue(null);
       prisma.competition.create.mockResolvedValue(base);
-      await service.create({ name: "Yozgi musobaqa", slug: "yozgi-musobaqa", startAt: "2026-08-01T00:00:00Z", endAt: "2026-08-31T00:00:00Z" }, "user1");
+      await service.create({ 
+        name: "Yozgi musobaqa", 
+        metric: "ORDER_COUNT",
+        firstPrize: "iPhone",
+        secondPrize: "AirPods",
+        thirdPrize: "100,000 so'm",
+        startAt: "2026-08-01T00:00:00Z", 
+        endAt: "2026-08-31T00:00:00Z" 
+      }, "user1");
       expect(prisma.competition.create).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.not.objectContaining({ status: expect.anything() }) }),
       );
