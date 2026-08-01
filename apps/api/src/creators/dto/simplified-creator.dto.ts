@@ -7,7 +7,7 @@
  */
 
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsOptional, IsNumber, Min, IsUrl } from 'class-validator';
+import { IsString, IsOptional, IsNumber, Min, Max, IsUrl } from 'class-validator';
 
 export class SimplifiedCreatorDto {
   @ApiProperty({
@@ -15,14 +15,14 @@ export class SimplifiedCreatorDto {
     example: 'clh123abc456def'
   })
   @IsString()
-  id: string;
+  id!: string;
 
   @ApiProperty({
     description: 'Creator display name',
     example: 'Malika'
   })
   @IsString()
-  displayName: string;
+  displayName!: string;
 
   @ApiProperty({
     description: 'Creator city',
@@ -48,7 +48,7 @@ export class SimplifiedCreatorDto {
   })
   @IsNumber()
   @Min(0)
-  availableEarningsMinor: number;
+  availableEarningsMinor!: number;
 
   @ApiProperty({
     description: 'Pending earnings in minor units',
@@ -56,7 +56,7 @@ export class SimplifiedCreatorDto {
   })
   @IsNumber()
   @Min(0)
-  pendingEarningsMinor: number;
+  pendingEarningsMinor!: number;
 
   @ApiProperty({
     description: 'Total orders',
@@ -64,7 +64,7 @@ export class SimplifiedCreatorDto {
   })
   @IsNumber()
   @Min(0)
-  totalOrders: number;
+  totalOrders!: number;
 
   @ApiProperty({
     description: 'Total views/clicks',
@@ -72,7 +72,7 @@ export class SimplifiedCreatorDto {
   })
   @IsNumber()
   @Min(0)
-  totalViews: number;
+  totalViews!: number;
 
   @ApiProperty({
     description: 'Creator status',
@@ -80,13 +80,13 @@ export class SimplifiedCreatorDto {
     enum: ['ACTIVE', 'BLOCKED', 'PENDING']
   })
   @IsString()
-  status: string;
+  status!: string;
 
   @ApiProperty({
     description: 'Creation date',
     example: '2026-08-01T10:00:00Z'
   })
-  createdAt: Date;
+  createdAt!: Date;
 }
 
 export class SimplifiedCreatorProfileDto {
@@ -95,14 +95,14 @@ export class SimplifiedCreatorProfileDto {
     example: 'clh123abc456def'
   })
   @IsString()
-  id: string;
+  id!: string;
 
   @ApiProperty({
     description: 'Creator display name',
     example: 'Malika'
   })
   @IsString()
-  displayName: string;
+  displayName!: string;
 
   @ApiProperty({
     description: 'Creator city',
@@ -147,7 +147,7 @@ export class SimplifiedCreatorProfileDto {
   })
   @IsNumber()
   @Min(0)
-  availableEarningsMinor: number;
+  availableEarningsMinor!: number;
 
   @ApiProperty({
     description: 'Pending earnings in minor units',
@@ -155,7 +155,7 @@ export class SimplifiedCreatorProfileDto {
   })
   @IsNumber()
   @Min(0)
-  pendingEarningsMinor: number;
+  pendingEarningsMinor!: number;
 }
 
 export class UpdateSimplifiedCreatorProfileDto {
@@ -212,21 +212,21 @@ export class SimplifiedCreatorProductDto {
     example: 'clh123abc456def'
   })
   @IsString()
-  productId: string;
+  productId!: string;
 
   @ApiProperty({
     description: 'Product title',
     example: 'Face Serum'
   })
   @IsString()
-  title: string;
+  title!: string;
 
   @ApiProperty({
     description: 'Product image',
     example: 'https://cdn.sofsavdo.com/products/serum-1.jpg'
   })
   @IsUrl()
-  image: string;
+  image!: string;
 
   @ApiProperty({
     description: 'Commission percentage',
@@ -235,7 +235,7 @@ export class SimplifiedCreatorProductDto {
   @IsNumber()
   @Min(0)
   @Max(100)
-  commissionPercent: number;
+  commissionPercent!: number;
 
   @ApiProperty({
     description: 'Views for this creator',
@@ -243,7 +243,7 @@ export class SimplifiedCreatorProductDto {
   })
   @IsNumber()
   @Min(0)
-  views: number;
+  views!: number;
 
   @ApiProperty({
     description: 'Orders for this creator',
@@ -251,7 +251,7 @@ export class SimplifiedCreatorProductDto {
   })
   @IsNumber()
   @Min(0)
-  orders: number;
+  orders!: number;
 
   @ApiProperty({
     description: 'Earnings for this creator in minor units',
@@ -259,12 +259,12 @@ export class SimplifiedCreatorProductDto {
   })
   @IsNumber()
   @Min(0)
-  earningsMinor: number;
+  earningsMinor!: number;
 
   @ApiProperty({
     description: 'Sharing link',
     example: 'https://sofsavdo.com/f/A82KD9'
   })
   @IsUrl()
-  sharingLink: string;
+  sharingLink!: string;
 }

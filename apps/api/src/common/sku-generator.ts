@@ -80,6 +80,9 @@ export class SKUGenerator {
     // Extract the numeric part and increment
     const parts = baseSKU.split('-');
     const numericPart = parts[parts.length - 1];
+    if (!numericPart) {
+      throw new Error('Unable to determine numeric part of SKU');
+    }
     const prefix = parts.slice(0, -1).join('-');
 
     let counter = parseInt(numericPart, 10) + 1;
