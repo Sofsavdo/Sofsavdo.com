@@ -318,7 +318,7 @@ export class CompetitionsService {
         const from = p.joinedAt > competitionStart ? p.joinedAt : competitionStart;
         const referralCount = await prisma.creatorReferral.count({
           where: {
-            referrerId: p.creatorId,
+            referrer: { id: p.creatorId },
             createdAt: { gte: from, lte: competitionEnd },
           },
         });

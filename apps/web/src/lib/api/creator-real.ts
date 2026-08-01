@@ -919,7 +919,6 @@ export async function getCompetitionLeaderboard(competitionId: string): Promise<
 }
 
 export async function joinCompetition(competitionId: string): Promise<{ joined: boolean }> {
-  if (!USE_REAL_API) throw new Error("Competition join is only available in real-API mode.");
   return apiRequest<{ joined: boolean }>(`/creator/competitions/${competitionId}/join`, { method: "POST" });
 }
 
