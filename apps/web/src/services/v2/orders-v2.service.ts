@@ -50,7 +50,7 @@ export interface CreateSimplifiedOrderDto {
 
 export const ordersV2Service = {
   /**
-   * List simplified orders.
+   * List simplified orders (public endpoint for testing).
    */
   async list(query: {
     skip?: number;
@@ -62,27 +62,27 @@ export const ordersV2Service = {
     if (query.take !== undefined) params.append('take', query.take.toString());
     if (query.status) params.append('status', query.status);
     
-    return await api.get(`/v2/orders?${params.toString()}`);
+    return await api.get(`/v2/orders?${params.toString()}`, false);
   },
 
   /**
-   * Get simplified order by ID.
+   * Get simplified order by ID (public endpoint for testing).
    */
   async findOne(id: string): Promise<SimplifiedOrderDto> {
-    return await api.get(`/v2/orders/${id}`);
+    return await api.get(`/v2/orders/${id}`, false);
   },
 
   /**
-   * Update order status.
+   * Update order status (requires auth).
    */
   async updateStatus(id: string, dto: UpdateOrderStatusDto): Promise<SimplifiedOrderDto> {
-    return await api.put(`/v2/orders/${id}/status`, dto);
+    return await api.put(`/v2/orders/${id}/status`, dto, true);
   },
 
   /**
-   * Create simplified order (for buyer checkout).
+   * Create simplified order (for buyer checkout - public endpoint).
    */
   async create(dto: CreateSimplifiedOrderDto): Promise<SimplifiedOrderDto> {
-    return await api.post('/v2/orders', dto);
+    return await api.post('/v2/orders', dto, false);
   },
 };

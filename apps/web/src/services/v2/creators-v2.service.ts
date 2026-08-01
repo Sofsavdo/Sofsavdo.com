@@ -67,58 +67,58 @@ export interface CreatorEarningsDto {
 
 export const creatorsV2Service = {
   /**
-   * Get my simplified profile.
+   * Get my simplified profile (requires auth).
    */
   async getMyProfile(): Promise<SimplifiedCreatorProfileDto> {
-    return await api.get('/v2/creators/me');
+    return await api.get('/v2/creators/me', true);
   },
 
   /**
-   * Update my simplified profile.
+   * Update my simplified profile (requires auth).
    */
   async updateMyProfile(dto: UpdateSimplifiedCreatorProfileDto): Promise<SimplifiedCreatorProfileDto> {
-    return await api.put('/v2/creators/me', dto);
+    return await api.put('/v2/creators/me', dto, true);
   },
 
   /**
-   * Get my simplified products.
+   * Get my simplified products (requires auth).
    */
   async getMyProducts(): Promise<SimplifiedCreatorProductDto[]> {
-    return await api.get('/v2/creators/me/products');
+    return await api.get('/v2/creators/me/products', true);
   },
 
   /**
-   * Get my active streams with stats.
+   * Get my active streams with stats (requires auth).
    */
   async getMyStreams(): Promise<CreatorStreamDto[]> {
-    return await api.get('/v2/creators/me/streams');
+    return await api.get('/v2/creators/me/streams', true);
   },
 
   /**
-   * Get stream detail with referral link.
+   * Get stream detail with referral link (requires auth).
    */
   async getStreamDetail(productId: string): Promise<CreatorStreamDto> {
-    return await api.get(`/v2/creators/me/streams/${productId}`);
+    return await api.get(`/v2/creators/me/streams/${productId}`, true);
   },
 
   /**
-   * Get my earnings data.
+   * Get my earnings data (requires auth).
    */
   async getMyEarnings(): Promise<CreatorEarningsDto> {
-    return await api.get('/v2/creators/me/earnings');
+    return await api.get('/v2/creators/me/earnings', true);
   },
 
   /**
-   * Request withdrawal.
+   * Request withdrawal (requires auth).
    */
   async requestWithdrawal(amountMinor: number): Promise<{ success: boolean }> {
-    return await api.post('/v2/creators/me/earnings/withdraw', { amountMinor });
+    return await api.post('/v2/creators/me/earnings/withdraw', { amountMinor }, true);
   },
 
   /**
-   * Generate instant sharing link for a product.
+   * Generate instant sharing link for a product (requires auth).
    */
   async generateSharingLink(productId: string): Promise<{ link: string }> {
-    return await api.post(`/v2/creators/me/products/${productId}/link`, {});
+    return await api.post(`/v2/creators/me/products/${productId}/link`, {}, true);
   },
 };

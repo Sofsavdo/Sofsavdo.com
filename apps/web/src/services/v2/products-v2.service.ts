@@ -50,7 +50,7 @@ export interface SimplifiedProductListDto {
 
 export const productsV2Service = {
   /**
-   * List simplified products.
+   * List simplified products (public endpoint).
    */
   async list(query: {
     skip?: number;
@@ -63,42 +63,42 @@ export const productsV2Service = {
     if (query.take) params.append('take', query.take.toString());
     if (query.status) params.append('status', query.status);
     if (query.search) params.append('search', query.search);
-    return await api.get(`/v2/products?${params.toString()}`);
+    return await api.get(`/v2/products?${params.toString()}`, false);
   },
 
   /**
-   * Get simplified product by ID.
+   * Get simplified product by ID (public endpoint).
    */
   async findOne(id: string): Promise<SimplifiedProductDto> {
-    return await api.get(`/v2/products/${id}`);
+    return await api.get(`/v2/products/${id}`, false);
   },
 
   /**
    * Find product by short code (for clean URLs like /f/ABCD123).
-   * Attribution happens silently in the background.
+   * Attribution happens silently in the background (public endpoint).
    */
   async findByCode(code: string): Promise<SimplifiedProductDto> {
-    return await api.get(`/v2/products/by-code/${code}`);
+    return await api.get(`/v2/products/by-code/${code}`, false);
   },
 
   /**
-   * Create simplified product (auto-generates slug and SKU).
+   * Create simplified product (auto-generates slug and SKU) - requires auth.
    */
   async create(dto: CreateSimplifiedProductDto): Promise<SimplifiedProductDto> {
-    return await api.post('/v2/products', dto);
+    return await api.post('/v2/products', dto, true);
   },
 
   /**
-   * Update simplified product.
+   * Update simplified product - requires auth.
    */
   async update(id: string, dto: UpdateSimplifiedProductDto): Promise<SimplifiedProductDto> {
-    return await api.put(`/v2/products/${id}`, dto);
+    return await api.put(`/v2/products/${id}`, dto, true);
   },
 
   /**
-   * Delete product (soft delete by archiving).
+   * Delete product (soft delete by archiving) - requires auth.
    */
   async remove(id: string): Promise<void> {
-    await api.delete(`/v2/products/${id}`);
+    await api.delete(`/v2/products/${id}`, true);
   },
 };
