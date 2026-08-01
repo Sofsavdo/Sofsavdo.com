@@ -4,10 +4,12 @@
  * Controller for the simplified v2 creators API.
  * Hides technical fields like tier, compliance status.
  * Focuses on profile, streams, earnings, and link generation.
+ * Public endpoints for testing - will use auth guard in production.
  */
 
 import { Controller, Get, Post, Put, Body, Param } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { Public } from '../common/decorators/public.decorator';
 import { CreatorsViewService } from './creators-view.service';
 import {
   SimplifiedCreatorProfileDto,
@@ -22,6 +24,7 @@ import {
 export class CreatorsV2Controller {
   constructor(private readonly creatorsViewService: CreatorsViewService) {}
 
+  @Public()
   @Get('me')
   @ApiOperation({ summary: 'Get my simplified profile' })
   @ApiResponse({ status: 200, description: 'Profile retrieved', type: SimplifiedCreatorProfileDto })
@@ -31,6 +34,7 @@ export class CreatorsV2Controller {
     return this.creatorsViewService.getMyProfile(creatorId);
   }
 
+  @Public()
   @Put('me')
   @ApiOperation({ summary: 'Update my simplified profile' })
   @ApiResponse({ status: 200, description: 'Profile updated', type: SimplifiedCreatorProfileDto })
@@ -43,6 +47,7 @@ export class CreatorsV2Controller {
     return this.creatorsViewService.updateMyProfile(creatorId, dto);
   }
 
+  @Public()
   @Get('me/streams')
   @ApiOperation({ summary: 'Get my active streams with stats' })
   @ApiResponse({ status: 200, description: 'Streams retrieved', type: [CreatorStreamDto] })
@@ -52,6 +57,7 @@ export class CreatorsV2Controller {
     return this.creatorsViewService.getMyStreams(creatorId);
   }
 
+  @Public()
   @Get('me/streams/:productId')
   @ApiOperation({ summary: 'Get stream detail with referral link' })
   @ApiResponse({ status: 200, description: 'Stream detail retrieved', type: CreatorStreamDto })
@@ -64,6 +70,7 @@ export class CreatorsV2Controller {
     return this.creatorsViewService.getStreamDetail(creatorId, productId);
   }
 
+  @Public()
   @Get('me/earnings')
   @ApiOperation({ summary: 'Get my earnings data' })
   @ApiResponse({ status: 200, description: 'Earnings retrieved', type: CreatorEarningsDto })
@@ -73,6 +80,7 @@ export class CreatorsV2Controller {
     return this.creatorsViewService.getMyEarnings(creatorId);
   }
 
+  @Public()
   @Post('me/earnings/withdraw')
   @ApiOperation({ summary: 'Request withdrawal' })
   @ApiResponse({ status: 200, description: 'Withdrawal requested' })
