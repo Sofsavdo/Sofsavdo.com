@@ -59,22 +59,21 @@ describe("CompetitionsService", () => {
 
   describe("create", () => {
     it("rejects startAt >= endAt", async () => {
-      await expect(service.create({ name: "x", slug: "x", startAt: "2026-08-31T00:00:00Z", endAt: "2026-08-01T00:00:00Z" }, null)).rejects.toThrow(
-        DomainException,
-      );
-    });
-
-    it("rejects a slug that's already taken", async () => {
-      prisma.competition.findUnique.mockResolvedValue(base);
-      await expect(service.create({ name: "x", slug: "yozgi-musobaqa", startAt: "2026-08-01T00:00:00Z", endAt: "2026-08-31T00:00:00Z" }, null)).rejects.toMatchObject(
-        { code: "SLUG_TAKEN" },
-      );
+      await expect(
+        service.create(
+          { name: "x", startAt: "2026-08-31T00:00:00Z", endAt: "2026-08-01T00:00:00Z", metric: "ORDER_COUNT", firstPrize: "1", secondPrize: "2", thirdPrize: "3" },
+          null,
+        ),
+      ).rejects.toThrow(DomainException);
     });
 
     it("creates with DRAFT status by default (via the model default, not passed explicitly)", async () => {
       prisma.competition.findUnique.mockResolvedValue(null);
       prisma.competition.create.mockResolvedValue(base);
-      await service.create({ name: "Yozgi musobaqa", slug: "yozgi-musobaqa", startAt: "2026-08-01T00:00:00Z", endAt: "2026-08-31T00:00:00Z" }, "user1");
+      await service.create(
+        { name: "Yozgi musobaqa", startAt: "2026-08-01T00:00:00Z", endAt: "2026-08-31T00:00:00Z", metric: "ORDER_COUNT", firstPrize: "1", secondPrize: "2", thirdPrize: "3" },
+        "user1",
+      );
       expect(prisma.competition.create).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.not.objectContaining({ status: expect.anything() }) }),
       );
