@@ -484,13 +484,16 @@ export type CompetitionAvailability = "SCHEDULED" | "LIVE" | "EXPIRED" | "INACTI
 export interface CompetitionAdmin {
   id: string;
   name: string;
-  slug: string;
   description: string | null;
-  prizeDescription: string | null;
   startAt: string;
   endAt: string;
   status: CompetitionStatus;
   availability: CompetitionAvailability;
+  metric: "ORDER_COUNT" | "REFERRAL_COUNT";
+  firstPrize: string;
+  secondPrize: string;
+  thirdPrize: string;
+  imageUrl: string | null;
   archivedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -498,11 +501,14 @@ export interface CompetitionAdmin {
 
 export interface CreateCompetitionInput {
   name: string;
-  slug: string;
   description?: string;
-  prizeDescription?: string;
   startAt: string;
   endAt: string;
+  metric: "ORDER_COUNT" | "REFERRAL_COUNT";
+  firstPrize: string;
+  secondPrize: string;
+  thirdPrize: string;
+  imageUrl?: string;
 }
 
 export async function getCompetitions(): Promise<{ items: CompetitionAdmin[] }> {

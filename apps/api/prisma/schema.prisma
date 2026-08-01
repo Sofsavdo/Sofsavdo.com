@@ -792,16 +792,18 @@ enum CompetitionStatus {
 model Competition {
   id               String            @id @default(cuid())
   name             String
-  slug             String            @unique
   description      String?
-  // Free text, not a structured payout model — a Competition's prize is announced/fulfilled
-  // manually by an admin (same "human confirms it" pattern already used for MANUAL/COD payments),
-  // not paid out through the Commission/Payout financial-integrity machinery. See DECISIONS.md
-  // ADR-030 for why this stays out of scope rather than being half-built.
-  prizeDescription String?
   startAt          DateTime
   endAt            DateTime
   status           CompetitionStatus @default(DRAFT)
+  // Metrika turi: buyurtma soni yoki taklif qilingan do'stlar soni
+  metric           String            @default("ORDER_COUNT")
+  // 3 ta o'rin sovrinlari
+  firstPrize       String
+  secondPrize      String
+  thirdPrize       String
+  // Reklama rasm URL
+  imageUrl         String?
   // Set only by the archive transition, cleared never — same convention as Offer.archivedAt.
   archivedAt       DateTime?
   createdById      String?

@@ -1,0 +1,8 @@
+-- AlterTable
+ALTER TABLE "Competition" DROP COLUMN "slug",
+DROP COLUMN "prizeDescription",
+ADD COLUMN "metric" TEXT NOT NULL DEFAULT 'ORDER_COUNT',
+ADD COLUMN "firstPrize" TEXT NOT NULL,
+ADD COLUMN "secondPrize" TEXT NOT NULL,
+ADD COLUMN "thirdPrize" TEXT NOT NULL,
+ADD COLUMN "imageUrl" TEXT;

@@ -50,11 +50,14 @@ export type CampaignInput = z.infer<typeof campaignSchema>;
 
 export const competitionSchema = z.object({
   name: z.string().min(3, "Nomini kiriting"),
-  slug: z.string().min(3, "Slug kiriting").regex(/^[a-z0-9-]+$/, "Faqat kichik harf, raqam va tire"),
   description: z.string().optional(),
-  prizeDescription: z.string().optional(),
   startAt: z.string().min(1, "Boshlanish sanasini tanlang"),
   endAt: z.string().min(1, "Tugash sanasini tanlang"),
+  metric: z.enum(["ORDER_COUNT", "REFERRAL_COUNT"], "Metrikani tanlang"),
+  firstPrize: z.string().min(1, "1-o'rin sovrinini kiriting"),
+  secondPrize: z.string().min(1, "2-o'rin sovrinini kiriting"),
+  thirdPrize: z.string().min(1, "3-o'rin sovrinini kiriting"),
+  imageUrl: z.string().optional(),
 });
 export type CompetitionInput = z.infer<typeof competitionSchema>;
 

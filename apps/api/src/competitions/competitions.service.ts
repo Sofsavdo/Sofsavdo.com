@@ -20,13 +20,16 @@ const ALLOWED_TRANSITIONS: Record<CompetitionStatus, CompetitionStatus[]> = {
 export interface CompetitionResponse {
   id: string;
   name: string;
-  slug: string;
   description: string | null;
-  prizeDescription: string | null;
   startAt: Date;
   endAt: Date;
   status: CompetitionStatus;
   availability: CompetitionAvailability;
+  metric: string;
+  firstPrize: string;
+  secondPrize: string;
+  thirdPrize: string;
+  imageUrl: string | null;
   archivedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -70,13 +73,16 @@ export class CompetitionsService {
     return {
       id: competition.id,
       name: competition.name,
-      slug: competition.slug,
       description: competition.description,
-      prizeDescription: competition.prizeDescription,
       startAt: competition.startAt,
       endAt: competition.endAt,
       status: competition.status,
       availability: this.computeAvailability(competition),
+      metric: competition.metric,
+      firstPrize: competition.firstPrize,
+      secondPrize: competition.secondPrize,
+      thirdPrize: competition.thirdPrize,
+      imageUrl: competition.imageUrl,
       archivedAt: competition.archivedAt,
       createdAt: competition.createdAt,
       updatedAt: competition.updatedAt,
@@ -95,17 +101,18 @@ export class CompetitionsService {
     const startAt = new Date(dto.startAt);
     const endAt = new Date(dto.endAt);
     this.assertDatesConsistent(startAt, endAt);
-    const existing = await this.prisma.competition.findUnique({ where: { slug: dto.slug } });
-    if (existing) throw new DomainException("SLUG_TAKEN", "Bu slug allaqachon band.", { field: "slug" });
 
     const competition = await this.prisma.competition.create({
       data: {
         name: dto.name,
-        slug: dto.slug,
         description: dto.description,
-        prizeDescription: dto.prizeDescription,
         startAt,
         endAt,
+        metric: dto.metric,
+        firstPrize: dto.firstPrize,
+        secondPrize: dto.secondPrize,
+        thirdPrize: dto.thirdPrize,
+        imageUrl: dto.imageUrl,
         createdById: actorUserId,
         updatedById: actorUserId,
       },
@@ -137,20 +144,19 @@ export class CompetitionsService {
     const startAt = dto.startAt ? new Date(dto.startAt) : existing.startAt;
     const endAt = dto.endAt ? new Date(dto.endAt) : existing.endAt;
     this.assertDatesConsistent(startAt, endAt);
-    if (dto.slug && dto.slug !== existing.slug) {
-      const clash = await this.prisma.competition.findUnique({ where: { slug: dto.slug } });
-      if (clash) throw new DomainException("SLUG_TAKEN", "Bu slug allaqachon band.", { field: "slug" });
-    }
 
     const competition = await this.prisma.competition.update({
       where: { id },
       data: {
         name: dto.name,
-        slug: dto.slug,
         description: dto.description,
-        prizeDescription: dto.prizeDescription,
         startAt,
         endAt,
+        metric: dto.metric,
+        firstPrize: dto.firstPrize,
+        secondPrize: dto.secondPrize,
+        thirdPrize: dto.thirdPrize,
+        imageUrl: dto.imageUrl,
         updatedById: actorUserId,
       },
     });

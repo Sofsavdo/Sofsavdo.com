@@ -41,6 +41,7 @@ export default function AdminCompetitionsPage() {
           title={c.name}
           meta={<StatusBadge tone={competitionStatusMeta[c.status].tone} label={competitionStatusMeta[c.status].label} />}
           fields={[
+            { label: "Metrika", value: c.metric === "ORDER_COUNT" ? "Buyurtma soni" : "Do'stlar soni" },
             { label: "Boshlanish", value: new Date(c.startAt).toLocaleDateString("uz-UZ") },
             { label: "Tugash", value: new Date(c.endAt).toLocaleDateString("uz-UZ") },
           ]}
@@ -51,6 +52,7 @@ export default function AdminCompetitionsPage() {
         <thead className="bg-bg text-text-secondary">
           <tr>
             <th className="whitespace-nowrap px-4 py-2.5 font-medium">Musobaqa</th>
+            <th className="whitespace-nowrap px-4 py-2.5 font-medium">Metrika</th>
             <th className="whitespace-nowrap px-4 py-2.5 font-medium">Boshlanish</th>
             <th className="whitespace-nowrap px-4 py-2.5 font-medium">Tugash</th>
             <th className="whitespace-nowrap px-4 py-2.5 font-medium">Holat</th>
@@ -64,6 +66,7 @@ export default function AdminCompetitionsPage() {
                   {c.name}
                 </Link>
               </td>
+              <td className="whitespace-nowrap px-4 py-2.5 text-text-secondary">{c.metric === "ORDER_COUNT" ? "Buyurtma soni" : "Do'stlar soni"}</td>
               <td className="whitespace-nowrap px-4 py-2.5 text-text-secondary">{new Date(c.startAt).toLocaleDateString("uz-UZ")}</td>
               <td className="whitespace-nowrap px-4 py-2.5 text-text-secondary">{new Date(c.endAt).toLocaleDateString("uz-UZ")}</td>
               <td className="whitespace-nowrap px-4 py-2.5">

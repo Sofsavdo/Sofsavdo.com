@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { IsDateString, IsOptional, IsString, Matches, MaxLength } from "class-validator";
+import { IsDateString, IsEnum, IsOptional, IsString, MaxLength } from "class-validator";
 
 export class CreateCompetitionDto {
   @ApiProperty()
@@ -7,23 +7,11 @@ export class CreateCompetitionDto {
   @MaxLength(200)
   name!: string;
 
-  @ApiProperty()
-  @IsString()
-  @Matches(/^[a-z0-9]+(-[a-z0-9]+)*$/, { message: "Slug faqat kichik lotin harflari, raqamlar va tire (-) dan iborat bo'lishi kerak." })
-  @MaxLength(200)
-  slug!: string;
-
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   @MaxLength(2000)
   description?: string;
-
-  @ApiPropertyOptional({ description: "Free text — the prize is announced/fulfilled manually by an admin, not paid out through Commission/Payout." })
-  @IsOptional()
-  @IsString()
-  @MaxLength(2000)
-  prizeDescription?: string;
 
   @ApiProperty()
   @IsDateString()
@@ -32,4 +20,29 @@ export class CreateCompetitionDto {
   @ApiProperty()
   @IsDateString()
   endAt!: string;
+
+  @ApiProperty({ enum: ["ORDER_COUNT", "REFERRAL_COUNT"], description: "Metrika turi: buyurtma soni yoki taklif qilingan do'stlar soni" })
+  @IsEnum(["ORDER_COUNT", "REFERRAL_COUNT"])
+  metric!: "ORDER_COUNT" | "REFERRAL_COUNT";
+
+  @ApiProperty({ description: "1-o'rin sovrini" })
+  @IsString()
+  @MaxLength(500)
+  firstPrize!: string;
+
+  @ApiProperty({ description: "2-o'rin sovrini" })
+  @IsString()
+  @MaxLength(500)
+  secondPrize!: string;
+
+  @ApiProperty({ description: "3-o'rin sovrini" })
+  @IsString()
+  @MaxLength(500)
+  thirdPrize!: string;
+
+  @ApiPropertyOptional({ description: "Reklama rasm URL" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  imageUrl?: string;
 }

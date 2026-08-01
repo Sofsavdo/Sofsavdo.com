@@ -27,13 +27,18 @@ export function CompetitionForm({ existing }: { existing?: CompetitionAdmin }) {
     defaultValues: existing
       ? {
           name: existing.name,
-          slug: existing.slug,
           description: existing.description ?? "",
-          prizeDescription: existing.prizeDescription ?? "",
           startAt: toDatetimeLocal(existing.startAt),
           endAt: toDatetimeLocal(existing.endAt),
+          metric: (existing.metric as any) || "ORDER_COUNT",
+          firstPrize: existing.firstPrize ?? "",
+          secondPrize: existing.secondPrize ?? "",
+          thirdPrize: existing.thirdPrize ?? "",
+          imageUrl: existing.imageUrl ?? "",
         }
-      : {},
+      : {
+          metric: "ORDER_COUNT",
+        },
   });
 
   const mutation = existing ? updateCompetition : createCompetition;
@@ -42,11 +47,14 @@ export function CompetitionForm({ existing }: { existing?: CompetitionAdmin }) {
   async function onSubmit(values: CompetitionInput) {
     const payload = {
       name: values.name,
-      slug: values.slug,
       description: values.description || undefined,
-      prizeDescription: values.prizeDescription || undefined,
       startAt: new Date(values.startAt).toISOString(),
       endAt: new Date(values.endAt).toISOString(),
+      metric: values.metric,
+      firstPrize: values.firstPrize,
+      secondPrize: values.secondPrize,
+      thirdPrize: values.thirdPrize,
+      imageUrl: values.imageUrl || undefined,
     };
     if (existing) {
       await updateCompetition.mutateAsync(payload);
@@ -62,18 +70,34 @@ export function CompetitionForm({ existing }: { existing?: CompetitionAdmin }) {
       <CardHeader className="flex-col items-start gap-1">
         <CardTitle>{existing ? "Musobaqani tahrirlash" : "Yangi musobaqa"}</CardTitle>
         <p className="font-body text-sm text-text-secondary">
-          Creatorlar shu davr ichida ishlab topgan komissiya bo&apos;yicha reytingda ko&apos;rinadi.
+          Creatorlar shu davr ichida buyurtma soni yoki taklif qilingan do'stlar soni bo'yicha reytingda ko'rinadi.
         </p>
       </CardHeader>
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
         <TextField label="Nomi" error={errors.name?.message} disabled={isArchived} {...register("name")} />
-        <TextField label="Slug" error={errors.slug?.message} disabled={isArchived} {...register("slug")} />
         <TextAreaField label="Tavsif (ixtiyoriy)" disabled={isArchived} {...register("description")} />
-        <TextAreaField label="Sovg'a tavsifi (ixtiyoriy)" disabled={isArchived} {...register("prizeDescription")} />
+        
+        <TextField
+          label="Metrika"
+          type="select"
+          error={errors.metric?.message}
+          disabled={isArchived}
+          {...register("metric")}
+        >
+          <option value="ORDER_COUNT">Buyurtma soni</option>
+          <option value="REFERRAL_COUNT">Taklif qilingan do'stlar soni</option>
+        </TextField>
+
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <TextField label="Boshlanish" type="datetime-local" error={errors.startAt?.message} disabled={isArchived} {...register("startAt")} />
           <TextField label="Tugash" type="datetime-local" error={errors.endAt?.message} disabled={isArchived} {...register("endAt")} />
         </div>
+
+        <TextField label="1-o'rin sovrini" error={errors.firstPrize?.message} disabled={isArchived} {...register("firstPrize")} placeholder="Masalan: iPhone 15 Pro" />
+        <TextField label="2-o'rin sovrini" error={errors.secondPrize?.message} disabled={isArchived} {...register("secondPrize")} placeholder="Masalan: AirPods Pro" />
+        <TextField label="3-o'rin sovrini" error={errors.thirdPrize?.message} disabled={isArchived} {...register("thirdPrize")} placeholder="Masalan: 500,000 so'm" />
+        
+        <TextField label="Reklama rasm URL (ixtiyoriy)" error={errors.imageUrl?.message} disabled={isArchived} {...register("imageUrl")} placeholder="https://example.com/image.jpg" />
 
         {mutation.isError ? <Alert tone="error">{(mutation.error as ApiError).message}</Alert> : null}
 
