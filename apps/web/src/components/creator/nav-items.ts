@@ -30,6 +30,7 @@ export const CREATOR_NAV_ITEMS: CreatorNavItem[] = [
   { href: "/creator/streams", label: "Oqimlar", icon: Layers, bottomNav: true, approvedOnly: true },
   { href: "/creator/my-streams", label: "Mening oqimlarim", icon: TrendingUp, approvedOnly: true },
   { href: "/creator/earnings", label: "Daromad", icon: Wallet, bottomNav: true, approvedOnly: true },
+  { href: "/creator/competitions", label: "Musobaqalar", icon: Trophy, approvedOnly: true },
   { href: "/creator/leaderboard", label: "Reyting", icon: Trophy, approvedOnly: true },
   { href: "/creator/fund", label: "Jamg'arma", icon: HeartHandshake, approvedOnly: true },
   { href: "/creator/referrals", label: "Do'stlarni taklif qilish", icon: Gift, approvedOnly: true },
