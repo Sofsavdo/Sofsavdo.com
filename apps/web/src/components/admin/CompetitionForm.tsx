@@ -3,7 +3,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import { Alert, Button, Card, CardHeader, CardTitle, TextAreaField, TextField } from "@sofsavdo/ui";
+import { Alert, Button, Card, CardHeader, CardTitle, SelectField, TextAreaField, TextField } from "@sofsavdo/ui";
 import { competitionSchema, type CompetitionInput } from "@/lib/schemas-admin";
 import { useCreateCompetition, useUpdateCompetition } from "@/services/admin/competitions";
 import { ApiError, type CompetitionAdmin } from "@/lib/api/admin-real";
@@ -45,23 +45,28 @@ export function CompetitionForm({ existing }: { existing?: CompetitionAdmin }) {
   const isArchived = existing?.status === "ARCHIVED";
 
   async function onSubmit(values: CompetitionInput) {
-    const payload = {
-      name: values.name,
-      description: values.description || undefined,
-      startAt: new Date(values.startAt).toISOString(),
-      endAt: new Date(values.endAt).toISOString(),
-      metric: values.metric,
-      firstPrize: values.firstPrize,
-      secondPrize: values.secondPrize,
-      thirdPrize: values.thirdPrize,
-      imageUrl: values.imageUrl || undefined,
-    };
-    if (existing) {
-      await updateCompetition.mutateAsync(payload);
-      router.push(`/admin/competitions/${existing.id}`);
-    } else {
-      const created = await createCompetition.mutateAsync(payload);
-      router.push(`/admin/competitions/${created.id}`);
+    try {
+      const payload = {
+        name: values.name,
+        description: values.description || undefined,
+        startAt: new Date(values.startAt).toISOString(),
+        endAt: new Date(values.endAt).toISOString(),
+        metric: values.metric,
+        firstPrize: values.firstPrize,
+        secondPrize: values.secondPrize,
+        thirdPrize: values.thirdPrize,
+        imageUrl: values.imageUrl || undefined,
+      };
+      if (existing) {
+        await updateCompetition.mutateAsync(payload);
+        router.push(`/admin/competitions/${existing.id}`);
+      } else {
+        const created = await createCompetition.mutateAsync(payload);
+        router.push(`/admin/competitions/${created.id}`);
+      }
+    } catch (error) {
+      console.error('Competition submission error:', error);
+      throw error;
     }
   }
 
@@ -77,16 +82,15 @@ export function CompetitionForm({ existing }: { existing?: CompetitionAdmin }) {
         <TextField label="Nomi" error={errors.name?.message} disabled={isArchived} {...register("name")} />
         <TextAreaField label="Tavsif (ixtiyoriy)" disabled={isArchived} {...register("description")} />
         
-        <TextField
+        <SelectField
           label="Metrika"
-          type="select"
           error={errors.metric?.message}
           disabled={isArchived}
           {...register("metric")}
         >
           <option value="ORDER_COUNT">Buyurtma soni</option>
           <option value="REFERRAL_COUNT">Taklif qilingan do'stlar soni</option>
-        </TextField>
+        </SelectField>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <TextField label="Boshlanish" type="datetime-local" error={errors.startAt?.message} disabled={isArchived} {...register("startAt")} />
