@@ -2,31 +2,14 @@ import type { LucideIcon } from "lucide-react";
 import {
   LayoutDashboard,
   Package,
-  Tag,
-  LayoutTemplate,
-  Megaphone,
-  Users,
-  ClipboardList,
-  FileVideo,
-  Link2,
-  Ticket,
-  Eye,
   ShoppingBag,
-  CreditCard,
-  RotateCcw,
-  Percent,
-  Banknote,
-  BarChart3,
-  UserCog,
-  ShieldCheck,
+  Users,
+  Wallet,
   Settings,
-  History,
-  Gift,
-  SlidersHorizontal,
   Bell,
-  Home,
-  Trophy,
+  BarChart3,
 } from "lucide-react";
+
 export interface AdminNavItem {
   href: string;
   label: string;
@@ -43,72 +26,26 @@ export interface AdminNavGroup {
   items: AdminNavItem[];
 }
 
+// Simplified Admin Navigation - 6 main sections only
 export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
   { label: "", items: [{ href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard }] },
   {
-    label: "Katalog",
+    label: "Asosiy",
     items: [
-      { href: "/admin/products", label: "Products", icon: Package },
-      { href: "/admin/offers", label: "Offers", icon: Tag },
-      { href: "/admin/landings", label: "Landing sahifalar", icon: LayoutTemplate },
-      { href: "/admin/homepage", label: "Homepage CMS", icon: Home },
-    ],
-  },
-  {
-    label: "Kampaniyalar",
-    items: [
-      { href: "/admin/campaigns", label: "Campaigns", icon: Megaphone },
-      { href: "/admin/campaign-applications", label: "Kampaniya arizalari", icon: ClipboardList },
-      { href: "/admin/competitions", label: "Musobaqalar", icon: Trophy },
-    ],
-  },
-  {
-    label: "Creatorlar",
-    items: [
-      { href: "/admin/creators", label: "Creatorlar", icon: Users },
-      { href: "/admin/creator-applications", label: "Arizalar", icon: ClipboardList },
-      { href: "/admin/content", label: "Kontent moderatsiya", icon: FileVideo },
-    ],
-  },
-  {
-    label: "Marketing",
-    items: [
-      { href: "/admin/referral-links", label: "Referral havolalar", icon: Link2 },
-      { href: "/admin/promo-codes", label: "Promo kodlar", icon: Ticket },
-      { href: "/admin/visitors", label: "Visitors", icon: Eye },
-      { href: "/admin/creator-referrals", label: "Creator referrallari", icon: Gift },
-      { href: "/admin/referral-rules", label: "Referral qoidalari", icon: SlidersHorizontal },
-    ],
-  },
-  {
-    label: "Savdo",
-    items: [
+      { href: "/admin/products", label: "Mahsulotlar", icon: Package },
       { href: "/admin/orders", label: "Buyurtmalar", icon: ShoppingBag },
-      { href: "/admin/payments", label: "To'lovlar", icon: CreditCard },
-      { href: "/admin/refunds", label: "Refundlar", icon: RotateCcw },
+      { href: "/admin/creators", label: "Creatorlar", icon: Users },
+      { href: "/admin/earnings", label: "Daromad", icon: Wallet },
+      { href: "/admin/settings", label: "Sozlamalar", icon: Settings, requiredPermission: "settings.read" },
     ],
-  },
-  {
-    label: "Moliya",
-    items: [
-      { href: "/admin/commissions", label: "Komissiyalar", icon: Percent },
-      { href: "/admin/payouts", label: "Payoutlar", icon: Banknote },
-    ],
-  },
-  {
-    label: "Analitika",
-    items: [{ href: "/admin/analytics", label: "Analytics", icon: BarChart3 }],
   },
   {
     label: "Tizim",
     items: [
       { href: "/admin/notifications", label: "Bildirishnomalar", icon: Bell },
-      { href: "/admin/users", label: "Foydalanuvchilar", icon: UserCog, requiredPermission: "user.read" },
-      { href: "/admin/roles", label: "Rollar", icon: ShieldCheck, requiredPermission: "role.read" },
-      { href: "/admin/settings", label: "Sozlamalar", icon: Settings, requiredPermission: "settings.read" },
-      { href: "/admin/audit-log", label: "Audit log", icon: History },
+      { href: "/admin/analytics", label: "Analitika", icon: BarChart3 },
     ],
   },
 ];
 
-export const ADMIN_MOBILE_PRIMARY_HREFS = ["/admin/dashboard", "/admin/orders", "/admin/campaigns", "/admin/payouts"];
+export const ADMIN_MOBILE_PRIMARY_HREFS = ["/admin/dashboard", "/admin/orders", "/admin/creators", "/admin/earnings"];
