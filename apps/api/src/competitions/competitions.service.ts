@@ -4,7 +4,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { AnalyticsCacheService } from "../analytics/lib/analytics-cache.service";
 import { DomainException } from "../common/errors/domain-error";
 import { PaginationQueryDto, paginate, type PaginatedResult } from "../common/pagination/pagination.dto";
-import { rankCreatorsByCommission, type RankedCreator } from "../creator-leaderboard/rank-creators-by-commission.util";
+import { rankCreatorsByCommission, rankCreatorsByOrderCount, rankCreatorsByReferralCount, type RankedCreator } from "../creator-leaderboard/rank-creators-by-commission.util";
 import type { CreateCompetitionDto } from "./dto/create-competition.dto";
 import type { UpdateCompetitionDto } from "./dto/update-competition.dto";
 
@@ -209,7 +209,15 @@ export class CompetitionsService {
     const cacheKey = this.cache.buildKey("competition-leaderboard", { competitionId });
     let ranked = await this.cache.get<RankedCreator[]>(cacheKey);
     if (!ranked) {
-      ranked = await rankCreatorsByCommission(this.prisma, { from: competition.startAt, to: competition.endAt });
+      // Use the appropriate ranking function based on the competition's metric
+      if (competition.metric === "ORDER_COUNT") {
+        ranked = await rankCreatorsByOrderCount(this.prisma, { from: competition.startAt, to: competition.endAt });
+      } else if (competition.metric === "REFERRAL_COUNT") {
+        ranked = await rankCreatorsByReferralCount(this.prisma, { from: competition.startAt, to: competition.endAt });
+      } else {
+        // Default to commission ranking for backward compatibility
+        ranked = await rankCreatorsByCommission(this.prisma, { from: competition.startAt, to: competition.endAt });
+      }
       await this.cache.set(cacheKey, ranked, LEADERBOARD_CACHE_TTL_SECONDS);
     }
 
