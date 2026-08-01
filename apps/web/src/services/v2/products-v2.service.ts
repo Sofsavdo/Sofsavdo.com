@@ -74,6 +74,14 @@ export const productsV2Service = {
   },
 
   /**
+   * Find product by short code (for clean URLs like /f/ABCD123).
+   * Attribution happens silently in the background.
+   */
+  async findByCode(code: string): Promise<SimplifiedProductDto> {
+    return await api.get(`/v2/products/by-code/${code}`);
+  },
+
+  /**
    * Create simplified product (auto-generates slug and SKU).
    */
   async create(dto: CreateSimplifiedProductDto): Promise<SimplifiedProductDto> {
