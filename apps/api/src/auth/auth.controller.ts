@@ -51,7 +51,7 @@ export class AuthController {
   async register(@Body() dto: RegisterDto, @Res({ passthrough: true }) res: Response) {
     const result = await this.auth.register(dto);
     this.setRefreshCookie(res, result.refreshToken);
-    return { accessToken: result.accessToken, user: result.user };
+    return { accessToken: result.accessToken, refreshToken: result.refreshToken, user: result.user };
   }
 
   // Deliberately a separate route from /auth/register, not a `role` field on one endpoint — see
@@ -63,7 +63,7 @@ export class AuthController {
   async registerBuyer(@Body() dto: RegisterBuyerDto, @Res({ passthrough: true }) res: Response) {
     const result = await this.auth.registerBuyer(dto);
     this.setRefreshCookie(res, result.refreshToken);
-    return { accessToken: result.accessToken, user: result.user };
+    return { accessToken: result.accessToken, refreshToken: result.refreshToken, user: result.user };
   }
 
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
@@ -72,17 +72,18 @@ export class AuthController {
   async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
     const result = await this.auth.login(dto);
     this.setRefreshCookie(res, result.refreshToken);
-    return { accessToken: result.accessToken, user: result.user };
+    return { accessToken: result.accessToken, refreshToken: result.refreshToken, user: result.user };
   }
 
   @Public()
   @Post("refresh")
-  async refresh(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    const token = this.readRefreshCookie(req);
+  async refresh(@Req() req: Request, @Res({ passthrough: true }) res: Response, @Body() body?: { refreshToken?: string }) {
+    // Try to get refresh token from cookie first, then from request body
+    const token = this.readRefreshCookie(req) || body?.refreshToken;
     if (!token) throw new UnauthorizedException("Refresh token topilmadi.");
     const result = await this.auth.refresh(token);
     this.setRefreshCookie(res, result.refreshToken);
-    return { accessToken: result.accessToken, user: result.user };
+    return { accessToken: result.accessToken, refreshToken: result.refreshToken, user: result.user };
   }
 
   @Public()

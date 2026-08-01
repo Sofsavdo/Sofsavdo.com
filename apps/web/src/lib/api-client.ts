@@ -54,11 +54,14 @@ const refreshAccessToken = async (): Promise<string> => {
   }
 
   try {
+    // The backend expects refresh token in a cookie, but we're using localStorage
+    // For now, we'll try sending it in the body as a fallback
     const response = await fetch(`${API_URL}/auth/refresh`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
+      credentials: 'include', // Include cookies
       body: JSON.stringify({ refreshToken }),
     });
 
@@ -68,8 +71,10 @@ const refreshAccessToken = async (): Promise<string> => {
     }
 
     const data = await response.json();
-    setTokens(data.accessToken, data.refreshToken);
-    return data.accessToken;
+    // Handle both response formats: { accessToken, refreshToken, user } or { data: { accessToken, refreshToken, user } }
+    const result = data.data || data;
+    setTokens(result.accessToken, result.refreshToken);
+    return result.accessToken;
   } catch (error) {
     clearTokens();
     throw error;
@@ -96,6 +101,7 @@ export const api = {
     let response = await fetch(`${API_URL}${path}`, {
       method,
       headers,
+      credentials: 'include', // Include cookies for auth
       body: body ? JSON.stringify(body) : undefined,
     });
 
@@ -126,6 +132,7 @@ export const api = {
       response = await fetch(`${API_URL}${path}`, {
         method,
         headers,
+        credentials: 'include',
         body: body ? JSON.stringify(body) : undefined,
       });
     }
@@ -134,8 +141,9 @@ export const api = {
       throw new Error(`API error: ${response.status}`);
     }
 
-    const data: ApiResponse<T> = await response.json();
-    return data.data;
+    const data = await response.json();
+    // Handle both response formats: { data: ... } or direct response
+    return (data.data !== undefined ? data.data : data) as T;
   },
 
   async get<T>(path: string, isAuthRequired = true): Promise<T> {
@@ -163,6 +171,7 @@ export const authApi = {
       headers: {
         'Content-Type': 'application/json',
       },
+      credentials: 'include',
       body: JSON.stringify({ email, password }),
     });
 
@@ -171,7 +180,16 @@ export const authApi = {
     }
 
     const data = await response.json();
-    setTokens(data.accessToken, data.refreshToken);
+    // Backend returns { accessToken, user } but sets refreshToken in cookie
+    // We'll try to extract refreshToken from response if available
+    const accessToken = data.accessToken;
+    const refreshToken = data.refreshToken || null;
+    if (refreshToken) {
+      setTokens(accessToken, refreshToken);
+    } else {
+      // Only store access token if refresh token is in cookie
+      localStorage.setItem('accessToken', accessToken);
+    }
     return data;
   },
 
@@ -181,6 +199,7 @@ export const authApi = {
       headers: {
         'Content-Type': 'application/json',
       },
+      credentials: 'include',
       body: JSON.stringify(dto),
     });
 
@@ -189,7 +208,13 @@ export const authApi = {
     }
 
     const data = await response.json();
-    setTokens(data.accessToken, data.refreshToken);
+    const accessToken = data.accessToken;
+    const refreshToken = data.refreshToken || null;
+    if (refreshToken) {
+      setTokens(accessToken, refreshToken);
+    } else {
+      localStorage.setItem('accessToken', accessToken);
+    }
     return data;
   },
 
@@ -201,6 +226,7 @@ export const authApi = {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify({ refreshToken }),
       });
     }
@@ -208,6 +234,6 @@ export const authApi = {
   },
 
   async getMe() {
-    return api.get('/auth/me');
+    return api.get('/auth/me', true);
   },
 };
