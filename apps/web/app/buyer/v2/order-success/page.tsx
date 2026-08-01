@@ -7,14 +7,14 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { SimplifiedCard, SimplifiedCardHeader, SimplifiedCardTitle, SimplifiedCardContent } from '@/components/simplified/simplified-card';
 import { SimplifiedButton } from '@/components/simplified/simplified-button';
 import { SimplifiedLoading } from '@/components/simplified/simplified-loading';
 import { ordersV2Service, type SimplifiedOrderDto } from '@/services/v2/orders-v2.service';
 
-export default function SimplifiedBuyerOrderSuccessPage() {
+function OrderSuccessContent() {
   const searchParams = useSearchParams();
   const orderId = searchParams.get('orderId') || '';
   
@@ -173,5 +173,17 @@ export default function SimplifiedBuyerOrderSuccessPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SimplifiedBuyerOrderSuccessPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <SimplifiedLoading size="lg" />
+      </div>
+    }>
+      <OrderSuccessContent />
+    </Suspense>
   );
 }
