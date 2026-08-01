@@ -11,12 +11,10 @@ import { SimplifiedCard, SimplifiedCardHeader, SimplifiedCardTitle, SimplifiedCa
 import { SimplifiedButton } from '@/components/simplified/simplified-button';
 import { SimplifiedLoading } from '@/components/simplified/simplified-loading';
 import { SimplifiedBadge } from '@/components/simplified/simplified-badge';
-import { productsV2Service, type SimplifiedProductDto } from '@/services/v2/products-v2.service';
-import { creatorsV2Service } from '@/services/v2/creators-v2.service';
+import { creatorsV2Service, type CreatorStreamDto } from '@/services/v2/creators-v2.service';
 
 export default function MyStreamDetailPage({ params }: { params: { id: string } }) {
-  const [product, setProduct] = useState<SimplifiedProductDto | null>(null);
-  const [referralLink, setReferralLink] = useState('');
+  const [stream, setStream] = useState<CreatorStreamDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   
@@ -27,12 +25,8 @@ export default function MyStreamDetailPage({ params }: { params: { id: string } 
   const loadStream = async () => {
     setLoading(true);
     try {
-      const productData = await productsV2Service.findOne(params.id);
-      setProduct(productData);
-      
-      // Generate referral link using product slug
-      const link = `${window.location.origin}/buyer/v2/f/${productData.id}`;
-      setReferralLink(link);
+      const data = await creatorsV2Service.getStreamDetail(params.id);
+      setStream(data);
     } catch (error) {
       console.error('Failed to load stream:', error);
     } finally {
@@ -41,8 +35,9 @@ export default function MyStreamDetailPage({ params }: { params: { id: string } 
   };
   
   const handleCopyLink = async () => {
+    if (!stream) return;
     try {
-      await navigator.clipboard.writeText(referralLink);
+      await navigator.clipboard.writeText(stream.referralLink);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
@@ -51,17 +46,23 @@ export default function MyStreamDetailPage({ params }: { params: { id: string } 
   };
   
   const handleShareTelegram = () => {
-    const text = `Bu mahsulotni ko'ring: ${product?.title}\n\n${referralLink}`;
-    window.open(`https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${encodeURIComponent(text)}`, '_blank');
+    if (!stream) return;
+    const text = `Bu mahsulotni ko'ring: ${stream.productName}\n\n${stream.referralLink}`;
+    window.open(`https://t.me/share/url?url=${encodeURIComponent(stream.referralLink)}&text=${encodeURIComponent(text)}`, '_blank');
   };
   
   const handleShareWhatsApp = () => {
-    const text = `Bu mahsulotni ko'ring: ${product?.title}\n\n${referralLink}`;
+    if (!stream) return;
+    const text = `Bu mahsulotni ko'ring: ${stream.productName}\n\n${stream.referralLink}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
   };
   
   const formatPrice = (minor: number) => {
     return (minor / 100).toLocaleString('uz-UZ') + " so'm";
+  };
+  
+  const calculateEarnings = (priceMinor: number, commissionPercent: number) => {
+    return (priceMinor * commissionPercent) / 100;
   };
   
   if (loading) {
@@ -72,12 +73,12 @@ export default function MyStreamDetailPage({ params }: { params: { id: string } 
     );
   }
   
-  if (!product) {
+  if (!stream) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <SimplifiedCard>
           <SimplifiedCardContent>
-            <p className="text-center text-gray-600">Mahsulot topilmadi</p>
+            <p className="text-center text-gray-600">Oqim topilmadi</p>
           </SimplifiedCardContent>
         </SimplifiedCard>
       </div>
@@ -97,22 +98,18 @@ export default function MyStreamDetailPage({ params }: { params: { id: string } 
           <SimplifiedCardContent className="p-4">
             <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden mb-4">
               <img
-                src={product.images[0] || '/placeholder.png'}
-                alt={product.title}
+                src={stream.productImage || '/placeholder.png'}
+                alt={stream.productName}
                 className="w-full h-full object-cover"
               />
             </div>
             
-            <h2 className="text-xl font-bold text-gray-900 mb-2">{product.title}</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-2">{stream.productName}</h2>
             
             <div className="flex items-center gap-4 mb-4">
-              <span className="text-2xl font-bold text-blue-600">{formatPrice(product.priceMinor)}</span>
-              <SimplifiedBadge variant="success">{product.commissionPercent}% komissiya</SimplifiedBadge>
+              <span className="text-2xl font-bold text-blue-600">{formatPrice(stream.productPriceMinor)}</span>
+              <SimplifiedBadge variant="success">{stream.commissionPercent}% komissiya</SimplifiedBadge>
             </div>
-            
-            {product.description && (
-              <p className="text-gray-600 text-sm">{product.description}</p>
-            )}
           </SimplifiedCardContent>
         </SimplifiedCard>
         
@@ -128,7 +125,7 @@ export default function MyStreamDetailPage({ params }: { params: { id: string } 
                 <div className="flex gap-2">
                   <input
                     type="text"
-                    value={referralLink}
+                    value={stream.referralLink}
                     readOnly
                     className="flex-1 bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm"
                   />
@@ -144,7 +141,7 @@ export default function MyStreamDetailPage({ params }: { params: { id: string } 
               <div className="bg-blue-50 p-4 rounded-lg mb-4">
                 <p className="text-sm text-blue-900 font-medium mb-1">Qancha topishingiz mumkin:</p>
                 <p className="text-2xl font-bold text-blue-600">
-                  {formatPrice(product.estimatedEarningsPerSaleMinor)}
+                  {formatPrice(calculateEarnings(stream.productPriceMinor, stream.commissionPercent))}
                 </p>
                 <p className="text-xs text-blue-700 mt-1">har bir sotuvdan</p>
               </div>
