@@ -5,9 +5,10 @@ import { LaunchBonusScheduler } from "./launch-bonus.scheduler";
 import { PrismaModule } from "../prisma/prisma.module";
 import { ConfigModule } from "@nestjs/config";
 import { NotificationsModule } from "../notifications/notifications.module";
+import { CommonModule } from "../common/common.module";
 
 @Module({
-  imports: [PrismaModule, ConfigModule, NotificationsModule],
+  imports: [PrismaModule, ConfigModule, NotificationsModule, CommonModule],
   controllers: [LaunchBonusController],
   providers: [LaunchBonusService, LaunchBonusScheduler],
   exports: [LaunchBonusService],
