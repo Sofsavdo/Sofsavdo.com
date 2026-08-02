@@ -28,7 +28,7 @@ export function LaunchBonusProgress() {
     EXPIRED: { label: "Muddati tugagan", tone: "error" },
   };
 
-  const status = statusMeta[bonus.status || "LOCKED"] ?? statusMeta.LOCKED;
+  const status = (statusMeta[bonus.status || "LOCKED"] || statusMeta.LOCKED)!;
   const daysLeft = Math.max(0, Math.ceil((new Date(bonus.deadline).getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
 
   const requirements = [
