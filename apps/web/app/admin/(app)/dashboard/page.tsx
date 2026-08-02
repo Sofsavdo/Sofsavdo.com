@@ -31,11 +31,11 @@ export default function AdminDashboardPage() {
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <StatTile label="Bugungi tushum" value={formatMoneyMinor(d.todayRevenueMinor)} />
         <StatTile label="Oylik tushum" value={formatMoneyMinor(d.monthlyRevenueMinor)} />
-        <StatTile label="Net revenue" value={formatMoneyMinor(d.netRevenueMinor)} />
+        <StatTile label="Sof tushum" value={formatMoneyMinor(d.netRevenueMinor)} />
         <StatTile label="To'langan buyurtmalar" value={d.paidOrders} />
-        <StatTile label="Conversion" value={`${(d.conversionRate * 100).toFixed(1)}%`} />
-        <StatTile label="O'rtacha buyurtma (AOV)" value={formatMoneyMinor(d.averageOrderValueMinor)} />
-        <StatTile label="Refund darajasi" value={`${(d.refundRate * 100).toFixed(1)}%`} />
+        <StatTile label="Konversiya" value={`${(d.conversionRate * 100).toFixed(1)}%`} />
+        <StatTile label="O'rtacha buyurtma" value={formatMoneyMinor(d.averageOrderValueMinor)} />
+        <StatTile label="Qaytarish darajasi" value={`${(d.refundRate * 100).toFixed(1)}%`} />
         <StatTile label="Faol kampaniyalar" value={d.activeCampaignsCount} />
       </div>
 
