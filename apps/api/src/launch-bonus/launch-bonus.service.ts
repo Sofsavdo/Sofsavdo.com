@@ -64,7 +64,7 @@ export class LaunchBonusService {
     // Commission from successful orders only (PAID payouts)
     const commission = await this.prisma.payout.aggregate({
       where: {
-        creatorProfileId,
+        creatorId: creatorProfileId,
         status: "PAID",
       },
       _sum: { amountMinor: true },
@@ -76,23 +76,22 @@ export class LaunchBonusService {
         referrerId: creatorProfileId,
         referred: {
           OR: [
-            { user: { orders: { some: { status: "PAID" } } } },
             { createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } },
           ],
         },
       },
     });
 
-    // Successful orders only (PAID status)
+    // Successful orders only (PAID status) - use attribution relation
     const orders = await this.prisma.order.count({
       where: {
-        referralLink: { creatorProfileId },
+        attribution: { creatorId: creatorProfileId },
         status: "PAID",
       },
     });
 
     return {
-      commissionEarned: commission._sum.amountMinor || 0,
+      commissionEarned: commission._sum?.amountMinor || 0,
       referralsCount: referrals,
       successfulOrders: orders,
     };

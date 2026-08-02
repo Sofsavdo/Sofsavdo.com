@@ -78,6 +78,7 @@ export interface OnboardingChangesRequestedEvent {
   applicationId: string;
   creatorId: string;
   creatorName: string;
+  reason: string;
 }
 
 export interface BonusUnlockedEvent {

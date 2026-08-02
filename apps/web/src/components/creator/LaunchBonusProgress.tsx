@@ -66,7 +66,7 @@ export function LaunchBonusProgress() {
     <Card>
       <CardHeader className="flex-row items-center justify-between gap-2">
         <CardTitle>🎁 Launch Bonus</CardTitle>
-        <Badge tone={status.tone}>{status.label}</Badge>
+        <Badge tone={status?.tone}>{status?.label}</Badge>
       </CardHeader>
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
