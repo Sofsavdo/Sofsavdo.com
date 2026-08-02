@@ -38,26 +38,26 @@ export function LaunchBonusProgress() {
   };
 
   const status = (statusMeta[bonus.status || "LOCKED"] || statusMeta.LOCKED)!;
-  const daysLeft = Math.max(0, Math.ceil((new Date(bonus.deadline).getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
+  const daysLeft = bonus.deadline ? Math.max(0, Math.ceil((new Date(bonus.deadline).getTime() - Date.now()) / (1000 * 60 * 60 * 24))) : 0;
 
   const requirements = [
     {
       label: "Komissiya",
-      current: formatMoneyMinor(bonus.commissionEarnedMinor),
+      current: formatMoneyMinor(bonus.commissionEarnedMinor ?? 0),
       target: bonus.minCommissionMinor ? formatMoneyMinor(bonus.minCommissionMinor) : "Talab qilinmaydi",
-      met: !bonus.minCommissionMinor || bonus.commissionEarnedMinor >= bonus.minCommissionMinor,
+      met: !bonus.minCommissionMinor || (bonus.commissionEarnedMinor ?? 0) >= bonus.minCommissionMinor,
     },
     {
       label: "Referral",
-      current: bonus.referralsCount,
+      current: bonus.referralsCount ?? 0,
       target: bonus.minReferrals ?? "Talab qilinmaydi",
-      met: !bonus.minReferrals || bonus.referralsCount >= bonus.minReferrals,
+      met: !bonus.minReferrals || (bonus.referralsCount ?? 0) >= bonus.minReferrals,
     },
     {
       label: "Buyurtma",
-      current: bonus.ordersCount,
+      current: bonus.ordersCount ?? 0,
       target: bonus.minOrders ?? "Talab qilinmaydi",
-      met: !bonus.minOrders || bonus.ordersCount >= bonus.minOrders,
+      met: !bonus.minOrders || (bonus.ordersCount ?? 0) >= bonus.minOrders,
     },
     {
       label: "Bio link",
@@ -81,7 +81,7 @@ export function LaunchBonusProgress() {
         <div className="flex items-center justify-between">
           <div>
             <p className="font-heading text-lg font-bold text-text-primary">
-              {formatMoneyMinor(bonus.bonusAmountMinor)}
+              {formatMoneyMinor(bonus.bonusAmountMinor ?? 0)}
             </p>
             <p className="font-body text-sm text-text-secondary">
               {bonus.status === "LOCKED" && daysLeft > 0 ? `${daysLeft} kun qoldi` : bonus.status === "EXPIRED" ? "Muddati tugagan" : "Yechib olish mumkin"}
