@@ -112,7 +112,7 @@ export async function register(
 // yet, apiRequest's 401-then-refresh recovers it from the HttpOnly cookie automatically.
 export async function getSession(): Promise<CreatorUser | null> {
   try {
-    const sessionUser = await apiRequest<BackendSessionUser>("/auth/me");
+    const sessionUser = await apiRequest<BackendSessionUser>("/auth/me", { skipRefreshOnAuthError: true });
     return await buildCreatorUser(sessionUser);
   } catch (err) {
     if (err instanceof ApiError && (err.statusCode === 401 || err.statusCode === 403)) return null;
