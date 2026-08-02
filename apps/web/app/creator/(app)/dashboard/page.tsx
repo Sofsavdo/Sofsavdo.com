@@ -6,7 +6,6 @@ import { Alert, Badge, Button, Card, CardHeader, CardTitle, EmptyState, Skeleton
 import { useDashboardStats } from "@/services/dashboard";
 import { useMyCampaigns, useCampaigns, useMyProducts, useAvailableProductsForPromotion, useSelectProductForPromotion } from "@/services/campaigns";
 import { useSales, usePayoutsMine } from "@/services/finance";
-import { useMyContents } from "@/services/content";
 import { useSession } from "@/services/session";
 import { canWorkAsCreator } from "@/lib/routing";
 import { applicationStatusMeta, creatorCampaignStatusMeta, realPayoutStatusMeta } from "@/lib/status";
@@ -58,7 +57,6 @@ export default function DashboardPage() {
   const stats = useDashboardStats();
   const myCampaigns = useMyCampaigns({ enabled: approved });
   const sales = useSales({ enabled: approved });
-  const content = useMyContents({ enabled: approved });
   const payouts = usePayoutsMine(1, { enabled: approved });
   const allCampaigns = useCampaigns({ enabled: approved });
   const availableProducts = useAvailableProductsForPromotion({ enabled: approved });
@@ -88,23 +86,6 @@ export default function DashboardPage() {
   const activeCampaigns = (myCampaigns.data ?? []).filter((cc) => cc.status === "ACTIVE");
   const payoutItems = payouts.data?.items ?? [];
   const requiredActions = [
-    ...(content.data ?? [])
-      .filter((c) => c.status === "DRAFT" || c.status === "CHANGES_REQUESTED")
-      .map((c) => ({
-        key: `content_${c.id}`,
-        text:
-          c.status === "CHANGES_REQUESTED"
-            ? `"${c.campaign.name}" uchun kontentga tuzatish talab qilingan`
-            : `"${c.campaign.name}" uchun kontent yuklashingiz kerak`,
-        href: "/creator/content",
-      })),
-    ...(myCampaigns.data ?? [])
-      .filter((cc) => cc.status === "CONTENT_REQUIRED")
-      .map((cc) => ({
-        key: `cc_${cc.id}`,
-        text: `"${cc.campaign.name}" kampaniyasi uchun kontent talab qilinadi`,
-        href: "/creator/content",
-      })),
     ...payoutItems
       .filter((p) => p.status === "REQUESTED" || p.status === "PROCESSING")
       .map((p) => ({
