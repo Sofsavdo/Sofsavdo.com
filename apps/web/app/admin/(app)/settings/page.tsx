@@ -13,7 +13,7 @@ const CATEGORY_LABELS: Record<SettingCategory, string> = {
   creatorDefaults: "Creator standartlari",
   notificationDefaults: "Bildirishnoma standartlari",
   paymentConfiguration: "To'lov sozlamalari",
-  featureFlags: "Feature flaglar",
+  featureFlags: "Funksiya tugmalari",
   validationRules: "Validatsiya qoidalari",
 };
 
