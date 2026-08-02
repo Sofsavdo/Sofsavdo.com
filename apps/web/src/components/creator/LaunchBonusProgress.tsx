@@ -43,7 +43,7 @@ export function LaunchBonusProgress() {
     EXPIRED: { label: "MUDDATI TUGAGAN", tone: "error" },
   };
 
-  const currentStatus = statusMeta[status] || statusMeta.LOCKED;
+  const currentStatus = (statusMeta[status] ?? statusMeta.LOCKED)!;
   const daysLeft = Math.max(0, Math.ceil((new Date(deadline).getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
 
   const requirements = [
