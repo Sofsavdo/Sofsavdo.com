@@ -18,10 +18,14 @@ export default function LaunchBonusSettingsPage() {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     
+    // Convert so'm to tiyin (multiply by 100) for backend
+    const bonusAmountSoM = parseInt(formData.get("bonusAmountMinor") as string) || 2000000;
+    const minCommissionSoM = parseInt(formData.get("minCommissionMinor") as string) || 5000000;
+    
     updateSettings({
-      bonusAmountMinor: parseInt(formData.get("bonusAmountMinor") as string) || 200000000,
+      bonusAmountMinor: bonusAmountSoM * 100,
       deadlineDays: parseInt(formData.get("deadlineDays") as string) || 30,
-      minCommissionMinor: parseInt(formData.get("minCommissionMinor") as string) || 500000000,
+      minCommissionMinor: minCommissionSoM * 100,
       minReferrals: parseInt(formData.get("minReferrals") as string) || 3,
       minOrders: parseInt(formData.get("minOrders") as string) || 5,
       bioLinkRequired: formData.get("bioLinkRequired") === "true",
@@ -89,21 +93,12 @@ export default function LaunchBonusSettingsPage() {
               <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                 <div className="grid grid-cols-2 gap-3">
                   <TextField
-                    label="Bonus Miqdori (so'm) - taklifsiz"
+                    label="Bonus Miqdori (so'm)"
                     name="bonusAmountMinor"
                     type="number"
-                    defaultValue={settings?.bonusAmountMinor || 150000000}
+                    defaultValue={settings?.bonusAmountMinor ? Math.floor(settings.bonusAmountMinor / 100) : 2000000}
                     required
                   />
-                  <TextField
-                    label="Bonus Miqdori (so'm) - taklif bilan"
-                    name="referralBonusAmountMinor"
-                    type="number"
-                    defaultValue={settings?.referralBonusAmountMinor || 250000000}
-                    required
-                  />
-                </div>
-                <div className="grid grid-cols-1 gap-3">
                   <TextField
                     label="Muddat (kun)"
                     name="deadlineDays"
@@ -121,7 +116,7 @@ export default function LaunchBonusSettingsPage() {
                       label="Min. Komissiya (so'm)"
                       name="minCommissionMinor"
                       type="number"
-                      defaultValue={settings?.minCommissionMinor || 500000000}
+                      defaultValue={settings?.minCommissionMinor ? Math.floor(settings.minCommissionMinor / 100) : 5000000}
                     />
                     <TextField
                       label="Min. Referral"
