@@ -28,7 +28,7 @@ export function LaunchBonusProgress() {
     EXPIRED: { label: "Muddati tugagan", tone: "error" },
   };
 
-  const status = statusMeta[bonus.status || "LOCKED"] || statusMeta.LOCKED;
+  const status = statusMeta[bonus.status || "LOCKED"] ?? statusMeta.LOCKED;
   const daysLeft = Math.max(0, Math.ceil((new Date(bonus.deadline).getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
 
   const requirements = [
@@ -66,7 +66,7 @@ export function LaunchBonusProgress() {
     <Card>
       <CardHeader className="flex-row items-center justify-between gap-2">
         <CardTitle>🎁 Launch Bonus</CardTitle>
-        <Badge tone={status?.tone}>{status?.label}</Badge>
+        <Badge tone={status.tone}>{status.label}</Badge>
       </CardHeader>
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
