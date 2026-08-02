@@ -8,6 +8,7 @@ export const productSchema = z.object({
   sku: z.string().optional(),
   costPriceMinor: z.string().optional(),
   internalNotes: z.string().optional(),
+  creatorProfileId: z.string().optional(),
 });
 export type ProductInput = z.infer<typeof productSchema>;
 

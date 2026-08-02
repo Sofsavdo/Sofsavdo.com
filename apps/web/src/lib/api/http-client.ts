@@ -39,6 +39,8 @@ interface RequestOptions {
   body?: unknown;
   // Internal: prevents infinite refresh loops if the refresh call itself ever hit this function.
   skipRefreshOnAuthError?: boolean;
+  // Public endpoints (e.g., /offers/:slug/public) should not send auth token even if one exists
+  skipAuth?: boolean;
 }
 
 async function rawRequest<T>(path: string, options: RequestOptions): Promise<T> {
@@ -51,7 +53,7 @@ async function rawRequest<T>(path: string, options: RequestOptions): Promise<T> 
     credentials: "include", // sends the HttpOnly refresh cookie on same-site requests
     headers: {
       ...(options.body !== undefined && !isFormData ? { "Content-Type": "application/json" } : {}),
-      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      ...(accessToken && !options.skipAuth ? { Authorization: `Bearer ${accessToken}` } : {}),
     },
     body: options.body === undefined ? undefined : isFormData ? (options.body as FormData) : JSON.stringify(options.body),
   });

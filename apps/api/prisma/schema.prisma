@@ -198,6 +198,7 @@ model CreatorProfile {
   contents             Content[]                 @relation("ContentByCreator")
   fundContributions    CreatorFundContribution[]
   competitionParticipants CompetitionParticipant[]
+  products             Product[]
 
   @@index([city])
 }
@@ -283,12 +284,16 @@ model Product {
   // both succeed, since Postgres will reject whichever commit second. A dedicated
   // Inventory/warehouse model can layer on top of this field later without breaking it.
   stockQuantity    Int?
+  // Creator who owns this product (for admin-created products to appear in creator dashboard)
+  creatorProfileId String?
+  creatorProfile   CreatorProfile? @relation(fields: [creatorProfileId], references: [id], onDelete: SetNull)
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
   offers Offer[]
 
   @@index([type, status])
+  @@index([creatorProfileId])
 }
 
 enum OfferType {
@@ -1388,7 +1393,7 @@ model Payment {
   amountMinor       Int
   currency          String              @default("UZS")
   providerReference String?
-  merchantReference String              @unique
+  merchantReference String?
   webhookPayloads   Json[]
   idempotencyKey    String              @unique
   createdAt         DateTime            @default(now())

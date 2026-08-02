@@ -4,7 +4,7 @@ import Link from "next/link";
 import { formatMoneyMinor, type CreatorApplicationStatus } from "@sofsavdo/types";
 import { Alert, Badge, Button, Card, CardHeader, CardTitle, EmptyState, Skeleton, StatTile } from "@sofsavdo/ui";
 import { useDashboardStats } from "@/services/dashboard";
-import { useMyCampaigns, useCampaigns } from "@/services/campaigns";
+import { useMyCampaigns, useCampaigns, useMyProducts, useAvailableProductsForPromotion, useSelectProductForPromotion } from "@/services/campaigns";
 import { useSales, usePayoutsMine } from "@/services/finance";
 import { useMyContents } from "@/services/content";
 import { useSession } from "@/services/session";
@@ -60,6 +60,8 @@ export default function DashboardPage() {
   const content = useMyContents({ enabled: approved });
   const payouts = usePayoutsMine(1, { enabled: approved });
   const allCampaigns = useCampaigns({ enabled: approved });
+  const availableProducts = useAvailableProductsForPromotion({ enabled: approved });
+  const selectProduct = useSelectProductForPromotion();
 
   const isLoading = stats.isLoading || (approved && myCampaigns.isLoading);
 
@@ -262,6 +264,58 @@ export default function DashboardPage() {
                 </Badge>
               </li>
             ))}
+          </ul>
+        )}
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Mahsulotlar uchun referral link olish</CardTitle>
+        </CardHeader>
+        {availableProducts.data?.length === 0 ? (
+          <EmptyState
+            title="Mahsulot yo'q"
+            description="Hozircha targ'ib qilish uchun mahsulot yo'q."
+          />
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {availableProducts.data?.map((product: any) => {
+              const referralLink = product.offers?.[0]?.campaigns?.[0]?.referralLinks?.[0];
+              return (
+                <li key={product.id} className="flex flex-col gap-2 rounded-input border border-border px-3 py-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-body text-sm text-text-primary">{product.name}</span>
+                    <Badge tone="neutral">{product.type}</Badge>
+                  </div>
+                  {referralLink ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        readOnly
+                        value={`${window.location.origin}/?ref=${referralLink.code}`}
+                        className="flex-1 rounded-input border border-border bg-bg px-2 py-1 font-body text-xs text-text-muted"
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => navigator.clipboard.writeText(`${window.location.origin}/?ref=${referralLink.code}`)}
+                      >
+                        Nusxa olish
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => selectProduct.mutateAsync(product.id)}
+                      disabled={selectProduct.isPending}
+                    >
+                      {selectProduct.isPending ? "Yaratilmoqda..." : "Referral link olish"}
+                    </Button>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
       </Card>

@@ -40,6 +40,39 @@ export class ProductsService {
     return paginate(items, total, query);
   }
 
+  async listByCreator(creatorProfileId: string): Promise<Product[]> {
+    return this.prisma.product.findMany({
+      where: { creatorProfileId: creatorProfileId },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  async listAvailableForPromotion(): Promise<Product[]> {
+    return this.prisma.product.findMany({
+      where: {
+        status: "ACTIVE",
+        offers: {
+          some: {
+            status: "ACTIVE",
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      include: {
+        offers: {
+          where: { status: "ACTIVE" },
+          include: {
+            campaigns: {
+              include: {
+                referralLinks: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
   async findOneOrThrow(id: string): Promise<Product> {
     const product = await this.prisma.product.findUnique({ where: { id } });
     if (!product) throw new DomainException("NOT_FOUND", "Mahsulot topilmadi.");
@@ -63,6 +96,7 @@ export class ProductsService {
         costPriceMinor: dto.costPriceMinor,
         currency: dto.currency ?? "UZS",
         internalNotes: dto.internalNotes,
+        creatorProfileId: dto.creatorProfileId,
       },
     });
   }
@@ -96,6 +130,7 @@ export class ProductsService {
         currency: dto.currency,
         internalNotes: dto.internalNotes,
         status: dto.status,
+        creatorProfileId: dto.creatorProfileId,
       },
     });
   }

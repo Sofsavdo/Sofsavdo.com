@@ -98,4 +98,9 @@ export class CreateProductDto {
   @IsOptional()
   @IsString()
   internalNotes?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  creatorProfileId?: string;
 }

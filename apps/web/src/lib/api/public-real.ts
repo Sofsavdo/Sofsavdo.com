@@ -89,7 +89,7 @@ export async function getOfferPublic(
   _refCode?: string,
 ): Promise<{ offer: Offer; productType: ProductType; deliveryRegions: DeliveryRegionPublic[]; sections: LandingSectionAdmin[]; seo: OfferSeoMeta } | null> {
   try {
-    const res = await apiRequest<BackendPublicLanding>(`/offers/${slug}/public`);
+    const res = await apiRequest<BackendPublicLanding>(`/offers/${slug}/public`, { skipAuth: true });
     return {
       offer: mapBackendPublicOffer(res.offer),
       productType: res.productType,
@@ -130,7 +130,7 @@ export interface FeaturedOffer {
 // Real-backend only, like Content (Phase 7A) — this is a brand-new public surface (Phase C's
 // Commerce Home), so there's no legacy mock behavior to preserve behind NEXT_PUBLIC_API_MODE.
 export async function getFeaturedOffers(): Promise<FeaturedOffer[]> {
-  return apiRequest<FeaturedOffer[]>("/offers/featured");
+  return apiRequest<FeaturedOffer[]>("/offers/featured", { skipAuth: true });
 }
 
 // Shape returned by OffersService.listCatalog() (Phase E) — same public-safe shape as
@@ -162,7 +162,7 @@ export async function getCatalog(query: CatalogQuery = {}): Promise<PaginatedCat
   if (query.minPriceMinor != null) params.set("minPriceMinor", String(query.minPriceMinor));
   if (query.maxPriceMinor != null) params.set("maxPriceMinor", String(query.maxPriceMinor));
   const qs = params.toString();
-  return apiRequest<PaginatedCatalog>(`/offers/catalog${qs ? `?${qs}` : ""}`);
+  return apiRequest<PaginatedCatalog>(`/offers/catalog${qs ? `?${qs}` : ""}`, { skipAuth: true });
 }
 
 // Shape returned by HomepageSectionsService.listPublic() (Phase H) — already filtered to LIVE
@@ -177,7 +177,7 @@ export interface HomepageSection {
 
 // Real-backend only — the Homepage CMS is a brand-new public surface, no legacy mock to preserve.
 export async function getHomepageSections(): Promise<HomepageSection[]> {
-  return apiRequest<HomepageSection[]>("/homepage");
+  return apiRequest<HomepageSection[]>("/homepage", { skipAuth: true });
 }
 
 // Shape returned by PublicActivityService.getRecentActivity() — see that file's own comment for
@@ -190,5 +190,5 @@ export interface PublicActivityEvent {
 
 // Real-backend only — brand-new public surface (homepage FOMO ticker), no legacy mock to preserve.
 export async function getRecentActivity(): Promise<PublicActivityEvent[]> {
-  return apiRequest<PublicActivityEvent[]>("/public/recent-activity");
+  return apiRequest<PublicActivityEvent[]>("/public/recent-activity", { skipAuth: true });
 }

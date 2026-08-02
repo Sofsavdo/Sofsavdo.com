@@ -25,6 +25,7 @@ import type {
   CreatorTier,
   CreatorUser,
   OrderStatus,
+  Product,
   Sale,
   SocialPlatform,
 } from "@sofsavdo/types";
@@ -983,6 +984,23 @@ export async function getFundLeaderboard(): Promise<CreatorFundLeaderboardRespon
 
 export async function contributeToFund(amountMinor: number, message?: string): Promise<CreatorFundContributionResponse> {
   return apiRequest<CreatorFundContributionResponse>("/creator/fund/contribute", { method: "POST", body: { amountMinor, message } });
+}
+
+// ---- Products (for creator dashboard) ----
+export async function getMyProducts(): Promise<Product[]> {
+  return apiRequest<Product[]>("/admin/products/my-products");
+}
+
+export async function createMyProduct(dto: Omit<Product, "id" | "createdAt" | "status"> & { status?: Product["status"] }): Promise<Product> {
+  return apiRequest<Product>("/admin/products/my-products", { method: "POST", body: dto });
+}
+
+export async function getAvailableProductsForPromotion(): Promise<Product[]> {
+  return apiRequest<Product[]>("/admin/products/available-for-promotion");
+}
+
+export async function selectProductForPromotion(productId: string): Promise<{ code: string }> {
+  return apiRequest<{ code: string }>(`/admin/products/select-for-promotion/${productId}`, { method: "POST" });
 }
 
 // ---- Commissions (Phase M) — real backend only, replacing a previously 100%-mocked page with

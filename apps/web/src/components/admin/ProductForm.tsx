@@ -10,6 +10,7 @@ import { Alert, Button, Card, CardHeader, CardTitle, IconButton, SelectField, Te
 import { productSchema, type ProductInput } from "@/lib/schemas-admin";
 import { useCreateProduct, useUpdateProduct, useUploadImage } from "@/services/admin/catalog";
 import { ApiError } from "@/lib/api/admin";
+import { useRealCreatorList } from "@/services/admin/creators";
 
 // Only title/shortDescription — the two ProductAiDraft fields that actually have a home in this
 // form today. `description`/features/benefits/etc have nowhere to go here (ProductForm doesn't
@@ -42,6 +43,7 @@ export function ProductForm({
   const updateProduct = useUpdateProduct();
   const uploadImage = useUploadImage();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { data: creators } = useRealCreatorList({ pageSize: 1000 });
   // Before this, this form silently carried forward `existing?.images` with no way to actually
   // add or remove one — creating a new product always ended up with zero images, and editing one
   // could never change them. Real, editable state now; the admin uploads a file directly instead
@@ -64,6 +66,7 @@ export function ProductForm({
           sku: existing.sku,
           costPriceMinor: existing.costPriceMinor ? String(existing.costPriceMinor / 100) : undefined,
           internalNotes: existing.internalNotes,
+          creatorProfileId: (existing as any).creatorProfileId,
         }
       : { type: "PHYSICAL_PRODUCT" },
   });
@@ -97,6 +100,7 @@ export function ProductForm({
       internalNotes: values.internalNotes,
       images,
       attributes: existing?.attributes ?? [],
+      creatorProfileId: values.creatorProfileId,
     };
     if (existing) {
       await updateProduct.mutateAsync({ id: existing.id, patch: payload });
@@ -131,6 +135,14 @@ export function ProductForm({
           <TextField label="SKU" {...register("sku")} />
           <TextField label="Cost price (so'm)" type="number" {...register("costPriceMinor")} />
         </div>
+        <SelectField label="Creator" error={errors.creatorProfileId?.message} {...register("creatorProfileId")}>
+          <option value="">Creator tanlang (ixtiyoriy)</option>
+          {creators?.items.map((creator) => (
+            <option key={creator.id} value={creator.id}>
+              {creator.displayName} ({creator.email})
+            </option>
+          ))}
+        </SelectField>
         <TextAreaField label="Ichki izohlar (faqat admin ko'radi)" {...register("internalNotes")} />
 
         <div>

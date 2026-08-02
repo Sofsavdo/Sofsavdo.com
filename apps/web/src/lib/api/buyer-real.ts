@@ -46,10 +46,10 @@ export async function login(email: string, password: string): Promise<BuyerUser>
 // apiRequest's 401-then-refresh recovers it from the HttpOnly cookie automatically.
 export async function getSession(): Promise<BuyerUser | null> {
   try {
-    const sessionUser = await apiRequest<BackendSessionUser>("/auth/me");
+    const sessionUser = await apiRequest<BackendSessionUser>("/auth/me", { skipRefreshOnAuthError: true });
     return toBuyerUser(sessionUser);
   } catch (err) {
-    if (err instanceof ApiError && (err.statusCode === 401 || err.statusCode === 403)) return null;
+    if (err instanceof ApiError && err.statusCode === 401) return null;
     throw err;
   }
 }
