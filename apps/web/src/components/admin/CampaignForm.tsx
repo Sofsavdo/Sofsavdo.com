@@ -149,7 +149,7 @@ export function CampaignForm({
           ))}
         </SelectField>
         <TextField label="Kampaniya nomi" error={errors.name?.message} {...register("name")} />
-        <TextField label="Slug" error={errors.slug?.message} {...register("slug")} />
+        <TextField label="URL manzili" error={errors.slug?.message} {...register("slug")} />
         <TextField label="Kategoriya" error={errors.category?.message} {...register("category")} />
         <TextAreaField label="Tavsif" error={errors.description?.message} {...register("description")} />
         <TextField label="Maqsad" error={errors.goal?.message} {...register("goal")} />

@@ -132,7 +132,7 @@ export function OfferForm({
         </SelectField>
 
         <TextField label="Offer nomi" error={errors.name?.message} {...register("name")} />
-        <TextField label="Slug (/o/... da ishlatiladi)" error={errors.slug?.message} {...register("slug")} />
+        <TextField label="URL manzili (/o/... da ishlatiladi)" error={errors.slug?.message} {...register("slug")} />
         <TextField label="Headline" error={errors.headline?.message} {...register("headline")} />
         <TextAreaField label="Subheadline" error={errors.subheadline?.message} {...register("subheadline")} />
 
