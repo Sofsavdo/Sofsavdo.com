@@ -105,7 +105,7 @@ export default async function HomePage() {
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {products.slice(0, 12).map((product, index) => (
-            <Link key={product.id} href={`/buyer/v2/products/${product.id}`} className={index >= 6 ? 'hidden md:block' : ''}>
+            <Link key={product.id} href={`/catalog`} className={index >= 6 ? 'hidden md:block' : ''}>
               <div className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden border border-gray-200">
                 <div className="aspect-square bg-gray-100">
                   <img
