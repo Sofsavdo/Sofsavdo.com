@@ -5,6 +5,7 @@ import { AuthService } from "./auth.service";
 import { AuthV2Service } from "./auth-v2.service";
 import { TokenService } from "./token.service";
 import { JwtStrategy } from "./jwt.strategy";
+import { AuthController } from "./auth.controller";
 import { PrismaModule } from "../prisma/prisma.module";
 import { RolesModule } from "../roles/roles.module";
 import { ReferralsModule } from "../referrals/referrals.module";
@@ -14,7 +15,7 @@ import { CommonModule } from "../common/common.module";
 
 @Module({
   imports: [PrismaModule, RolesModule, ReferralsModule, LaunchBonusModule, ConfigModule, CommonModule, JwtModule.register({}), PassportModule],
-  controllers: [],
+  controllers: [AuthController],
   providers: [AuthService, AuthV2Service, TokenService, JwtStrategy],
   exports: [AuthService, TokenService, JwtStrategy],
 })
