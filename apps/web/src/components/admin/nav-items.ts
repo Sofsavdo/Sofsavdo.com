@@ -6,8 +6,6 @@ import {
   Users,
   Wallet,
   Settings,
-  Bell,
-  BarChart3,
   Trophy,
   Gift,
 } from "lucide-react";
@@ -28,7 +26,7 @@ export interface AdminNavGroup {
   items: AdminNavItem[];
 }
 
-// Simplified Admin Navigation - 6 main sections only
+// Simplified Admin Navigation - Only essential sections
 export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
   { label: "", items: [{ href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard }] },
   {
@@ -37,20 +35,11 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
       { href: "/admin/products", label: "Mahsulotlar", icon: Package },
       { href: "/admin/orders", label: "Buyurtmalar", icon: ShoppingBag },
       { href: "/admin/creators", label: "Creatorlar", icon: Users },
-      { href: "/admin/creator-applications", label: "Creator Arizalari", icon: Users },
-      { href: "/admin/competitions", label: "Musobaqalar", icon: Trophy },
       { href: "/admin/launch-bonus", label: "Launch Bonus", icon: Gift, requiredPermission: "launch_bonus.read" },
-      { href: "/admin/earnings", label: "Daromad", icon: Wallet },
+      { href: "/admin/competitions", label: "Musobaqalar", icon: Trophy },
       { href: "/admin/settings", label: "Sozlamalar", icon: Settings, requiredPermission: "settings.read" },
-    ],
-  },
-  {
-    label: "Tizim",
-    items: [
-      { href: "/admin/notifications", label: "Bildirishnomalar", icon: Bell },
-      { href: "/admin/analytics", label: "Analitika", icon: BarChart3 },
     ],
   },
 ];
 
-export const ADMIN_MOBILE_PRIMARY_HREFS = ["/admin/dashboard", "/admin/orders", "/admin/creators", "/admin/earnings"];
+export const ADMIN_MOBILE_PRIMARY_HREFS = ["/admin/dashboard", "/admin/orders", "/admin/creators", "/admin/launch-bonus"];
