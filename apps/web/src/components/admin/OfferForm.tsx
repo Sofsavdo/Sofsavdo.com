@@ -10,6 +10,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { offerSchema, type OfferInput } from "@/lib/schemas-admin";
 import { useAdminProducts, useCreateOffer, useUpdateOffer } from "@/services/admin/catalog";
 import { ApiError } from "@/lib/api/admin";
+import { DeliveryRegionsManager } from "./DeliveryRegionsManager";
 
 const CTA_TYPES = [
   { value: "BUY_NOW", label: "Buy Now" },
@@ -200,8 +201,6 @@ export function OfferForm({
           </div>
         </div>
 
-        <TextField label="Yetkazib berish ma'lumoti (ixtiyoriy)" {...register("deliveryInfo")} />
-
         <div className="grid grid-cols-2 gap-3">
           <TextField
             label="Boshlanish sanasi (ixtiyoriy)"
@@ -227,6 +226,14 @@ export function OfferForm({
           </SelectField>
           <TextField label="CTA matni" error={errors.ctaLabel?.message} {...register("ctaLabel")} />
         </div>
+
+        {existing ? (
+          <DeliveryRegionsManager offerId={existing.id} />
+        ) : (
+          <Alert tone="info">
+            Yetkazib berish hududlari offer yaratilgandan so&apos;ng sozlash mumkin.
+          </Alert>
+        )}
 
         {mutation.isError ? <Alert tone="error">{(mutation.error as ApiError).message}</Alert> : null}
 
