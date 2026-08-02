@@ -190,10 +190,9 @@ export function OnboardingWizard({
 
         {step === 2 ? (
           <TextField
-            label="Shahar"
+            label="Shahar (ixtiyoriy)"
             placeholder="Toshkent"
-            error={errors.city?.message}
-            {...register("city", { required: "Shaharni kiriting" })}
+            {...register("city")}
           />
         ) : null}
 
@@ -216,7 +215,12 @@ export function OnboardingWizard({
                 <TextField
                   label="Profil havolasi"
                   placeholder="https://instagram.com/..."
-                  {...register(`socialAccounts.${index}.profileUrl` as const)}
+                  {...register(`socialAccounts.${index}.profileUrl` as const, {
+                    pattern: {
+                      value: /^https?:\/\/.+/,
+                      message: "To'g'ri URL kiriting (https:// bilan boshlanishi kerak)"
+                    }
+                  })}
                 />
                 <TextField
                   label="Obunachilar soni"
@@ -311,8 +315,23 @@ export function OnboardingWizard({
             </SelectField>
             {payoutMethodType === "CARD" ? (
               <>
-                <TextField label="Karta raqami" placeholder="8600 0000 0000 0000" {...register("payoutCardNumber")} />
-                <TextField label="Karta egasi" placeholder="MALIKA YUSUPOVA" {...register("payoutCardHolder")} />
+                <TextField 
+                  label="Karta raqami" 
+                  placeholder="8600 0000 0000 0000" 
+                  {...register("payoutCardNumber", {
+                    pattern: {
+                      value: /^\d{16}$/,
+                      message: "16 xonali karta raqamini kiriting"
+                    }
+                  })} 
+                />
+                <TextField 
+                  label="Karta egasi" 
+                  placeholder="MALIKA YUSUPOVA" 
+                  {...register("payoutCardHolder", {
+                    required: "Karta egasini kiriting"
+                  })} 
+                />
               </>
             ) : (
               <>

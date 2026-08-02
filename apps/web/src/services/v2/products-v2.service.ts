@@ -1,11 +1,19 @@
 /**
  * Simplified Products Service (V2)
- * 
+ *
  * Service for calling the simplified v2 products API.
  * Hides technical fields like slug, SKU, internal codes.
  */
 
 import { api } from '@/lib/api-client';
+
+const STORAGE_PUBLIC_BASE_URL = process.env.NEXT_PUBLIC_STORAGE_PUBLIC_BASE_URL || 'https://api.sofsavdo.com/media';
+
+function toImageUrl(imagePath: string | null): string | null {
+  if (!imagePath) return null;
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) return imagePath;
+  return `${STORAGE_PUBLIC_BASE_URL}/${imagePath}`;
+}
 
 export interface SimplifiedProductDto {
   id: string;
@@ -63,7 +71,14 @@ export const productsV2Service = {
     if (query.take) params.append('take', query.take.toString());
     if (query.status) params.append('status', query.status);
     if (query.search) params.append('search', query.search);
-    return await api.get(`/v2/products?${params.toString()}`, false);
+    const result = await api.get<SimplifiedProductListDto>(`/v2/products?${params.toString()}`, false);
+    return {
+      ...result,
+      items: result.items.map(product => ({
+        ...product,
+        images: product.images.map(img => toImageUrl(img) || img)
+      }))
+    };
   },
 
   /**
