@@ -19,7 +19,16 @@ export function LaunchBonusProgress() {
   }
 
   if (!bonus) {
-    return null;
+    return (
+      <Card>
+        <CardHeader className="flex-row items-center justify-between gap-2">
+          <CardTitle>🎁 Launch Bonus</CardTitle>
+        </CardHeader>
+        <Alert tone="info">
+          Launch Bonus tizimi hozircha faol emas. Admin tomonidan yoqilganda shu yerda ko'rsatiladi.
+        </Alert>
+      </Card>
+    );
   }
 
   const statusMeta: Record<string, { label: string; tone: "success" | "error" | "info" | "warning" }> = {
@@ -89,13 +98,21 @@ export function LaunchBonusProgress() {
         </div>
 
         {(bonus.status === "LOCKED") && (
-          <div className="space-y-2">
+          <div className="space-y-3">
+            <p className="font-body text-sm font-medium text-text-primary">Bajarish shartlari:</p>
             {requirements.map((req) => (
-              <div key={req.label} className="flex items-center justify-between font-body text-sm">
-                <span className="text-text-secondary">{req.label}:</span>
-                <span className={req.met ? "text-green-600" : "text-text-muted"}>
-                  {req.current} / {req.target}
-                </span>
+              <div key={req.label} className="flex items-center justify-between rounded-input border border-border px-3 py-2">
+                <div className="flex items-center gap-2">
+                  <div className={`w-2 h-2 rounded-full ${req.met ? "bg-green-500" : "bg-gray-300"}`} />
+                  <span className="font-body text-sm text-text-secondary">{req.label}</span>
+                </div>
+                <div className="text-right">
+                  <span className={`font-body text-sm font-medium ${req.met ? "text-green-600" : "text-text-muted"}`}>
+                    {req.current}
+                  </span>
+                  <span className="font-body text-sm text-text-muted mx-1">/</span>
+                  <span className="font-body text-sm text-text-muted">{req.target}</span>
+                </div>
               </div>
             ))}
           </div>
