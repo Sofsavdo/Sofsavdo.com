@@ -38,6 +38,55 @@ async function seedStaffUsers() {
   console.log("Seeded 3 staff accounts (manager/admin/super_admin @sofsavdo.com).");
 }
 
+// Requested test accounts (see PR description) — an admin and a creator account sharing one
+// password so auth/RBAC can be manually verified in dev/staging. Email is globally unique
+// (User.email @unique — see schema.prisma), so the creator account reuses the same Gmail inbox
+// via a "+creator" alias (Gmail ignores everything after "+", so mail for both still lands in one
+// inbox) rather than colliding with the admin account or inventing an unrelated email.
+const REQUESTED_TEST_PASSWORD = "Medik9298";
+const REQUESTED_ADMIN_EMAIL = "sellercloudx@gmail.com";
+const REQUESTED_CREATOR_EMAIL = "sellercloudx+creator@gmail.com";
+
+async function seedRequestedTestAccounts() {
+  const passwordHash = await argon2.hash(REQUESTED_TEST_PASSWORD);
+
+  const adminRole = await prisma.role.findUniqueOrThrow({ where: { key: "admin" } });
+  const adminUser = await prisma.user.upsert({
+    where: { email: REQUESTED_ADMIN_EMAIL },
+    update: { passwordHash },
+    create: { email: REQUESTED_ADMIN_EMAIL, passwordHash, emailVerified: new Date(), status: "ACTIVE" },
+  });
+  await prisma.userRole.upsert({
+    where: { userId_roleId: { userId: adminUser.id, roleId: adminRole.id } },
+    update: {},
+    create: { userId: adminUser.id, roleId: adminRole.id },
+  });
+
+  // Creators aren't gated by the Role/UserRole RBAC tables (see CreatorProfile comment above) —
+  // having a CreatorProfile row is itself what makes an account a "creator" throughout the app
+  // (see AuthService.getSessionSummary's creatorId field), so no Role assignment is needed here.
+  const creatorUser = await prisma.user.upsert({
+    where: { email: REQUESTED_CREATOR_EMAIL },
+    update: { passwordHash },
+    create: { email: REQUESTED_CREATOR_EMAIL, passwordHash, emailVerified: new Date(), status: "ACTIVE" },
+  });
+  await prisma.creatorProfile.upsert({
+    where: { userId: creatorUser.id },
+    update: {},
+    create: {
+      userId: creatorUser.id,
+      displayName: "Sellercloudx Creator",
+      contentNiches: [],
+      referralCode: randomSuffix(8),
+    },
+  });
+
+  console.log(
+    `Seeded requested test accounts: admin=${REQUESTED_ADMIN_EMAIL}, creator=${REQUESTED_CREATOR_EMAIL} ` +
+      `(shared password: ${REQUESTED_TEST_PASSWORD}).`,
+  );
+}
+
 const CREATOR_SEED = [
   { email: "malika.yusupova@example.uz", displayName: "Malika Yusupova", city: "Toshkent", niches: ["beauty", "lifestyle"], status: "APPROVED" as const },
   { email: "aziz.karimov@example.uz", displayName: "Aziz Karimov", city: "Samarqand", niches: ["tech", "edtech"], status: "APPROVED" as const },
@@ -325,6 +374,7 @@ async function main() {
 
   await seedRolesAndPermissions(prisma);
   await seedStaffUsers();
+  await seedRequestedTestAccounts();
   const creators = await seedCreators();
   const { offer } = await seedCatalog();
   await seedCampaign(offer.id, creators);
