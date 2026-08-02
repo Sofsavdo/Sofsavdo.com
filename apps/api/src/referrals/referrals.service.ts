@@ -104,17 +104,34 @@ export class ReferralsService {
     throw new Error("Could not generate a unique referral code after 5 attempts");
   }
 
+  async generateUniquePromoCode(tx: Prisma.TransactionClient | PrismaService = this.prisma): Promise<string> {
+    const { generateCreatorPromoCode } = await import("../common/codes/code-generator");
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const code = generateCreatorPromoCode();
+      const existing = await tx.creatorProfile.findUnique({ where: { promoCode: code }, select: { id: true } });
+      if (!existing) return code;
+    }
+    throw new Error("Could not generate a unique promo code after 10 attempts");
+  }
+
   async resolveReferrerForAttribution(
     referralCodeInput: string | undefined,
     tx: Prisma.TransactionClient,
   ): Promise<{ referrerCreatorId: string; referralCodeUsed: string } | null> {
     if (!referralCodeInput) return null;
-    const referrer = await tx.creatorProfile.findUnique({ where: { referralCode: referralCodeInput }, select: { id: true } });
-    if (!referrer) {
-      this.logger.warn(`Registration referred by unknown referral code "${referralCodeInput}" — ignored, no attribution created.`);
-      return null;
+    // First try as referral code (8-character)
+    let referrer = await tx.creatorProfile.findUnique({ where: { referralCode: referralCodeInput }, select: { id: true } });
+    if (referrer) {
+      return { referrerCreatorId: referrer.id, referralCodeUsed: referralCodeInput };
     }
-    return { referrerCreatorId: referrer.id, referralCodeUsed: referralCodeInput };
+    // Then try as promo code (5-character case-sensitive)
+    referrer = await tx.creatorProfile.findUnique({ where: { promoCode: referralCodeInput }, select: { id: true } });
+    if (referrer) {
+      this.logger.log(`Registration attributed via promo code "${referralCodeInput}" to creator ${referrer.id}`);
+      return { referrerCreatorId: referrer.id, referralCodeUsed: referralCodeInput };
+    }
+    this.logger.warn(`Registration referred by unknown code "${referralCodeInput}" — ignored, no attribution created.`);
+    return null;
   }
 
   async attributeAtRegistration(
@@ -372,9 +389,9 @@ export class ReferralsService {
 
   // ---- Creator-facing ----
 
-  async getMyReferralCode(creatorId: string, webAppUrl: string): Promise<{ referralCode: string; invitationLink: string }> {
-    const profile = await this.prisma.creatorProfile.findUniqueOrThrow({ where: { id: creatorId }, select: { referralCode: true } });
-    return { referralCode: profile.referralCode, invitationLink: `${webAppUrl}${INVITATION_BASE_PATH}?ref=${profile.referralCode}` };
+  async getMyReferralCode(creatorId: string, webAppUrl: string): Promise<{ referralCode: string; invitationLink: string; promoCode: string | null }> {
+    const profile = await this.prisma.creatorProfile.findUniqueOrThrow({ where: { id: creatorId }, select: { referralCode: true, promoCode: true } });
+    return { referralCode: profile.referralCode, invitationLink: `${webAppUrl}${INVITATION_BASE_PATH}?ref=${profile.referralCode}`, promoCode: profile.promoCode };
   }
 
   async getMySummary(creatorId: string, webAppUrl: string): Promise<ReferralSummaryResponse> {
