@@ -41,19 +41,6 @@ export function Hero({
         </div>
         <div>
           <h1 className="break-words font-heading text-3xl font-bold text-text-primary md:text-4xl">{offer.headline}</h1>
-          <div className="mt-6 flex flex-wrap items-baseline gap-3">
-            <span className="font-numeric text-4xl font-bold tabular-nums text-accent">
-              {formatMoneyMinor(selectedVariant.priceMinor, offer.currency)}
-            </span>
-            {offer.compareAtPriceMinor ? (
-              <span className="font-numeric text-xl tabular-nums text-text-muted line-through">
-                {formatMoneyMinor(offer.compareAtPriceMinor, offer.currency)}
-              </span>
-            ) : null}
-          </div>
-          <Button size="lg" className="mt-6 w-full md:w-auto" onClick={onBuyClick}>
-            {offer.ctaLabel}
-          </Button>
         </div>
       </div>
     </section>
