@@ -90,8 +90,8 @@ export default function StreamsPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Oqimlar</h1>
-        <p className="text-gray-600">Barcha mahsulotlar va xizmatlarni ko'ring va oqim yarating</p>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">Mahsulotlar</h1>
+        <p className="text-gray-600">Mahsulotlarni tanlang va referral havolani oling</p>
       </div>
       
       <div className="mb-6">
@@ -123,7 +123,7 @@ export default function StreamsPage() {
               
               <Link href={`/creator/my-streams/${product.id}`}>
                 <SimplifiedButton variant="primary" fullWidth>
-                  Oqim yaratish
+                  Referral havolani oling
                 </SimplifiedButton>
               </Link>
             </SimplifiedCardContent>
