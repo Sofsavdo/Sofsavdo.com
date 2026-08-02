@@ -10,9 +10,10 @@ import { RolesModule } from "../roles/roles.module";
 import { ReferralsModule } from "../referrals/referrals.module";
 import { LaunchBonusModule } from "../launch-bonus/launch-bonus.module";
 import { ConfigModule } from "@nestjs/config";
+import { CommonModule } from "../common/common.module";
 
 @Module({
-  imports: [PrismaModule, RolesModule, ReferralsModule, LaunchBonusModule, ConfigModule, JwtModule.register({}), PassportModule],
+  imports: [PrismaModule, RolesModule, ReferralsModule, LaunchBonusModule, ConfigModule, CommonModule, JwtModule.register({}), PassportModule],
   controllers: [],
   providers: [AuthService, AuthV2Service, TokenService, JwtStrategy],
   exports: [AuthService, TokenService, JwtStrategy],
