@@ -40,7 +40,7 @@ start when `NODE_ENV=production`. In `development`/`test`, each has a dev-only f
 | `JWT_ACCESS_TTL` / `JWT_REFRESH_TTL` | Default `15m` / `30d` |
 | `STORAGE_DRIVER` | Defaults to `local` (`LocalDiskStorage`) — set to a real value only once a cloud storage adapter is actually built (none is, as of Phase 14; see PROJECT_STATUS.md's deferred list) |
 | `STORAGE_LOCAL_DIR` | Defaults to `uploads` (gitignored, dev/test only) |
-| `STORAGE_PUBLIC_BASE_URL` | Defaults to `http://localhost:<PORT>/media` |
+| `STORAGE_PUBLIC_BASE_URL` | Defaults to `http://localhost:<PORT>/uploads` |
 | `MEDIA_MAX_IMAGE_BYTES` / `MEDIA_MAX_VIDEO_BYTES` / `MEDIA_MAX_VIDEO_DURATION_SECONDS` / `MEDIA_ASPECT_RATIO_TOLERANCE` | Campaign media validation limits — sensible defaults, override only if the business rule genuinely changes |
 | `CONTENT_MAX_ATTACHMENT_*` | Same, for Content-domain attachments |
 | `PAYME_MERCHANT_ID` / `PAYME_SECRET_KEY` / `UZUM_NASIYA_MERCHANT_ID` / `UZUM_NASIYA_SECRET_KEY` | Reserved for a future phase — read by nothing today (see DECISIONS.md) |

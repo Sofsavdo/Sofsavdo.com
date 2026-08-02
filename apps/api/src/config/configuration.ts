@@ -139,7 +139,7 @@ export default (): AppConfig => ({
   storage: {
     driver: process.env.STORAGE_DRIVER ?? "local",
     localDir: process.env.STORAGE_LOCAL_DIR ?? "uploads",
-    publicBaseUrl: process.env.STORAGE_PUBLIC_BASE_URL ?? `http://localhost:${process.env.PORT ?? 4000}/media`,
+    publicBaseUrl: process.env.STORAGE_PUBLIC_BASE_URL ?? `http://localhost:${process.env.PORT ?? 4000}/uploads`,
     // Names match the "Object storage (S3-compatible / Cloudflare R2)" section already present in
     // .env.example (added ahead of this adapter actually existing) — STORAGE_REGION/
     // STORAGE_FORCE_PATH_STYLE are the two new ones this adapter needed beyond what was already

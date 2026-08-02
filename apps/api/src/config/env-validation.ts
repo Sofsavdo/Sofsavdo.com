@@ -129,11 +129,12 @@ export function validateEnv(env: NodeJS.ProcessEnv): void {
     // misconfiguration in this validator fails loudly at boot; this one must too.
     const publicBaseUrl = env.STORAGE_PUBLIC_BASE_URL;
     if (!publicBaseUrl || publicBaseUrl.trim() === "") {
-      problems.push("STORAGE_DRIVER=local (or unset) but STORAGE_PUBLIC_BASE_URL is not set — it would silently fall back to a localhost URL that no real user's browser can ever reach. Set it to this API's real public origin, e.g. https://api.sofsavdo.com/media");
+      problems.push("STORAGE_DRIVER=local (or unset) but STORAGE_PUBLIC_BASE_URL is not set — it would silently fall back to a localhost URL that no real user's browser can ever reach. Set it to this API's real public origin, e.g. https://api.sofsavdo.com/uploads");
     } else if (/localhost|127\.0\.0\.1/.test(publicBaseUrl)) {
-      problems.push(`STORAGE_PUBLIC_BASE_URL="${publicBaseUrl}" points at localhost — this must be the API's real public origin (e.g. https://api.sofsavdo.com/media), not a loopback address, or uploaded file URLs will never resolve for real users`);
+      problems.push(`STORAGE_PUBLIC_BASE_URL="${publicBaseUrl}" points at localhost — this must be the API's real public origin (e.g. https://api.sofsavdo.com/uploads), not a loopback address, or uploaded file URLs will never resolve for real users`);
     }
   }
+
 
   if (problems.length > 0) throw new EnvironmentValidationError(problems);
 }
