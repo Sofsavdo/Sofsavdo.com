@@ -15,8 +15,8 @@ export class CreatorCompetitionsController {
   constructor(private competitions: CompetitionsService) {}
 
   @Get()
-  list() {
-    return this.competitions.listActiveForCreators();
+  list(@CurrentUser() user: AuthenticatedUser) {
+    return this.competitions.listActiveForCreators(user.creatorId);
   }
 
   @Get(":id/leaderboard")

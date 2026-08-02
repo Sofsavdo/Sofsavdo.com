@@ -888,18 +888,19 @@ export type CompetitionAvailability = "SCHEDULED" | "LIVE" | "EXPIRED" | "INACTI
 export interface CreatorCompetition {
   id: string;
   name: string;
-  slug: string;
   description: string | null;
-  prizeDescription: string | null;
   startAt: string;
   endAt: string;
   availability: CompetitionAvailability;
+  prizeDescription: string | null;
+  hasJoined: boolean;
 }
 
 export async function getMyCompetitions(): Promise<CreatorCompetition[]> {
   return apiRequest<CreatorCompetition[]>("/creator/competitions");
 }
 
+// ... (rest of the code remains the same)
 export interface CompetitionLeaderboardEntry {
   rank: number;
   creatorId: string;

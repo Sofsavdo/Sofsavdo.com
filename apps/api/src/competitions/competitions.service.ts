@@ -35,6 +35,17 @@ export interface CompetitionResponse {
   updatedAt: Date;
 }
 
+export interface CreatorCompetitionResponse {
+  id: string;
+  name: string;
+  description: string | null;
+  startAt: Date;
+  endAt: Date;
+  availability: CompetitionAvailability;
+  prizeDescription: string | null;
+  hasJoined: boolean;
+}
+
 export interface CompetitionLeaderboardEntry extends RankedCreator {
   rank: number;
 }
@@ -197,9 +208,39 @@ export class CompetitionsService {
   // LIVE (ongoing, so a creator can act on it now) and SCHEDULED (upcoming, so they know to
   // prepare) — never EXPIRED/INACTIVE/DRAFT, matching the same "never show what a buyer/creator
   // shouldn't act on" convention as OffersService.listFeaturedPublic.
-  async listActiveForCreators(): Promise<CompetitionResponse[]> {
+  async listActiveForCreators(creatorId?: string): Promise<CreatorCompetitionResponse[]> {
     const rows = await this.prisma.competition.findMany({ where: { status: "ACTIVE" }, orderBy: { startAt: "asc" } });
-    return rows.map((r) => this.toResponse(r)).filter((r) => r.availability === "LIVE" || r.availability === "SCHEDULED");
+    const filtered = rows.map((r) => this.toResponse(r)).filter((r) => r.availability === "LIVE" || r.availability === "SCHEDULED");
+
+    // Check join status for each competition if creatorId is provided
+    const result = await Promise.all(
+      filtered.map(async (r) => {
+        let hasJoined = false;
+        if (creatorId) {
+          const participant = await this.prisma.competitionParticipant.findUnique({
+            where: { competitionId_creatorId: { competitionId: r.id, creatorId } },
+          });
+          hasJoined = !!participant;
+        }
+
+        // Build prize description from individual prizes
+        const prizeParts = [r.firstPrize, r.secondPrize, r.thirdPrize].filter(Boolean);
+        const prizeDescription = prizeParts.length > 0 ? prizeParts.join(", ") : null;
+
+        return {
+          id: r.id,
+          name: r.name,
+          description: r.description,
+          startAt: r.startAt,
+          endAt: r.endAt,
+          availability: r.availability,
+          prizeDescription,
+          hasJoined,
+        };
+      }),
+    );
+
+    return result;
   }
 
   async join(competitionId: string, creatorId: string): Promise<{ joined: boolean }> {
