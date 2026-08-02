@@ -54,13 +54,13 @@ export default function AdminDashboardPage() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Commission liability</CardTitle>
+            <CardTitle>Komissiya majburiyati</CardTitle>
           </CardHeader>
           <p className="font-numeric text-xl font-semibold tabular-nums text-text-primary">{formatMoneyMinor(d.commissionLiabilityMinor)}</p>
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Pending payouts</CardTitle>
+            <CardTitle>Kutilayotgan to'lovlar</CardTitle>
           </CardHeader>
           <p className="font-numeric text-xl font-semibold tabular-nums text-text-primary">{formatMoneyMinor(d.pendingPayoutsMinor)}</p>
         </Card>
