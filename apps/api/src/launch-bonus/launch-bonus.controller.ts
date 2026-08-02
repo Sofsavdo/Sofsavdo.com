@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Body, UseGuards, Request } from "@nestjs/common";
+import { Controller, Get, Post, Put, Patch, Body, UseGuards, Request } from "@nestjs/common";
 import { LaunchBonusService, LaunchBonusProgress } from "./launch-bonus.service";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../common/guards/permissions.guard";
@@ -28,6 +28,13 @@ export class LaunchBonusController {
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePermissions("launch_bonus.admin")
   async updateSettings(@Body() data: any) {
+    return this.launchBonusService.updateSettings(data);
+  }
+
+  @Patch("settings")
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions("launch_bonus.admin")
+  async patchSettings(@Body() data: any) {
     return this.launchBonusService.updateSettings(data);
   }
 
