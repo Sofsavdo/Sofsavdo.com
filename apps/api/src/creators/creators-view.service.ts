@@ -10,6 +10,7 @@
  */
 
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -23,7 +24,10 @@ import {
 
 @Injectable()
 export class CreatorsViewService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private config: ConfigService,
+  ) {}
 
   /**
    * Get simplified creator profile for the authenticated creator.
@@ -157,31 +161,94 @@ export class CreatorsViewService {
 
   /**
    * Get my active streams with stats.
+   * Returns products that are either assigned to this creator or public products available for promotion.
    */
   async getMyStreams(creatorId: string): Promise<CreatorStreamDto[]> {
-    // Temporary: return empty list to avoid Prisma errors
-    // TODO: Fix database schema issue
-    return [];
+    // Fetch products that are either:
+    // 1. Assigned to this creator (creatorProfileId matches)
+    // 2. Or public products (creatorProfileId is null) that are ACTIVE
+    const products = await this.prisma.product.findMany({
+      where: {
+        OR: [
+          { creatorProfileId: creatorId },
+          { creatorProfileId: null, status: 'ACTIVE' },
+        ],
+      },
+      include: {
+        offers: {
+          take: 1,
+          select: {
+            priceMinor: true,
+            commissionPercent: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // Transform products to CreatorStreamDto
+    return products.map((product) => {
+      const offer = product.offers[0];
+      const priceMinor = offer?.priceMinor || 0;
+      const commissionPercent = offer?.commissionPercent || 20; // Default 20%
+
+      const frontendUrl = this.config.get('FRONTEND_URL') || 'https://sofsavdo.com';
+
+      return {
+        id: product.id,
+        productId: product.id,
+        productName: product.name,
+        productImage: product.images[0] || '',
+        productPriceMinor: priceMinor,
+        commissionPercent,
+        referralLink: `${frontendUrl}/f/${product.slug}?ref=${creatorId}`,
+        totalClicks: 0, // Will be calculated from ReferralVisit in future
+        totalSales: 0, // Will be calculated from Order in future
+        totalEarningsMinor: 0, // Will be calculated from Commission in future
+        createdAt: product.createdAt,
+      };
+    });
   }
 
   /**
    * Get stream detail with referral link.
    */
   async getStreamDetail(creatorId: string, productId: string): Promise<CreatorStreamDto> {
-    // Temporary: return mock data to avoid Prisma errors
-    // TODO: Fix database schema issue
+    // Fetch the product with its offer
+    const product = await this.prisma.product.findUnique({
+      where: { id: productId },
+      include: {
+        offers: {
+          take: 1,
+          select: {
+            priceMinor: true,
+            commissionPercent: true,
+          },
+        },
+      },
+    });
+
+    if (!product) {
+      throw new Error('Product not found');
+    }
+
+    const offer = product.offers[0];
+    const priceMinor = offer?.priceMinor || 0;
+    const commissionPercent = offer?.commissionPercent || 20;
+    const frontendUrl = this.config.get('FRONTEND_URL') || 'https://sofsavdo.com';
+
     return {
-      id: 'placeholder-id',
-      productId,
-      productName: 'Placeholder Product',
-      productImage: '',
-      productPriceMinor: 0,
-      commissionPercent: 0,
-      referralLink: `${process.env.FRONTEND_URL}/buyer/v2/f/placeholder`,
-      totalClicks: 0,
-      totalSales: 0,
-      totalEarningsMinor: 0,
-      createdAt: new Date(),
+      id: product.id,
+      productId: product.id,
+      productName: product.name,
+      productImage: product.images[0] || '',
+      productPriceMinor: priceMinor,
+      commissionPercent,
+      referralLink: `${frontendUrl}/f/${product.slug}?ref=${creatorId}`,
+      totalClicks: 0, // Will be calculated from ReferralVisit in future
+      totalSales: 0, // Will be calculated from Order in future
+      totalEarningsMinor: 0, // Will be calculated from Commission in future
+      createdAt: product.createdAt,
     };
   }
 
