@@ -74,8 +74,6 @@ export function CheckoutPageClient({ offerSlug }: { offerSlug: string }) {
     if (buyerUser.phone) setValue("phone", buyerUser.phone);
     const defaultAddress = buyerAddressesQuery.data?.find((a) => a.isDefault) ?? buyerAddressesQuery.data?.[0];
     if (defaultAddress) {
-      setValue("region", defaultAddress.region);
-      setValue("city", defaultAddress.city);
       setValue("address", defaultAddress.line1);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -123,19 +121,6 @@ export function CheckoutPageClient({ offerSlug }: { offerSlug: string }) {
     setRegionCode(deliveryRegions[0]!.regionCode);
   }, [regionCode, deliveryRegions]);
 
-  // Picking a delivery region already tells us the buyer's viloyat/shahar — auto-filling the
-  // separate "Viloyat"/"Shahar" contact fields below means the buyer never types the same thing
-  // twice. Still freely editable afterward (e.g. to add mahalla-level detail the canonical zone
-  // name doesn't capture) — this only pre-fills, never locks the field.
-  useEffect(() => {
-    if (!regionCode) return;
-    const zone = UZ_DELIVERY_ZONES.find((z) => z.code === regionCode);
-    if (!zone) return;
-    const viloyat = UZ_VILOYATLAR.find((v) => v.code === zone.viloyatCode);
-    if (viloyat) setValue("region", viloyat.name);
-    setValue("city", zone.name);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [regionCode]);
 
   if (offerQuery.isLoading) {
     return (
@@ -181,8 +166,6 @@ export function CheckoutPageClient({ offerSlug }: { offerSlug: string }) {
       customer: {
         fullName: values.fullName,
         phone: values.phone,
-        region: values.region,
-        city: values.city,
         address: values.address,
         email: values.email || undefined,
         comment: values.comment,
@@ -218,17 +201,13 @@ export function CheckoutPageClient({ offerSlug }: { offerSlug: string }) {
 
           {isPhysical ? (
             <>
-              <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
-                <TextField label="Viloyat" {...register("region")} />
-                <TextField label="Shahar" {...register("city")} />
-              </div>
-              <TextAreaField label="Manzil (ko'cha, uy, mahalla)" {...register("address")} />
               {deliveryRegions.length > 0 ? (
                 <div>
                   <p className="mb-1.5 font-body text-sm font-medium text-text-primary">Yetkazib berish hududi</p>
                   <RegionSelect regions={deliveryRegions} value={regionCode} onChange={setRegionCode} />
                 </div>
               ) : null}
+              <TextAreaField label="Manzil (ko'cha, uy, mahalla)" {...register("address")} />
             </>
           ) : null}
 
