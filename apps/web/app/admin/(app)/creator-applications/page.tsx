@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import type { CreatorApplicationStatus } from "@sofsavdo/types";
 import { Button, ConfirmModal, DataTableShell, StatusBadge } from "@sofsavdo/ui";
-import { useOnboardingApplicationList, useApproveCreatorApplication, useRejectCreatorApplication, useRequestCreatorRevision } from "@/services/admin/creators";
+import { useOnboardingApplicationList } from "@/services/admin/onboarding";
+import { useApproveCreatorApplication, useRejectCreatorApplication, useRequestCreatorRevision } from "@/services/admin/creators";
 import { applicationStatusMeta } from "@/lib/status";
 import { ApiError } from "@/lib/api/admin";
 
