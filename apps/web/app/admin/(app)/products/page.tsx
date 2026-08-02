@@ -59,7 +59,7 @@ export default function AdminProductsPage() {
           meta={<StatusBadge tone={productStatusMeta[p.status].tone} label={productStatusMeta[p.status].label} />}
           fields={[
             { label: "Turi", value: TYPE_LABELS[p.type] ?? p.type },
-            { label: "SKU", value: p.sku ?? "—" },
+            { label: "Kod", value: p.sku ?? "—" },
           ]}
         />
       ))}
@@ -69,7 +69,7 @@ export default function AdminProductsPage() {
           <tr>
             <th className="whitespace-nowrap px-4 py-2.5 font-medium">Nomi</th>
             <th className="whitespace-nowrap px-4 py-2.5 font-medium">Turi</th>
-            <th className="whitespace-nowrap px-4 py-2.5 font-medium">SKU</th>
+            <th className="whitespace-nowrap px-4 py-2.5 font-medium">Kod</th>
             <th className="whitespace-nowrap px-4 py-2.5 font-medium">Holat</th>
           </tr>
         </thead>
