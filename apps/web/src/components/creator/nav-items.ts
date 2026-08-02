@@ -32,8 +32,8 @@ export const CREATOR_NAV_ITEMS: CreatorNavItem[] = [
   { href: "/creator/launch-bonus", label: "Launch Bonus", icon: Gift, approvedOnly: true },
   { href: "/creator/leaderboard", label: "Reyting", icon: Trophy, approvedOnly: true },
   { href: "/creator/referrals", label: "Do'stlar", icon: HeartHandshake, approvedOnly: true },
-  { href: "/creator/earnings", label: "Daromad", icon: Wallet, bottomNav: true, approvedOnly: true },
-  { href: "/creator/payouts", label: "Hamyon", icon: TrendingUp, approvedOnly: true },
+  { href: "/creator/earnings", label: "Balans", icon: Wallet, bottomNav: true, approvedOnly: true },
+  { href: "/creator/payouts", label: "Pul yechish", icon: TrendingUp, approvedOnly: true },
   { href: "/creator/notifications", label: "Bildirishnomalar", icon: Bell },
   { href: "/creator/profile", label: "Profil", icon: User },
 ];

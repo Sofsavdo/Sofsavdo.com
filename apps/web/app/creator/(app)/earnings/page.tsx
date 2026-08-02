@@ -45,7 +45,7 @@ export default function EarningsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="font-heading text-2xl font-bold text-text-primary">Daromad</h1>
+      <h1 className="font-heading text-2xl font-bold text-text-primary">Balans</h1>
 
       {/* Hero balance card */}
       <Card className="border-accent/20 bg-gradient-to-br from-surface to-bg">
