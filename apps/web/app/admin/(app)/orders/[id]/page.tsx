@@ -96,7 +96,7 @@ function RealOrderDetailPage({ id }: { id: string }) {
 
         <Card>
           <CardHeader>
-            <CardTitle>Attribution / Creator</CardTitle>
+            <CardTitle>Manba / Creator</CardTitle>
           </CardHeader>
           {order.attribution ? (
             <dl className="space-y-2 font-body text-sm">
@@ -351,7 +351,7 @@ function MockOrderDetailPage({ id }: { id: string }) {
 
         <Card>
           <CardHeader>
-            <CardTitle>Attribution / Creator</CardTitle>
+            <CardTitle>Manba / Creator</CardTitle>
           </CardHeader>
           {order.attributedCreatorName ? (
             <dl className="space-y-2 font-body text-sm">

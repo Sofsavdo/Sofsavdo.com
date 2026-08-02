@@ -92,7 +92,7 @@ export default function AdminReferralLinksPage() {
         open={!!confirmCode}
         onClose={() => setConfirmCode(null)}
         title="Referral havolani deaktivatsiya qilish"
-        description="Bu havola orqali endi yangi click/attribution yozilmaydi."
+        description="Bu havola orqali endi yangi click/hisob yozilmaydi."
         confirmLabel="Deaktivatsiya qilish"
         destructive
         isPending={deactivate.isPending}

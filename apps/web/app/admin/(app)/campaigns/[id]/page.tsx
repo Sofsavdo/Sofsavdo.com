@@ -150,7 +150,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Attribution</CardTitle>
+            <CardTitle>Hisob muddati</CardTitle>
           </CardHeader>
           <p className="font-numeric text-lg tabular-nums text-text-primary">{campaign.attributionWindowDays} kun</p>
         </Card>

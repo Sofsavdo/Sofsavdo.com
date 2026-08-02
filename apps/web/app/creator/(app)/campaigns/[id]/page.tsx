@@ -378,7 +378,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                 </dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-text-muted">Attribution muddati</dt>
+                <dt className="text-text-muted">Hisob muddati</dt>
                 <dd className="text-text-primary">{campaign.attributionWindowDays} kun</dd>
               </div>
             </dl>
