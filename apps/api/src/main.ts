@@ -54,7 +54,7 @@ async function bootstrap() {
 
   // Serves the LocalDiskStorage adapter's files (dev/test only — see storage/local-disk.storage.ts;
   // a real cloud provider would serve from its own CDN and this line would simply not run).
-  app.useStaticAssets(path.resolve(process.env.STORAGE_LOCAL_DIR ?? "uploads"), { prefix: "/media/" });
+  app.useStaticAssets(path.resolve(process.env.STORAGE_LOCAL_DIR ?? "uploads"), { prefix: "/uploads" });
   // AppLogger is transient-scoped (a fresh instance per injection site, so each class's log
   // lines carry its own context) — `app.get()` only works for singleton-scoped providers and
   // throws InvalidClassScopeException for anything else; `app.resolve()` is the scoped-provider
