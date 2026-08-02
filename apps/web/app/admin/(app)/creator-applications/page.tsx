@@ -4,7 +4,6 @@ import { useState } from "react";
 import type { CreatorApplicationStatus } from "@sofsavdo/types";
 import { Button, ConfirmModal, DataTableShell, StatusBadge } from "@sofsavdo/ui";
 import { useOnboardingApplicationList, useApproveCreatorApplication, useRejectCreatorApplication, useRequestCreatorRevision } from "@/services/admin/creators";
-import { useOnboardingApplicationList } from "@/services/admin/onboarding";
 import { applicationStatusMeta } from "@/lib/status";
 import { ApiError } from "@/lib/api/admin";
 
