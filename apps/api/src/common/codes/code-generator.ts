@@ -46,19 +46,6 @@ export function generateReferralCode(creatorName: string, campaignOrOfferName: s
   return generateHumanCode([creatorName, campaignOrOfferName]);
 }
 
-// Generate a 5-character case-sensitive promo code for creator-to-creator referrals
-// Uses the full alphabet (including lowercase) for case-sensitivity as requested
-const PROMO_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-const PROMO_CODE_LENGTH = 5;
-
-export function generateCreatorPromoCode(): string {
-  let out = "";
-  for (let i = 0; i < PROMO_CODE_LENGTH; i++) {
-    out += PROMO_ALPHABET[randomInt(PROMO_ALPHABET.length)];
-  }
-  return out;
-}
-
 // Prisma's unique-constraint violation code — duplicated here (rather than importing from
 // @prisma/client just for a string literal) to keep this module free of a Prisma dependency, so
 // it stays trivially unit-testable and reusable outside a Prisma context if needed.

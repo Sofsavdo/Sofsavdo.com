@@ -70,7 +70,6 @@ export class AuthService {
     const userId = await this.prisma.$transaction(async (tx) => {
       const referrer = await this.referrals.resolveReferrerForAttribution(dto.referralCode, tx);
       const referralCode = await this.referrals.generateUniqueReferralCode(tx);
-      const promoCode = await this.referrals.generateUniquePromoCode(tx);
 
       // A DRAFT CreatorApplication is created in the same write as the CreatorProfile — every
       // real creator account has one from the moment of registration, exactly like the mock (see
@@ -87,7 +86,6 @@ export class AuthService {
               displayName: dto.displayName,
               contentNiches: [],
               referralCode,
-              promoCode,
               applications: { create: { status: "DRAFT", formData: {} } },
             },
           },

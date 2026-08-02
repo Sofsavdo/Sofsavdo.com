@@ -173,9 +173,6 @@ model CreatorProfile {
   // backfilled for pre-existing creators by the migration, never rotated (no rotation
   // requirement exists; a stable code keeps already-shared links working forever).
   referralCode        String              @unique
-  // Creator promo code (5-character case-sensitive) — for manual entry during registration
-  // as an alternative to clicking a referral link. Generated at registration, unique per creator.
-  promoCode           String?             @unique
   // Phase Q — whether an admin has manually spot-checked that this creator's public social bio
   // mentions sofsavdo.com, per the platform's contractual requirement. PENDING (never checked) is
   // the honest default — never auto-assumed COMPLIANT, since no automated bio-scraping exists (see
@@ -220,8 +217,7 @@ enum BonusStatus {
 
 model LaunchBonusSettings {
   id                   String   @id @default(cuid())
-  bonusAmountMinor     Int      @default(150000000) // 1,500,000 UZS (default without referral)
-  referralBonusAmountMinor Int   @default(250000000) // 2,500,000 UZS (with referral/promo code)
+  bonusAmountMinor     Int      @default(200000000) // 2,000,000 UZS
   deadlineDays         Int      @default(30)
   
   // Configurable requirements
