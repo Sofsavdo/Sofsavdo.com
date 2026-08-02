@@ -2114,7 +2114,7 @@ export async function getLaunchBonusSettings(): Promise<any> {
 }
 
 export async function updateLaunchBonusSettings(data: any): Promise<any> {
-  return apiRequest("/launch-bonus/settings", { method: "PATCH", body: data });
+  return apiRequest("/launch-bonus/settings", { method: "PUT", body: data });
 }
 
 export async function getPendingBioVerifications(): Promise<any[]> {

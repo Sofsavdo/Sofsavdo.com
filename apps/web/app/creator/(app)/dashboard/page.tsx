@@ -91,7 +91,7 @@ export default function DashboardPage() {
       .map((p) => ({
         key: `payout_${p.id}`,
         text: `${formatMoneyMinor(p.amountMinor)} miqdoridagi payout so'rovingiz ko'rib chiqilmoqda`,
-        href: "/creator/payouts",
+        href: "/creator/earnings",
       })),
   ];
   const latestPayout = payoutItems[0];
@@ -133,7 +133,7 @@ export default function DashboardPage() {
           </p>
         </div>
         <Button asChild size="lg">
-          <Link href="/creator/payouts">Pul yechish</Link>
+          <Link href="/creator/earnings">Pul yechish</Link>
         </Button>
       </Card>
 

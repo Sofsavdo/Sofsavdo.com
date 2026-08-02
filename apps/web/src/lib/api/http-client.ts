@@ -35,7 +35,7 @@ export class ApiError extends Error {
 }
 
 interface RequestOptions {
-  method?: "GET" | "POST" | "PATCH" | "DELETE";
+  method?: "GET" | "POST" | "PATCH" | "DELETE" | "PUT";
   body?: unknown;
   // Internal: prevents infinite refresh loops if the refresh call itself ever hit this function.
   skipRefreshOnAuthError?: boolean;
