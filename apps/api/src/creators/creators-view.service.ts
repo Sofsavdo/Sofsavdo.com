@@ -179,7 +179,6 @@ export class CreatorsViewService {
           take: 1,
           select: {
             priceMinor: true,
-            commissionPercent: true,
           },
         },
       },
@@ -188,9 +187,9 @@ export class CreatorsViewService {
 
     // Transform products to CreatorStreamDto
     return products.map((product) => {
-      const offer = product.offers[0];
+      const offer = (product as any).offers?.[0];
       const priceMinor = offer?.priceMinor || 0;
-      const commissionPercent = offer?.commissionPercent || 20; // Default 20%
+      const commissionPercent = 20; // Default 20% - commission is in Campaign, not Offer
 
       const frontendUrl = this.config.get('FRONTEND_URL') || 'https://sofsavdo.com';
 
@@ -222,7 +221,6 @@ export class CreatorsViewService {
           take: 1,
           select: {
             priceMinor: true,
-            commissionPercent: true,
           },
         },
       },
@@ -232,9 +230,9 @@ export class CreatorsViewService {
       throw new Error('Product not found');
     }
 
-    const offer = product.offers[0];
+    const offer = (product as any).offers?.[0];
     const priceMinor = offer?.priceMinor || 0;
-    const commissionPercent = offer?.commissionPercent || 20;
+    const commissionPercent = 20; // Default 20% - commission is in Campaign, not Offer
     const frontendUrl = this.config.get('FRONTEND_URL') || 'https://sofsavdo.com';
 
     return {
