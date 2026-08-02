@@ -73,7 +73,7 @@ export class LaunchBonusService {
     // Referrals - creator who joined OR started ordering
     const referrals = await this.prisma.creatorReferral.count({
       where: {
-        referrerId: creatorProfileId,
+        referrerCreatorId: creatorProfileId,
         referred: {
           OR: [
             { createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } },
