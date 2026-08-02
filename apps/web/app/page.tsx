@@ -29,7 +29,7 @@ export default async function HomePage() {
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <h1 className="text-xl font-bold text-gray-900">{BRAND.name}</h1>
           <div className="flex gap-2">
-            <Link href="/buyer/market">
+            <Link href="/catalog">
               <button className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium">
                 Mahsulotlar
               </button>
@@ -58,7 +58,7 @@ export default async function HomePage() {
                 Creator sifatida boshlash
               </button>
             </Link>
-            <Link href="/buyer/market">
+            <Link href="/catalog">
               <button className="px-8 py-3 bg-transparent border-2 border-white text-white rounded-lg font-semibold hover:bg-white/10 transition-colors">
                 Mahsulotlarni ko'rish
               </button>
@@ -99,7 +99,7 @@ export default async function HomePage() {
       <section className="max-w-7xl mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-2xl font-bold text-gray-900">Mashhur mahsulotlar</h3>
-          <Link href="/buyer/market" className="text-blue-600 hover:text-blue-700 text-sm font-medium">
+          <Link href="/catalog" className="text-blue-600 hover:text-blue-700 text-sm font-medium">
             Barchasini ko'rish →
           </Link>
         </div>
