@@ -30,7 +30,9 @@ function RegisterForm() {
 
   async function onSubmit(values: RegisterInput) {
     try {
-      await registerAccount(values.email, values.fullName, values.password, referralCode);
+      // Use promoCode from form if provided, otherwise use referralCode from URL
+      const codeToUse = values.promoCode || referralCode;
+      await registerAccount(values.email, values.fullName, values.password, codeToUse);
       // Wait for session to be updated, then redirect
       setTimeout(() => {
         router.replace("/creator/onboarding");
@@ -58,6 +60,14 @@ function RegisterForm() {
           autoComplete="new-password"
           error={errors.password?.message}
           {...register("password")}
+        />
+        <TextField
+          label="Promo kod (ixtiyoriy)"
+          placeholder="Masalan: Xurmo"
+          autoComplete="off"
+          error={errors.promoCode?.message}
+          {...register("promoCode")}
+          helperText="Do'stingizdan olgan promo kodni kiriting (5 ta belgi)"
         />
 
         {registerError ? <Alert tone="error">{registerError}</Alert> : null}

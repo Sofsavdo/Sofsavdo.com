@@ -89,12 +89,21 @@ export default function LaunchBonusSettingsPage() {
               <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                 <div className="grid grid-cols-2 gap-3">
                   <TextField
-                    label="Bonus Miqdori (so'm)"
+                    label="Bonus Miqdori (so'm) - taklifsiz"
                     name="bonusAmountMinor"
                     type="number"
-                    defaultValue={settings?.bonusAmountMinor || 200000000}
+                    defaultValue={settings?.bonusAmountMinor || 150000000}
                     required
                   />
+                  <TextField
+                    label="Bonus Miqdori (so'm) - taklif bilan"
+                    name="referralBonusAmountMinor"
+                    type="number"
+                    defaultValue={settings?.referralBonusAmountMinor || 250000000}
+                    required
+                  />
+                </div>
+                <div className="grid grid-cols-1 gap-3">
                   <TextField
                     label="Muddat (kun)"
                     name="deadlineDays"

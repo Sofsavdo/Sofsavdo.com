@@ -10,6 +10,7 @@ export const registerSchema = z.object({
   fullName: z.string().min(3, "To'liq ismingizni kiriting"),
   email: z.string().min(1, "Email kiritilishi shart").email("Email formati noto'g'ri"),
   password: z.string().min(6, "Parol kamida 6 belgidan iborat bo'lishi kerak"),
+  promoCode: z.string().length(5, "Promo kod 5 ta belgidan iborat bo'lishi kerak").optional(),
 });
 export type RegisterInput = z.infer<typeof registerSchema>;
 
