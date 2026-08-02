@@ -38,6 +38,7 @@ export class PaymentsService {
     let payment = await this.prisma.payment.findUnique({ where: { orderId } });
 
     if (!payment) {
+      // TODO: After migration, generate short merchantReference for Click (e.g., "SOF123456")
       payment = await this.prisma.payment.create({
         data: {
           orderId,
@@ -46,6 +47,7 @@ export class PaymentsService {
           amountMinor: order.totalMinor,
           currency: order.currency,
           idempotencyKey: `${orderId}:payment`,
+          merchantReference: `${orderId}:payment`,
           webhookPayloads: [],
         },
       });
@@ -78,13 +80,10 @@ export class PaymentsService {
   async handleClickCallback(rawBody: Record<string, unknown>) {
     // Hardcoding the "CLICK" lookup here is honest, not a workaround: this method only ever
     // exists because Click itself calls it (see ClickCallbackController) — a future Payme/Uzum
-    // Nasiya callback would get its own equally provider-specific handleXCallback method, not a
-    // generalized one, since each provider's callback contract is genuinely different.
-    // verifyCallback throws DomainException("INVALID_PAYMENT_SIGNATURE") on a bad/missing
-    // signature — the callback controller is responsible for translating that into Click's own
-    // error-reply shape rather than letting it become a generic HTTP error Click can't parse.
+    // callback would be a separate method.
     const verified = this.paymentPorts.get("CLICK")!.verifyCallback(rawBody);
 
+    // TODO: After migration, look up by merchantReference instead of id
     const payment = await this.prisma.payment.findUnique({ where: { id: verified.paymentId } });
     if (!payment) throw new DomainException("PAYMENT_NOT_FOUND", "To'lov topilmadi.");
 

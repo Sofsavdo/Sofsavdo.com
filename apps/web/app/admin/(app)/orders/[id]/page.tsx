@@ -143,14 +143,12 @@ function RealOrderDetailPage({ id }: { id: string }) {
           </div>
           <div>
             <dt className="text-text-muted">Telefon</dt>
-            <dd className="text-text-primary">{order.customer.phone}</dd>
+            <dd className="text-text-primary">
+              <a href={`tel:${order.customer.phone}`} className="text-accent hover:underline">
+                {order.customer.phone}
+              </a>
+            </dd>
           </div>
-          {order.customer.email ? (
-            <div>
-              <dt className="text-text-muted">Email</dt>
-              <dd className="text-text-primary">{order.customer.email}</dd>
-            </div>
-          ) : null}
           <div>
             <dt className="text-text-muted">To&apos;lov usuli</dt>
             <dd className="text-text-primary">{order.payment?.provider ?? "—"}</dd>
@@ -413,7 +411,11 @@ function MockOrderDetailPage({ id }: { id: string }) {
           </div>
           <div>
             <dt className="text-text-muted">Telefon</dt>
-            <dd className="text-text-primary">{order.customer.phone}</dd>
+            <dd className="text-text-primary">
+              <a href={`tel:${order.customer.phone}`} className="text-accent hover:underline">
+                {order.customer.phone}
+              </a>
+            </dd>
           </div>
         </dl>
         {order.type === "PHYSICAL" && (order.customer.region || order.customer.city || order.customer.address) ? (

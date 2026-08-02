@@ -232,8 +232,6 @@ export function CheckoutPageClient({ offerSlug }: { offerSlug: string }) {
             </>
           ) : null}
 
-          <TextField label="Email (ixtiyoriy)" type="email" error={errors.email?.message} {...register("email")} />
-
           <TextAreaField label="Qisqacha izoh (ixtiyoriy)" {...register("comment")} />
 
           <div>

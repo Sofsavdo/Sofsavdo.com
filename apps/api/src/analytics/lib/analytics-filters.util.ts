@@ -16,7 +16,7 @@ export function buildOrderDimensionFilters(query: Pick<AnalyticsQueryDto, "campa
   return where;
 }
 
-export const PAID_ORDER_STATUSES = ["PAID", "PROCESSING", "SHIPPED", "IN_TRANSIT", "DELIVERED", "REFUNDED"] as const;
+export const PAID_ORDER_STATUSES = ["DELIVERED"] as const;
 export const REVENUE_ORDER_STATUSES = ["PAID", "PROCESSING", "SHIPPED", "IN_TRANSIT", "DELIVERED"] as const;
 export const PENDING_ORDER_STATUSES = ["CREATED", "PAYMENT_PENDING"] as const;
 export const DECIDED_REFUND_STATUSES = ["APPROVED", "PROCESSED"] as const;

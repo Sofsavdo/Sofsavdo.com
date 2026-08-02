@@ -1388,6 +1388,7 @@ model Payment {
   amountMinor       Int
   currency          String              @default("UZS")
   providerReference String?
+  merchantReference String              @unique
   webhookPayloads   Json[]
   idempotencyKey    String              @unique
   createdAt         DateTime            @default(now())
@@ -1395,6 +1396,7 @@ model Payment {
 
   @@index([status])
   @@index([providerReference])
+  @@index([merchantReference])
   // Phase 13 (Analytics) — see Order.createdAt's index comment above; Payment Analytics'
   // method/success-rate breakdowns are date-range queries against this table directly.
   @@index([createdAt])
