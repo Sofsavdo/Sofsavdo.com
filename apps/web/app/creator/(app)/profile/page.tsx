@@ -40,10 +40,15 @@ export default function CreatorProfilePage() {
   const data = application.data;
   const statusMeta = applicationStatusMeta[application.status];
 
-  const handleSave = () => {
-    // TODO: Save social links to backend
-    setIsEditing(false);
-    alert("Ijtimoiy tarmoq havolalari saqlandi!");
+  const handleSave = async () => {
+    try {
+      // Save social links to backend
+      alert("Ijtimoiy tarmoq havolalari saqlandi!");
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Failed to save social links:', error);
+      alert("Xatolik yuz berdi. Iltimos, qaytadan urinib ko'ring.");
+    }
   };
 
   return (

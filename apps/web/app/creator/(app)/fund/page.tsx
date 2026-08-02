@@ -10,8 +10,6 @@ import { useWalletBalance } from "@/services/finance";
 import { fundContributionSchema, type FundContributionInput } from "@/lib/schemas";
 import { ApiError } from "@/lib/api";
 
-const USE_REAL_API = process.env.NEXT_PUBLIC_API_MODE === "real";
-
 export default function CreatorFundPage() {
   const statsQuery = useFundStats();
   const leaderboardQuery = useFundLeaderboard();
@@ -76,10 +74,7 @@ export default function CreatorFundPage() {
           ) : null}
         </CardHeader>
 
-        {!USE_REAL_API ? (
-          <Alert tone="info">Creator Fund faqat real hisob rejimida mavjud.</Alert>
-        ) : (
-          <form onSubmit={form.handleSubmit(onContribute)} className="flex flex-col gap-4" noValidate>
+        <form onSubmit={form.handleSubmit(onContribute)} className="flex flex-col gap-4" noValidate>
             <TextField label="Miqdor (so'm)" type="number" error={form.formState.errors.amount?.message} {...form.register("amount")} />
             <TextField
               label="Xabar (ixtiyoriy)"
@@ -95,7 +90,6 @@ export default function CreatorFundPage() {
               {contribute.isPending ? "Yuborilmoqda..." : "Hissa qo'shish"}
             </Button>
           </form>
-        )}
       </Card>
 
       <div>

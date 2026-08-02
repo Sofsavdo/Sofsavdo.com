@@ -21,7 +21,6 @@ import { campaignApplicationStatusMeta, creatorCampaignStatusMeta } from "@/lib/
 import { ApiError } from "@/lib/api";
 
 const ASSET_ICONS = { image: ImageIcon, video: Video, brief: FileText, logo: Award, caption_template: FileText } as const;
-const USE_REAL_API = process.env.NEXT_PUBLIC_API_MODE === "real";
 
 interface ApplicationFormState {
   message: string;
@@ -119,8 +118,7 @@ function ApplicationFields({
   );
 }
 
-// Status-aware panel for an existing application against this campaign (real backend only — the
-// mock has no per-application records, so this never renders there). Handles the
+// Status-aware panel for an existing application against this campaign. Handles the
 // changes-requested edit+resubmit loop and withdrawal; APPROVED falls through to the membership
 // card below instead.
 function ApplicationPanel({ application, campaign }: { application: CampaignApplicationCreatorView; campaign: Campaign }) {

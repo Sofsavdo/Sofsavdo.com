@@ -6,19 +6,11 @@ import { BRAND } from "@sofsavdo/config/brand";
 import { useMyReferralRewards, useMyReferrals, useReferralCode, useReferralSummary } from "@/services/referrals";
 import { referralActivityMeta } from "@/lib/status";
 
-const USE_REAL_API = process.env.NEXT_PUBLIC_API_MODE === "real";
-
 export default function CreatorReferralsPage() {
   const codeQuery = useReferralCode();
   const summaryQuery = useReferralSummary();
   const friendsQuery = useMyReferrals();
   const rewardsQuery = useMyReferralRewards();
-
-  if (!USE_REAL_API) {
-    return (
-      <Alert tone="info">Do&apos;stlarni taklif qilish faqat real API rejimida ishlaydi.</Alert>
-    );
-  }
 
   if (codeQuery.isLoading || summaryQuery.isLoading) {
     return (

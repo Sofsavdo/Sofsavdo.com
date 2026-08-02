@@ -5,7 +5,6 @@ import { Alert, Card, Skeleton } from "@sofsavdo/ui";
 import { useNotificationPreferences, useUpdateNotificationPreference } from "@/services/notifications";
 import { notificationCategoryMeta } from "@/lib/status";
 
-const USE_REAL_API = process.env.NEXT_PUBLIC_API_MODE === "real";
 const CHANNELS: { key: "inApp" | "telegram" | "email"; label: string }[] = [
   { key: "inApp", label: "Ilova ichida" },
   { key: "telegram", label: "Telegram" },
@@ -76,15 +75,6 @@ function RealNotificationPreferencesPage() {
   );
 }
 
-function MockNotificationPreferencesPage() {
-  return (
-    <div className="space-y-6">
-      <h1 className="font-heading text-2xl font-bold text-text-primary">Bildirishnoma sozlamalari</h1>
-      <Alert tone="info">Bildirishnoma sozlamalari faqat real backend rejimida (NEXT_PUBLIC_API_MODE=real) mavjud.</Alert>
-    </div>
-  );
-}
-
 export default function NotificationPreferencesPage() {
-  return USE_REAL_API ? <RealNotificationPreferencesPage /> : <MockNotificationPreferencesPage />;
+  return <RealNotificationPreferencesPage />;
 }

@@ -3,9 +3,7 @@
 import Link from "next/link";
 import { formatMoneyMinor } from "@sofsavdo/types";
 import { Alert, Badge, Button, Card, CardHeader, CardTitle, EmptyState, Skeleton, StatTile } from "@sofsavdo/ui";
-import { useBalance, useWalletBalance, useWalletTransactions } from "@/services/finance";
-
-const USE_REAL_API = process.env.NEXT_PUBLIC_API_MODE === "real";
+import { useWalletBalance, useWalletTransactions } from "@/services/finance";
 
 const LEDGER_LABELS: Record<string, string> = {
   ACCRUAL: "Hisoblandi",
@@ -114,72 +112,6 @@ function RealBalancePage() {
   );
 }
 
-function MockBalancePage() {
-  const query = useBalance();
-
-  if (query.isLoading) {
-    return (
-      <div className="space-y-4">
-        <Skeleton className="h-8 w-56" />
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-24" />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  if (query.isError || !query.data) {
-    return <Alert tone="error">Balansni yuklashda xatolik yuz berdi.</Alert>;
-  }
-
-  const b = query.data;
-  const canRequestPayout = b.availableMinor >= b.minimumPayoutMinor;
-
-  return (
-    <div className="space-y-6">
-      <h1 className="font-heading text-2xl font-bold text-text-primary">Balans</h1>
-
-      <Card className="border-accent/20 bg-gradient-to-br from-surface to-bg">
-        <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-          <div>
-            <p className="font-body text-sm text-text-secondary">Mavjud (yechib olish uchun)</p>
-            <p className="mt-1 font-numeric text-3xl font-bold tabular-nums text-text-primary md:text-4xl">
-              {formatMoneyMinor(b.availableMinor)}
-            </p>
-          </div>
-          {canRequestPayout ? (
-            <Button asChild size="lg">
-              <Link href="/creator/payouts">Pul yechish</Link>
-            </Button>
-          ) : (
-            <Button size="lg" disabled>
-              Pul yechish
-            </Button>
-          )}
-        </div>
-        <p className="mt-4 border-t border-border pt-3 font-body text-sm text-text-secondary">
-          Minimal so&apos;rov miqdori: <strong>{formatMoneyMinor(b.minimumPayoutMinor)}</strong>. Payout faqat
-          &quot;Mavjud&quot; balansdan so&apos;raladi.
-        </p>
-        {!canRequestPayout ? (
-          <Alert tone="warning" className="mt-3">
-            Mavjud balansingiz minimal payout miqdoridan kam. Yangi sotuvlar tasdiqlangach so&apos;rov yubora olasiz.
-          </Alert>
-        ) : null}
-      </Card>
-
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
-        <StatTile label="Kutilmoqda" value={formatMoneyMinor(b.pendingMinor)} />
-        <StatTile label="Tasdiqlangan" value={formatMoneyMinor(b.approvedMinor)} />
-        <StatTile label="Payout so'ralgan" value={formatMoneyMinor(b.payoutRequestedMinor)} />
-        <StatTile label="To'langan (jami)" value={formatMoneyMinor(b.paidMinor)} />
-      </div>
-    </div>
-  );
-}
-
 export default function BalancePage() {
-  return USE_REAL_API ? <RealBalancePage /> : <MockBalancePage />;
+  return <RealBalancePage />;
 }

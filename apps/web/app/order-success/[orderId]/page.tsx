@@ -8,8 +8,6 @@ import { BRAND } from "@sofsavdo/config/brand";
 import { CheckCircle2 } from "lucide-react";
 import { useOrderPublic } from "@/services/offer";
 
-// Real-mode-only (see CheckoutOrderResult in @sofsavdo/types) — mock mode's OrderPublic has no
-// status field, so this renders nothing there, exactly as before this phase.
 const PAYMENT_RESULT_LABELS: Record<string, string> = {
   PAYMENT_PENDING: "To'lov kutilmoqda",
   PAID: "To'landi",

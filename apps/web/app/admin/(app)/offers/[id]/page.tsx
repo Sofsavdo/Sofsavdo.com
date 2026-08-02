@@ -11,11 +11,16 @@ import { OfferForm } from "@/components/admin/OfferForm";
 import { DeliveryRegionsManager } from "@/components/admin/DeliveryRegionsManager";
 import { offerStatusMeta, offerAvailabilityMeta, campaignStatusMeta } from "@/lib/status";
 
-const USE_REAL_API = process.env.NEXT_PUBLIC_API_MODE === "real";
-
 // Mirrors OffersService's ALLOWED_TRANSITIONS on the backend exactly — the UI only ever offers
 // actions the server will actually accept, but the server re-checks every one of these
-// regardless (see offers.service.ts / RBAC.md); this is a UX convenience, not the enforcement.
+// transitions server-side for safety.
+const ALLOWED_TRANSITIONS: Record<string, Array<"activate" | "pause" | "archive">> = {
+  DRAFT: ["activate", "archive"],
+  ACTIVE: ["pause", "archive"],
+  PAUSED: ["activate", "archive"],
+  ARCHIVED: [],
+};
+
 const ALLOWED_NEXT_ACTIONS: Record<string, Array<"activate" | "pause" | "archive">> = {
   DRAFT: ["activate", "archive"],
   ACTIVE: ["pause", "archive"],
@@ -160,7 +165,7 @@ export default function OfferDetailPage({ params }: { params: Promise<{ id: stri
         )}
       </Card>
 
-      {USE_REAL_API && productQuery.data?.type === "PHYSICAL_PRODUCT" ? <DeliveryRegionsManager offerId={offer.id} /> : null}
+      {productQuery.data?.type === "PHYSICAL_PRODUCT" ? <DeliveryRegionsManager offerId={offer.id} /> : null}
 
       <div className="mx-auto max-w-2xl">
         <OfferForm existing={offer} />

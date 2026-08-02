@@ -4,9 +4,8 @@ import { getOfferPublic } from "@/lib/api";
 import { BRAND } from "@sofsavdo/config/brand";
 import { OfferLandingPageClient } from "@/components/offer/OfferLandingPageClient";
 
-// Public, buyer-facing — will be server-rendered against real data in Phase 6/7 once this reads
-// from apps/api instead of the mock store. For now it opts out of static prerendering (per-request
-// `?ref=` personalization) rather than pretending to be static.
+// Public, buyer-facing — server-rendered against real data. This opts out of static prerendering
+// (per-request `?ref=` personalization) rather than pretending to be static.
 export const dynamic = "force-dynamic";
 
 // Each offer landing is the actual page a creator shares — a generic sitewide title/description

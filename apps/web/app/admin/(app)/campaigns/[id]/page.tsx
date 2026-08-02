@@ -2,6 +2,7 @@
 
 import { use, useState } from "react";
 import Link from "next/link";
+import type { CampaignStatus } from "@sofsavdo/types";
 import { formatMoneyMinor } from "@sofsavdo/types";
 import { Alert, Badge, Button, Card, CardHeader, CardTitle, ConfirmModal, Skeleton, StatusBadge } from "@sofsavdo/ui";
 import { Archive, CheckCircle2, Pause, Play } from "lucide-react";
@@ -21,13 +22,19 @@ import { campaignStatusMeta, campaignAvailabilityMeta, campaignApplicationStatus
 import { formatCommission } from "@/lib/commission-display";
 import { ApiError } from "@/lib/api/admin";
 
-const USE_REAL_API = process.env.NEXT_PUBLIC_API_MODE === "real";
-
 // Mirrors CampaignsService's ALLOWED_TRANSITIONS on the backend exactly — UX convenience only,
 // the server re-checks every transition regardless.
+const ALLOWED_TRANSITIONS: Record<CampaignStatus, CampaignStatus[]> = {
+  DRAFT: ["ACTIVE", "ARCHIVED"],
+  ACTIVE: ["PAUSED", "COMPLETED", "ARCHIVED"],
+  PAUSED: ["ACTIVE", "ARCHIVED"],
+  COMPLETED: [],
+  ARCHIVED: [],
+};
+
 const ALLOWED_NEXT_ACTIONS: Record<string, Array<"activate" | "pause" | "complete" | "archive">> = {
   DRAFT: ["activate", "archive"],
-  ACTIVE: ["pause", "complete"],
+  ACTIVE: ["pause", "complete", "archive"],
   PAUSED: ["activate", "complete", "archive"],
   COMPLETED: ["archive"],
   ARCHIVED: [],
@@ -182,46 +189,12 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
         <CardHeader>
           <CardTitle>Ushbu kampaniya bo&apos;yicha creator arizalari</CardTitle>
         </CardHeader>
-        {USE_REAL_API ? (
-          <Alert tone="info">
-            Arizalar alohida ko&apos;rib chiqish sahifasida boshqariladi.{" "}
-            <Link href={`/admin/campaign-applications?campaignId=${campaign.id}`} className="underline">
-              Ushbu kampaniya arizalarini ochish
-            </Link>
-          </Alert>
-        ) : (applicationsQuery.data ?? []).filter((a) => a.campaignId === campaign.id).length === 0 ? (
-          <p className="font-body text-sm text-text-muted">Hozircha ariza yo&apos;q.</p>
-        ) : (
-          <ul className="divide-y divide-border">
-            {(applicationsQuery.data ?? [])
-              .filter((a) => a.campaignId === campaign.id)
-              .map((a) => (
-                <li key={a.id} className="flex flex-col gap-2 py-2.5 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="font-body text-sm text-text-primary">{a.creatorName}</p>
-                    {a.rejectionReason ? <p className="font-body text-xs text-error">{a.rejectionReason}</p> : null}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <StatusBadge tone={campaignApplicationStatusMeta[a.status].tone} label={campaignApplicationStatusMeta[a.status].label} />
-                    {a.status === "PENDING" ? (
-                      <>
-                        <Button
-                          size="sm"
-                          onClick={() => approveApp.mutate({ userId: a.creatorId, ccId: a.id })}
-                          disabled={approveApp.isPending || campaign.approvedCreatorCount >= campaign.creatorLimit}
-                        >
-                          Tasdiqlash
-                        </Button>
-                        <Button size="sm" variant="outline" className="border-error text-error" onClick={() => setRejectModal({ userId: a.creatorId, ccId: a.id })}>
-                          Rad etish
-                        </Button>
-                      </>
-                    ) : null}
-                  </div>
-                </li>
-              ))}
-          </ul>
-        )}
+        <Alert tone="info">
+          Arizalar alohida ko&apos;rib chiqish sahifasida boshqariladi.{" "}
+          <Link href={`/admin/campaign-applications?campaignId=${campaign.id}`} className="underline">
+            Ushbu kampaniya arizalarini ochish
+          </Link>
+        </Alert>
         {campaign.approvedCreatorCount >= campaign.creatorLimit ? (
           <Alert tone="warning" className="mt-3">
             Creator limiti to&apos;lgan ({campaign.approvedCreatorCount}/{campaign.creatorLimit}) — yangi arizalarni tasdiqlashdan oldin limitni oshiring.
@@ -229,7 +202,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
         ) : null}
       </Card>
 
-      {USE_REAL_API ? <CampaignMediaManager campaignId={campaign.id} /> : null}
+      <CampaignMediaManager campaignId={campaign.id} />
 
       <div className="mx-auto max-w-2xl">
         <CampaignForm existing={campaign} />

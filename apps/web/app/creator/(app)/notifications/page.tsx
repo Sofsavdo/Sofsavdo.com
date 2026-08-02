@@ -4,10 +4,9 @@ import Link from "next/link";
 import { useState } from "react";
 import type { RealNotification, RealNotificationChannel } from "@sofsavdo/types";
 import { Alert, Badge, Button, Card, Dialog, EmptyState, Skeleton } from "@sofsavdo/ui";
-import { useMarkAllNotificationsRead, useMarkNotificationRead, useNotifications } from "@/services/notifications";
+import { useNotifications, useMarkNotificationRead, useMarkAllNotificationsRead } from "@/services/notifications";
 import { notificationChannelMeta, notificationDeliveryStatusMeta } from "@/lib/status";
 
-const USE_REAL_API = process.env.NEXT_PUBLIC_API_MODE === "real";
 const CHANNELS: RealNotificationChannel[] = ["IN_APP", "TELEGRAM", "EMAIL"];
 
 // Matches packages/ui/src/components/Field.tsx's shared `controlClasses` (not exported — this is
@@ -151,15 +150,6 @@ function RealNotificationsPage() {
   );
 }
 
-function MockNotificationsPage() {
-  return (
-    <div className="space-y-6">
-      <h1 className="font-heading text-2xl font-bold text-text-primary">Bildirishnomalar</h1>
-      <Alert tone="info">Bildirishnomalar faqat real backend rejimida (NEXT_PUBLIC_API_MODE=real) mavjud.</Alert>
-    </div>
-  );
-}
-
 export default function NotificationsPage() {
-  return USE_REAL_API ? <RealNotificationsPage /> : <MockNotificationsPage />;
+  return <RealNotificationsPage />;
 }
