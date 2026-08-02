@@ -145,6 +145,12 @@ function RealOrderDetailPage({ id }: { id: string }) {
             <dt className="text-text-muted">Telefon</dt>
             <dd className="text-text-primary">{order.customer.phone}</dd>
           </div>
+          {order.customer.email ? (
+            <div>
+              <dt className="text-text-muted">Email</dt>
+              <dd className="text-text-primary">{order.customer.email}</dd>
+            </div>
+          ) : null}
           <div>
             <dt className="text-text-muted">To&apos;lov usuli</dt>
             <dd className="text-text-primary">{order.payment?.provider ?? "—"}</dd>
@@ -158,6 +164,22 @@ function RealOrderDetailPage({ id }: { id: string }) {
             <dd className="font-numeric tabular-nums text-text-primary">{formatMoneyMinor(order.totalMinor, order.currency)}</dd>
           </div>
         </dl>
+        {order.type === "PHYSICAL_PRODUCT" && order.address ? (
+          <div className="mt-3 border-t border-border pt-3">
+            <p className="mb-1 font-body text-xs font-medium text-text-muted">Yetkazib berish manzili</p>
+            <p className="font-body text-sm text-text-primary">
+              {order.address.region && <>{order.address.region}, </>}
+              {order.address.city && <>{order.address.city}, </>}
+              {order.address.line1}
+            </p>
+          </div>
+        ) : null}
+        {order.address?.comment ? (
+          <div className="mt-2">
+            <p className="mb-1 font-body text-xs font-medium text-text-muted">Mijoz izohi</p>
+            <p className="font-body text-sm text-text-primary">{order.address.comment}</p>
+          </div>
+        ) : null}
         <Button
           size="sm"
           variant="outline"
@@ -394,6 +416,16 @@ function MockOrderDetailPage({ id }: { id: string }) {
             <dd className="text-text-primary">{order.customer.phone}</dd>
           </div>
         </dl>
+        {order.type === "PHYSICAL" && (order.customer.region || order.customer.city || order.customer.address) ? (
+          <div className="mt-3 border-t border-border pt-3">
+            <p className="mb-1 font-body text-xs font-medium text-text-muted">Yetkazib berish manzili</p>
+            <p className="font-body text-sm text-text-primary">
+              {order.customer.region && <>{order.customer.region}, </>}
+              {order.customer.city && <>{order.customer.city}, </>}
+              {order.customer.address}
+            </p>
+          </div>
+        ) : null}
       </Card>
 
       <Card>

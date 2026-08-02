@@ -218,25 +218,23 @@ export function CheckoutPageClient({ offerSlug }: { offerSlug: string }) {
 
           {isPhysical ? (
             <>
+              <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
+                <TextField label="Viloyat" {...register("region")} />
+                <TextField label="Shahar" {...register("city")} />
+              </div>
+              <TextAreaField label="Manzil (ko'cha, uy, mahalla)" {...register("address")} />
               {deliveryRegions.length > 0 ? (
                 <div>
                   <p className="mb-1.5 font-body text-sm font-medium text-text-primary">Yetkazib berish hududi</p>
                   <RegionSelect regions={deliveryRegions} value={regionCode} onChange={setRegionCode} />
                 </div>
               ) : null}
-              <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
-                <TextField label="Viloyat" {...register("region")} />
-                <TextField label="Shahar" {...register("city")} />
-              </div>
-              <TextAreaField label="Manzil (ko'cha, uy, mahalla)" {...register("address")} />
             </>
-          ) : (
-            <TextField label="Email (ixtiyoriy)" type="email" error={errors.email?.message} {...register("email")} />
-          )}
-
-          {productType === "SERVICE" ? (
-            <TextAreaField label="Qisqacha izoh (ixtiyoriy)" {...register("comment")} />
           ) : null}
+
+          <TextField label="Email (ixtiyoriy)" type="email" error={errors.email?.message} {...register("email")} />
+
+          <TextAreaField label="Qisqacha izoh (ixtiyoriy)" {...register("comment")} />
 
           <div>
             <p className="mb-1.5 font-body text-sm font-medium text-text-primary">Promo kod</p>
