@@ -67,7 +67,6 @@ function RegisterForm() {
           autoComplete="off"
           error={errors.promoCode?.message}
           {...register("promoCode")}
-          helperText="Do'stingizdan olgan promo kodni kiriting (5 ta belgi)"
         />
 
         {registerError ? <Alert tone="error">{registerError}</Alert> : null}
