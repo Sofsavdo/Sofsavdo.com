@@ -1,9 +1,10 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import type { Offer, OfferStatus, Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { DomainException } from "../common/errors/domain-error";
 import { paginate, type PaginatedResult } from "../common/pagination/pagination.dto";
 import { impliedDiscountBasisPoints } from "../common/money/money";
+import { STORAGE_PORT, type StoragePort } from "../storage/storage.port";
 import type { CreateOfferDto } from "./dto/create-offer.dto";
 import type { UpdateOfferDto } from "./dto/update-offer.dto";
 import type { OfferQueryDto } from "./dto/offer-query.dto";
@@ -74,7 +75,21 @@ const ALLOWED_TRANSITIONS: Record<OfferStatus, OfferStatus[]> = {
 
 @Injectable()
 export class OffersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @Inject(STORAGE_PORT) private storage: StoragePort,
+  ) {}
+
+  // Product.images entries are stored as bare storage keys/filenames (see UploadsService /
+  // ProductsService), not full URLs — the browser can't resolve a bare filename, so every public
+  // projection that surfaces an image must run it through the storage adapter's publicUrl() first.
+  // Already-absolute URLs (http(s)://...) are passed through unchanged so legacy/seeded data and
+  // any future direct-URL uploads keep working.
+  private toImageUrl(image: string | undefined | null): string | null {
+    if (!image) return null;
+    if (/^https?:\/\//i.test(image)) return image;
+    return this.storage.publicUrl(image);
+  }
 
   // Stored `status` vs. computed `availability` are deliberately different concepts (see the
   // schema comment on OfferStatus): an ACTIVE offer whose expiresAt has passed is still stored as
@@ -383,7 +398,7 @@ export class OffersService {
       priceMinor: o.priceMinor,
       compareAtPriceMinor: o.compareAtPriceMinor,
       currency: o.currency,
-      imageUrl: o.product.images[0] ?? null,
+      imageUrl: this.toImageUrl(o.product.images[0]),
     }));
   }
 
@@ -429,7 +444,7 @@ export class OffersService {
       priceMinor: o.priceMinor,
       compareAtPriceMinor: o.compareAtPriceMinor,
       currency: o.currency,
-      imageUrl: o.product.images[0] ?? null,
+      imageUrl: this.toImageUrl(o.product.images[0]),
       productType: o.product.type,
     }));
 

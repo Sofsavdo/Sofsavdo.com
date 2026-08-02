@@ -3,6 +3,7 @@ import { OffersService, FEATURED_OFFERS_LIMIT, CATALOG_MAX_PAGE_SIZE } from "./o
 import { PrismaService } from "../prisma/prisma.service";
 import { PaginationQueryDto } from "../common/pagination/pagination.dto";
 import { CatalogQueryDto } from "./dto/catalog-query.dto";
+import { STORAGE_PORT } from "../storage/storage.port";
 
 describe("OffersService", () => {
   let service: OffersService;
@@ -40,7 +41,11 @@ describe("OffersService", () => {
       $transaction: jest.fn((fn: (tx: unknown) => unknown) => fn(prisma)),
     };
     const moduleRef = await Test.createTestingModule({
-      providers: [OffersService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        OffersService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: STORAGE_PORT, useValue: { publicUrl: (key: string) => `https://cdn.example.com/${key}` } },
+      ],
     }).compile();
     service = moduleRef.get(OffersService);
   });

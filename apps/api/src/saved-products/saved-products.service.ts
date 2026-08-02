@@ -1,6 +1,7 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { DomainException } from "../common/errors/domain-error";
+import { STORAGE_PORT, type StoragePort } from "../storage/storage.port";
 
 export interface SavedProductResponse {
   offerId: string;
@@ -10,7 +11,18 @@ export interface SavedProductResponse {
 
 @Injectable()
 export class SavedProductsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @Inject(STORAGE_PORT) private storage: StoragePort,
+  ) {}
+
+  // Product.images entries are bare storage keys/filenames, not full URLs — see
+  // OffersService.toImageUrl for the same rationale. Already-absolute URLs are passed through.
+  private toImageUrl(image: string | undefined | null): string | null {
+    if (!image) return null;
+    if (/^https?:\/\//i.test(image)) return image;
+    return this.storage.publicUrl(image);
+  }
 
   async list(userId: string): Promise<SavedProductResponse[]> {
     const saved = await this.prisma.savedProduct.findMany({
@@ -26,7 +38,7 @@ export class SavedProductsService {
         name: s.offer.name,
         priceMinor: s.offer.priceMinor,
         currency: s.offer.currency,
-        imageUrl: s.offer.product.images[0] ?? null,
+        imageUrl: this.toImageUrl(s.offer.product.images[0]),
       },
       createdAt: s.createdAt,
     }));
