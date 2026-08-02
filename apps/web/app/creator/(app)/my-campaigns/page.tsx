@@ -9,8 +9,6 @@ import { creatorCampaignStatusMeta } from "@/lib/status";
 
 const STATUS_ACTION: Partial<Record<CreatorCampaignStatus, { label: string; href: string }>> = {
   ACTIVE: { label: "Promo materiallar", href: "/creator/promo-materials" },
-  CONTENT_REQUIRED: { label: "Kontent yuklash", href: "/creator/content" },
-  CONTENT_REVIEW: { label: "Kontentni ko'rish", href: "/creator/content" },
   COMPLETED: { label: "Sotuvlarni ko'rish", href: "/creator/sales" },
 };
 
