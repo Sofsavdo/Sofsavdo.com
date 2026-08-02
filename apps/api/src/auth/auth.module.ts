@@ -1,18 +1,20 @@
 import { Module } from "@nestjs/common";
 import { JwtModule } from "@nestjs/jwt";
 import { PassportModule } from "@nestjs/passport";
-import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
+import { AuthV2Service } from "./auth-v2.service";
 import { TokenService } from "./token.service";
 import { JwtStrategy } from "./jwt.strategy";
+import { PrismaModule } from "../prisma/prisma.module";
 import { RolesModule } from "../roles/roles.module";
-import { CommonModule } from "../common/common.module";
 import { ReferralsModule } from "../referrals/referrals.module";
+import { LaunchBonusModule } from "../launch-bonus/launch-bonus.module";
+import { ConfigModule } from "@nestjs/config";
 
 @Module({
-  imports: [PassportModule, JwtModule.register({}), RolesModule, CommonModule, ReferralsModule],
-  controllers: [AuthController],
-  providers: [AuthService, TokenService, JwtStrategy],
-  exports: [AuthService, TokenService],
+  imports: [PrismaModule, RolesModule, ReferralsModule, LaunchBonusModule, ConfigModule, JwtModule.register({}), PassportModule],
+  controllers: [],
+  providers: [AuthService, AuthV2Service, TokenService, JwtStrategy],
+  exports: [AuthService, TokenService, JwtStrategy],
 })
 export class AuthModule {}

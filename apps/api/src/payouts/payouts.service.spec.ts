@@ -108,7 +108,7 @@ describe("PayoutsService", () => {
       await service.requestPayout("creator1", "user1", { amountMinor: 200_000_00, payoutMethodId: "pm1" });
 
       expect(tx.payout.create).toHaveBeenCalledWith({ data: { creatorId: "creator1", payoutMethodId: "pm1", amountMinor: 200_000_00, status: "REQUESTED" } });
-      expect(commissions.lockPayableCommissions).toHaveBeenCalledWith(tx, "creator1", 200_000_00, "payout1");
+      expect(commissions.lockPayableCommissions).toHaveBeenCalledWith(tx, "creator1", 200_000_00, "payout1", 0);
     });
 
     it("propagates INSUFFICIENT_BALANCE from lockPayableCommissions, rolling back the Payout row", async () => {

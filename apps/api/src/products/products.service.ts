@@ -44,6 +44,27 @@ export class ProductsService {
     return this.prisma.product.findMany({
       where: { creatorProfileId: creatorProfileId },
       orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        type: true,
+        shortDescription: true,
+        description: true,
+        brand: true,
+        sku: true,
+        status: true,
+        images: true,
+        videos: true,
+        attributes: true,
+        costPriceMinor: true,
+        currency: true,
+        internalNotes: true,
+        stockQuantity: true,
+        creatorProfileId: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
   }
 
@@ -58,13 +79,47 @@ export class ProductsService {
         },
       },
       orderBy: { createdAt: "desc" },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        type: true,
+        shortDescription: true,
+        description: true,
+        brand: true,
+        sku: true,
+        status: true,
+        images: true,
+        videos: true,
+        attributes: true,
+        costPriceMinor: true,
+        currency: true,
+        internalNotes: true,
+        stockQuantity: true,
+        creatorProfileId: true,
+        createdAt: true,
+        updatedAt: true,
         offers: {
           where: { status: "ACTIVE" },
-          include: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            priceMinor: true,
+            compareAtPriceMinor: true,
+            currency: true,
+            status: true,
             campaigns: {
-              include: {
-                referralLinks: true,
+              select: {
+                id: true,
+                name: true,
+                referralLinks: {
+                  select: {
+                    id: true,
+                    code: true,
+                    status: true,
+                  },
+                },
               },
             },
           },

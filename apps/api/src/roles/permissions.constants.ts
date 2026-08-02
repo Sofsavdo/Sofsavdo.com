@@ -125,6 +125,12 @@ export const PERMISSIONS = [
   "competition.publish",
   "competition.complete",
   "competition.archive",
+  // Launch Bonus System (Creator Growth Strategy) — admin configuration and bio verification.
+  // Read/write for settings, verify for bio approval queue, admin for manual bonus checks.
+  "launch_bonus.read",
+  "launch_bonus.write",
+  "launch_bonus.verify",
+  "launch_bonus.admin",
 ] as const;
 
 export type PermissionKey = (typeof PERMISSIONS)[number];
@@ -157,6 +163,7 @@ const MANAGER_PERMISSIONS: PermissionKey[] = [
   "refund.read",
   "homepage.read",
   "competition.read",
+  "launch_bonus.read",
 ];
 
 const ADMIN_PERMISSIONS: PermissionKey[] = [
@@ -203,6 +210,9 @@ const ADMIN_PERMISSIONS: PermissionKey[] = [
   "competition.publish",
   "competition.complete",
   "competition.archive",
+  "launch_bonus.write",
+  "launch_bonus.verify",
+  "launch_bonus.admin",
 ];
 
 const SUPER_ADMIN_PERMISSIONS: PermissionKey[] = [

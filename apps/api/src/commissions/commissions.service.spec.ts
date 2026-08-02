@@ -215,13 +215,13 @@ describe("CommissionsService", () => {
         { id: "c3", amountMinor: 5_000_00 },
       ]);
       tx.commission.updateMany.mockResolvedValue({ count: 2 });
-      await service.lockPayableCommissions(tx as never, "creator1", 10_000_00, "payout1");
+      await service.lockPayableCommissions(tx as never, "creator1", 10_000_00, "payout1", 0);
       expect(tx.commission.updateMany).toHaveBeenCalledWith({ where: { id: { in: ["c1", "c2"] }, payoutId: null }, data: { payoutId: "payout1" } });
     });
 
     it("throws INSUFFICIENT_BALANCE when PAYABLE commissions don't cover the requested amount", async () => {
       tx.commission.findMany.mockResolvedValue([{ id: "c1", amountMinor: 5_000_00 }]);
-      await expect(service.lockPayableCommissions(tx as never, "creator1", 10_000_00, "payout1")).rejects.toMatchObject({ code: "INSUFFICIENT_BALANCE" });
+      await expect(service.lockPayableCommissions(tx as never, "creator1", 10_000_00, "payout1", 0)).rejects.toMatchObject({ code: "INSUFFICIENT_BALANCE" });
     });
 
     it("throws INSUFFICIENT_BALANCE when a concurrent request already locked one of the selected rows", async () => {
@@ -231,7 +231,7 @@ describe("CommissionsService", () => {
       ]);
       // Only 1 of the 2 rows we intended to lock still had payoutId: null by the time our UPDATE ran.
       tx.commission.updateMany.mockResolvedValue({ count: 1 });
-      await expect(service.lockPayableCommissions(tx as never, "creator1", 10_000_00, "payout1")).rejects.toMatchObject({ code: "INSUFFICIENT_BALANCE" });
+      await expect(service.lockPayableCommissions(tx as never, "creator1", 10_000_00, "payout1", 0)).rejects.toMatchObject({ code: "INSUFFICIENT_BALANCE" });
     });
   });
 

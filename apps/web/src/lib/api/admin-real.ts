@@ -2108,4 +2108,25 @@ export async function exportRealAnalyticsCsv(view: string, filters: AnalyticsFil
   return res.text();
 }
 
+// Launch Bonus System API functions
+export async function getLaunchBonusSettings(): Promise<any> {
+  return apiRequest("/launch-bonus/settings");
+}
+
+export async function updateLaunchBonusSettings(data: any): Promise<any> {
+  return apiRequest("/launch-bonus/settings", { method: "PATCH", body: JSON.stringify(data) });
+}
+
+export async function getPendingBioVerifications(): Promise<any[]> {
+  return apiRequest("/launch-bonus/pending-verifications");
+}
+
+export async function verifyBioLink(creatorProfileId: string, approved: boolean): Promise<void> {
+  return apiRequest("/launch-bonus/verify-bio", { method: "POST", body: JSON.stringify({ creatorProfileId, approved }) });
+}
+
+export async function checkBonuses(): Promise<void> {
+  return apiRequest("/launch-bonus/check-bonuses", { method: "POST" });
+}
+
 export { ApiError };

@@ -401,7 +401,8 @@ export class CommissionsService {
   // new Payout by setting payoutId. Throws INSUFFICIENT_BALANCE if the creator's currently
   // available balance can't cover it — re-checked inside the caller's transaction so a race
   // between two concurrent payout requests can't both succeed against the same funds.
-  async lockPayableCommissions(tx: Prisma.TransactionClient, creatorId: string, amountMinor: number, payoutId: string): Promise<void> {
+  // bonusAmountMinor is the unlocked Launch Bonus amount that can be added to the available balance.
+  async lockPayableCommissions(tx: Prisma.TransactionClient, creatorId: string, amountMinor: number, payoutId: string, bonusAmountMinor: number = 0): Promise<void> {
     const candidates = await tx.commission.findMany({
       where: { creatorId, status: "PAYABLE", payoutId: null },
       orderBy: { createdAt: "asc" },
@@ -414,7 +415,9 @@ export class CommissionsService {
       selected.push(c.id);
       accumulated += c.amountMinor;
     }
-    if (accumulated < amountMinor) {
+    // Include bonus in available balance calculation
+    const totalAvailable = accumulated + bonusAmountMinor;
+    if (totalAvailable < amountMinor) {
       throw new DomainException("INSUFFICIENT_BALANCE", "So'ralgan miqdor mavjud balansdan oshib ketdi.");
     }
     // `payoutId: null` in the update's own WHERE (not just the earlier read) is what actually

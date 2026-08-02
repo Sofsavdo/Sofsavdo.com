@@ -77,6 +77,7 @@ model User {
   buyerAddresses               BuyerAddress[]
   competitionsCreated          Competition[]            @relation("CompetitionCreatedBy")
   competitionsUpdated          Competition[]            @relation("CompetitionUpdatedBy")
+  verifiedBonuses              LaunchBonus[]            @relation("BonusVerifier")
 
   @@index([status])
 }
@@ -199,8 +200,65 @@ model CreatorProfile {
   fundContributions    CreatorFundContribution[]
   competitionParticipants CompetitionParticipant[]
   products             Product[]
+  launchBonuses         LaunchBonus[]
 
   @@index([city])
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Launch Bonus System (Creator Growth Strategy)
+// ────────────────────────────────────────────────────────────────────────────
+
+enum BonusStatus {
+  LOCKED
+  UNLOCKED
+  EXPIRED
+}
+
+model LaunchBonusSettings {
+  id                   String   @id @default(cuid())
+  bonusAmountMinor     Int      @default(200000000) // 2,000,000 UZS
+  deadlineDays         Int      @default(30)
+  
+  // Configurable requirements
+  minCommissionMinor  Int?     @default(500000000) // 500,000 UZS
+  minReferrals         Int?     @default(3)
+  minOrders            Int?     @default(5)
+  bioLinkRequired      Boolean  @default(true)
+  
+  isActive             Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  bonuses              LaunchBonus[]
+}
+
+model LaunchBonus {
+  id                   String   @id @default(cuid())
+  creatorProfileId     String   @unique
+  settingsId           String
+  bonusAmountMinor     Int
+  status               BonusStatus @default(LOCKED)
+  deadline             DateTime
+  
+  // Progress tracking
+  commissionEarnedMinor Int     @default(0)
+  referralsCount         Int     @default(0)
+  ordersCount            Int     @default(0)
+  bioLinkVerified        Boolean @default(false)
+  bioLinkVerifiedAt      DateTime?
+  bioLinkVerifiedBy      String?
+  
+  unlockedAt            DateTime?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  creatorProfile        CreatorProfile @relation(fields: [creatorProfileId], references: [id])
+  settings              LaunchBonusSettings @relation(fields: [settingsId], references: [id])
+  verifier              User? @relation("BonusVerifier", fields: [bioLinkVerifiedBy], references: [id])
+
+  @@index([status])
+  @@index([deadline])
 }
 
 enum SocialPlatform {

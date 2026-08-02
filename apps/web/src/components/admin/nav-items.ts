@@ -9,6 +9,7 @@ import {
   Bell,
   BarChart3,
   Trophy,
+  Gift,
 } from "lucide-react";
 
 export interface AdminNavItem {
@@ -37,6 +38,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
       { href: "/admin/orders", label: "Buyurtmalar", icon: ShoppingBag },
       { href: "/admin/creators", label: "Creatorlar", icon: Users },
       { href: "/admin/competitions", label: "Musobaqalar", icon: Trophy },
+      { href: "/admin/launch-bonus", label: "Launch Bonus", icon: Gift, requiredPermission: "launch_bonus.read" },
       { href: "/admin/earnings", label: "Daromad", icon: Wallet },
       { href: "/admin/settings", label: "Sozlamalar", icon: Settings, requiredPermission: "settings.read" },
     ],

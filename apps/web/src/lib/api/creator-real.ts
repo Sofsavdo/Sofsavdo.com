@@ -1003,6 +1003,11 @@ export async function selectProductForPromotion(productId: string): Promise<{ co
   return apiRequest<{ code: string }>(`/admin/products/select-for-promotion/${productId}`, { method: "POST" });
 }
 
+// ---- Launch Bonus System (Creator Growth Strategy) ----
+export async function getMyLaunchBonus(): Promise<any> {
+  return apiRequest("/launch-bonus/my-progress");
+}
+
 // ---- Commissions (Phase M) — real backend only, replacing a previously 100%-mocked page with
 // zero USE_REAL_API gating at all (see DECISIONS.md ADR-031). Field names match
 // CreatorCommissionResponse (apps/api/src/commissions/commissions.service.ts) 1:1 — a real

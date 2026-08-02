@@ -18,6 +18,9 @@ export const NOTIFICATION_EVENTS = {
   ONBOARDING_APPROVED: "onboarding.approved",
   ONBOARDING_REJECTED: "onboarding.rejected",
   ONBOARDING_CHANGES_REQUESTED: "onboarding.changes_requested",
+  // Launch Bonus System events
+  BONUS_UNLOCKED: "bonus.unlocked",
+  BONUS_EXPIRED: "bonus.expired",
 } as const;
 
 export interface CampaignApplicationSubmittedEvent {
@@ -75,5 +78,13 @@ export interface OnboardingChangesRequestedEvent {
   applicationId: string;
   creatorId: string;
   creatorName: string;
-  reason: string;
+}
+
+export interface BonusUnlockedEvent {
+  creatorProfileId: string;
+  bonusAmountMinor: number;
+}
+
+export interface BonusExpiredEvent {
+  creatorProfileId: string;
 }

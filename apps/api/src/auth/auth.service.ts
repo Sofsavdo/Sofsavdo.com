@@ -7,6 +7,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { TokenService } from "./token.service";
 import { RolesService } from "../roles/roles.service";
 import { ReferralsService } from "../referrals/referrals.service";
+import { LaunchBonusService } from "../launch-bonus/launch-bonus.service";
 import { DomainException } from "../common/errors/domain-error";
 import { AppLogger } from "../common/logging/app-logger.service";
 import { NOTIFICATION_EVENTS } from "../notifications/events";
@@ -39,6 +40,7 @@ export class AuthService {
     private tokens: TokenService,
     private roles: RolesService,
     private referrals: ReferralsService,
+    private launchBonus: LaunchBonusService,
     private jwt: JwtService,
     private config: ConfigService,
     private logger: AppLogger,
@@ -64,6 +66,7 @@ export class AuthService {
     // registration is already complete" and "one immutable direct referrer" are enforced: there
     // is simply no other API surface that can set it. Everything below runs in one transaction
     // so a referral row is never created without its CreatorProfile, or vice versa.
+    let creatorProfileId: string | null = null;
     const userId = await this.prisma.$transaction(async (tx) => {
       const referrer = await this.referrals.resolveReferrerForAttribution(dto.referralCode, tx);
       const referralCode = await this.referrals.generateUniqueReferralCode(tx);
@@ -96,6 +99,16 @@ export class AuthService {
 
       return user.id;
     });
+
+    // Create launch bonus for new creator (if active settings exist)
+    // This runs outside the transaction to avoid circular dependency issues
+    const userWithProfile = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { creatorProfile: true },
+    });
+    if (userWithProfile?.creatorProfile) {
+      await this.launchBonus.createBonusForCreator(userWithProfile.creatorProfile.id);
+    }
 
     // emitAsync, not emit — see creator-applications.service.ts's identical comment. Without this,
     // a caller (or a test) checking for the resulting welcome notification/email immediately after

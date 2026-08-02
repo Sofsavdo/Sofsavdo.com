@@ -13,6 +13,7 @@ import { applicationStatusMeta, creatorCampaignStatusMeta, realPayoutStatusMeta 
 import { DashboardChart } from "@/components/creator/DashboardChart";
 import { SalesTable } from "@/components/creator/SalesTable";
 import { ActivityTicker } from "@/components/creator/ActivityTicker";
+import { LaunchBonusProgress } from "@/components/creator/LaunchBonusProgress";
 
 // Shown instead of the real (earning-data-heavy) dashboard while a creator's application is
 // SUBMITTED/UNDER_REVIEW — CreatorAppGuard already lets them reach /creator/dashboard at this
@@ -121,6 +122,8 @@ export default function DashboardPage() {
       <h1 className="font-heading text-2xl font-bold text-text-primary">Dashboard</h1>
 
       <ActivityTicker />
+
+      <LaunchBonusProgress />
 
       {/* Phase Q — a proactive nudge, not a surprise: the creator sees exactly why a payout
           request would be blocked (PayoutsService.requestPayout) before they even try, with a

@@ -399,6 +399,13 @@ export const getVisitors = () => realAdmin.getVisitors();
 // future real implementation is a one-function change, not a re-discovery of this gap.
 export const overrideAttribution = (_orderId: string, _newCreatorId: string, _reason: string) => realAdmin.overrideAttribution();
 
+// ---- Launch Bonus System (Creator Growth Strategy) — real backend only, no mock counterpart. ----
+export const getLaunchBonusSettings = () => realAdmin.getLaunchBonusSettings();
+export const updateLaunchBonusSettings = (data: any) => realAdmin.updateLaunchBonusSettings(data);
+export const getPendingBioVerifications = () => realAdmin.getPendingBioVerifications();
+export const verifyBioLink = (creatorProfileId: string, approved: boolean) => realAdmin.verifyBioLink(creatorProfileId, approved);
+export const checkBonuses = () => realAdmin.checkBonuses();
+
 export {
   apiAdminGetCampaignApplications as getCampaignApplications,
   apiAdminApproveCampaignApplication as approveCampaignApplication,

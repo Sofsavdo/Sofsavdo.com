@@ -112,6 +112,12 @@ export class PayoutsService {
     if (!method || method.creatorId !== creatorId) throw new DomainException("PAYOUT_METHOD_NOT_FOUND", "To'lov usuli topilmadi.");
     if (!method.isActive) throw new DomainException("PAYOUT_METHOD_INACTIVE", "Bu to'lov usuli faol emas.");
 
+    // Launch Bonus integration - check for unlocked bonus and include in available balance
+    const unlockedBonus = await this.prisma.launchBonus.findUnique({
+      where: { creatorProfileId: creatorId, status: "UNLOCKED" },
+    });
+    const bonusAmountMinor = unlockedBonus?.bonusAmountMinor || 0;
+
     const payout = await this.prisma.$transaction(async (tx) => {
       const created = await tx.payout.create({
         data: { creatorId, payoutMethodId: dto.payoutMethodId, amountMinor: dto.amountMinor, status: "REQUESTED" },
@@ -119,11 +125,21 @@ export class PayoutsService {
       // Throws INSUFFICIENT_BALANCE (rolling back the whole transaction, including the Payout
       // row just created) if the creator's available balance can't cover it — see
       // CommissionsService.lockPayableCommissions for the race-safety reasoning.
-      await this.commissions.lockPayableCommissions(tx, creatorId, dto.amountMinor, created.id);
+      // Pass bonus amount to allow using unlocked bonus for payout
+      await this.commissions.lockPayableCommissions(tx, creatorId, dto.amountMinor, created.id, bonusAmountMinor);
+      
+      // If bonus was used, mark it as paid
+      if (bonusAmountMinor > 0 && unlockedBonus) {
+        await tx.launchBonus.update({
+          where: { id: unlockedBonus.id },
+          data: { status: "EXPIRED" }, // Mark as expired/paid to prevent reuse
+        });
+      }
+      
       return created;
     });
 
-    await this.audit.record({ actorId: userId, action: "PAYOUT_REQUESTED", entityType: "Payout", entityId: payout.id, after: { amountMinor: dto.amountMinor } });
+    await this.audit.record({ actorId: userId, action: "PAYOUT_REQUESTED", entityType: "Payout", entityId: payout.id, after: { amountMinor: dto.amountMinor, bonusIncluded: bonusAmountMinor } });
     return this.findFullOrThrow(payout.id);
   }
 
