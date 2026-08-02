@@ -18,10 +18,11 @@ export default function LaunchBonusSettingsPage() {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     
-    // Convert so'm to tiyin (multiply by 100) for backend
+    // Get values from form - they're already in so'm for display
     const bonusAmountSoM = parseInt(formData.get("bonusAmountMinor") as string) || 2000000;
     const minCommissionSoM = parseInt(formData.get("minCommissionMinor") as string) || 5000000;
     
+    // Convert so'm to tiyin (multiply by 100) for backend
     updateSettings({
       bonusAmountMinor: bonusAmountSoM * 100,
       deadlineDays: parseInt(formData.get("deadlineDays") as string) || 30,
