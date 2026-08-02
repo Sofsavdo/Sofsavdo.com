@@ -412,22 +412,6 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                   </div>
                 ) : null}
 
-                {USE_REAL_API && existing.status === "ACTIVE" ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-2"
-                    disabled={createContentMutation.isPending}
-                    onClick={() =>
-                      createContentMutation.mutate(
-                        { campaignId: campaign.id, input: {} },
-                        { onSuccess: (created) => router.push(`/creator/content/${created.id}`) },
-                      )
-                    }
-                  >
-                    {createContentMutation.isPending ? "Yaratilmoqda..." : "Content yaratish (ixtiyoriy)"}
-                  </Button>
-                ) : null}
               </div>
             ) : (
               <>
