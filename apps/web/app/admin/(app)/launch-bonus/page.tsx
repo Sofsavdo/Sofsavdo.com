@@ -89,7 +89,7 @@ export default function LaunchBonusSettingsPage() {
               <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                 <div className="grid grid-cols-2 gap-3">
                   <TextField
-                    label="Bonus Miqdori (tiyin)"
+                    label="Bonus Miqdori (so'm)"
                     name="bonusAmountMinor"
                     type="number"
                     defaultValue={settings?.bonusAmountMinor || 200000000}
@@ -109,7 +109,7 @@ export default function LaunchBonusSettingsPage() {
                   
                   <div className="grid grid-cols-3 gap-3">
                     <TextField
-                      label="Min. Komissiya (tiyin)"
+                      label="Min. Komissiya (so'm)"
                       name="minCommissionMinor"
                       type="number"
                       defaultValue={settings?.minCommissionMinor || 500000000}

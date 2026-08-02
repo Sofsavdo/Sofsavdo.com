@@ -7,55 +7,29 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
-import { SimplifiedCard, SimplifiedCardHeader, SimplifiedCardTitle, SimplifiedCardContent } from '@/components/simplified/simplified-card';
-import { SimplifiedButton } from '@/components/simplified/simplified-button';
-import { SimplifiedInput } from '@/components/simplified/simplified-input';
-import { SimplifiedLoading } from '@/components/simplified/simplified-loading';
-import { SimplifiedBadge } from '@/components/simplified/simplified-badge';
-import { Alert } from '@sofsavdo/ui';
-import { productsV2Service, type SimplifiedProductDto } from '@/services/v2/products-v2.service';
+import Link from 'next/link';
+import { formatMoneyMinor } from '@sofsavdo/types';
+import { Alert, Badge, Button, Card, CardHeader, CardTitle, EmptyState, Skeleton } from '@sofsavdo/ui';
+import { useAvailableProductsForPromotion, useSelectProductForPromotion } from '@/services/campaigns';
 import { useSession } from '@/services/session';
 import { canWorkAsCreator } from '@/lib/routing';
-import Link from 'next/link';
 
 export default function StreamsPage() {
   const { user, isLoading: sessionLoading } = useSession();
-  const [products, setProducts] = useState<SimplifiedProductDto[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  
-  // Check if creator is approved
   const isApproved = user ? canWorkAsCreator(user.application.status) : false;
   
-  useEffect(() => {
-    loadProducts();
-  }, []);
+  const productsQuery = useAvailableProductsForPromotion({ enabled: isApproved });
+  const selectProduct = useSelectProductForPromotion();
   
-  const loadProducts = async () => {
-    setLoading(true);
-    try {
-      const response = await productsV2Service.list({ status: 'ACTIVE' });
-      setProducts(response.items);
-    } catch (error) {
-      console.error('Failed to load products:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  const formatPrice = (minor: number) => {
-    return (minor / 100).toLocaleString('uz-UZ') + " so'm";
-  };
-  
-  const filteredProducts = products.filter(product =>
-    product.title.toLowerCase().includes(search.toLowerCase())
-  );
-  
-  if (loading || sessionLoading) {
+  if (sessionLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <SimplifiedLoading size="lg" />
+      <div className="space-y-4">
+        <Skeleton className="h-8 w-56" />
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-48" />
+          ))}
+        </div>
       </div>
     );
   }
@@ -63,82 +37,116 @@ export default function StreamsPage() {
   // Show activation message if not approved
   if (!isApproved) {
     return (
-      <div>
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Oqimlar</h1>
-          <p className="text-gray-600">Barcha mahsulotlar va xizmatlarni ko'ring va oqim yarating</p>
+      <div className="space-y-6">
+        <div>
+          <h1 className="font-heading text-2xl font-bold text-text-primary mb-2">Oqimlar</h1>
+          <p className="font-body text-sm text-text-secondary">Barcha mahsulotlar va xizmatlarni ko'ring va oqim yarating</p>
         </div>
         
-        <SimplifiedCard>
-          <SimplifiedCardContent>
-            <Alert tone="warning">
-              <p className="font-semibold mb-2">Hisobingiz hali aktivlashtirilmagan</p>
-              <p className="text-sm">
-                Oqim yaratish uchun arizangiz tasdiqlanishi kerak. Arizangiz hozirda ko&apos;rib chiqilmoqda.
-                Tasdiqlanishidan so&apos;ng oqim yaratish imkoniyati bo&apos;ladi.
-              </p>
-              <p className="text-sm mt-2 text-gray-600">
-                Arizangiz 6 soat ichida ko&apos;rib chiqiladi.
-              </p>
-            </Alert>
-          </SimplifiedCardContent>
-        </SimplifiedCard>
+        <Card>
+          <Alert tone="warning">
+            <p className="font-semibold mb-2">Hisobingiz hali aktivlashtirilmagan</p>
+            <p className="font-body text-sm">
+              Oqim yaratish uchun arizangiz tasdiqlanishi kerak. Arizangiz hozirda ko&apos;rib chiqilmoqda.
+              Tasdiqlanishidan so&apos;ng oqim yaratish imkoniyati bo&apos;ladi.
+            </p>
+            <p className="font-body text-sm mt-2 text-text-muted">
+              Arizangiz 6 soat ichida ko&apos;rib chiqiladi.
+            </p>
+          </Alert>
+        </Card>
       </div>
     );
   }
   
+  if (productsQuery.isLoading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-8 w-56" />
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-48" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+  
+  const products = productsQuery.data ?? [];
+  
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Mahsulotlar</h1>
-        <p className="text-gray-600">Mahsulotlarni tanlang va referral havolani oling</p>
+    <div className="space-y-6">
+      <div>
+        <h1 className="font-heading text-2xl font-bold text-text-primary">Mahsulotlar</h1>
+        <p className="font-body text-sm text-text-secondary">Mahsulotlarni tanlang va referral havolani oling</p>
       </div>
       
-      <div className="mb-6">
-        <SimplifiedInput
-          placeholder="Mahsulot qidiring..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-      </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredProducts.map((product) => (
-          <SimplifiedCard key={product.id} className="hover:shadow-md transition-shadow">
-            <SimplifiedCardContent className="p-4">
-              <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden mb-4">
-                <img
-                  src={product.images[0] || '/placeholder.png'}
-                  alt={product.title}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              
-              <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2">{product.title}</h3>
-              
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-lg font-bold text-blue-600">{formatPrice(product.priceMinor)}</span>
-                <SimplifiedBadge variant="success">{product.commissionPercent}% komissiya</SimplifiedBadge>
-              </div>
-              
-              <Link href={`/creator/my-streams/${product.id}`}>
-                <SimplifiedButton variant="primary" fullWidth>
-                  Referral havolani oling
-                </SimplifiedButton>
-              </Link>
-            </SimplifiedCardContent>
-          </SimplifiedCard>
-        ))}
-      </div>
-      
-      {filteredProducts.length === 0 && (
-        <SimplifiedCard>
-          <SimplifiedCardContent>
-            <p className="text-center text-gray-600 py-8">
-              {search ? 'Mahsulot topilmadi' : 'Mahsulotlar yo\'q'}
-            </p>
-          </SimplifiedCardContent>
-        </SimplifiedCard>
+      {products.length === 0 ? (
+        <Card>
+          <EmptyState
+            title="Mahsulotlar yo'q"
+            description="Hozircha targ'ib qilish uchun mahsulot yo'q."
+          />
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {products.map((product: any) => {
+            const referralLink = product.offers?.[0]?.campaigns?.[0]?.referralLinks?.[0];
+            return (
+              <Card key={product.id} className="hover:border-accent transition-colors">
+                <div className="p-4 space-y-4">
+                  <div className="aspect-square bg-bg rounded-lg overflow-hidden">
+                    {product.images && product.images.length > 0 ? (
+                      <img
+                        src={product.images[0]}
+                        alt={product.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-text-muted">
+                        Rasm yo'q
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div>
+                    <h3 className="font-heading text-sm font-medium text-text-primary line-clamp-2">{product.name}</h3>
+                    <p className="font-body text-xs text-text-muted mt-1">{product.category}</p>
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <span className="font-numeric text-lg font-bold tabular-nums text-accent">
+                      {formatMoneyMinor(product.priceMinor || 0)}
+                    </span>
+                    <Badge tone="neutral">{product.type}</Badge>
+                  </div>
+                  
+                  {referralLink ? (
+                    <Button
+                      asChild
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                    >
+                      <Link href={`/creator/my-streams/${product.id}`}>
+                        Batafsil
+                      </Link>
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      className="w-full"
+                      onClick={() => selectProduct.mutateAsync(product.id)}
+                      disabled={selectProduct.isPending}
+                    >
+                      {selectProduct.isPending ? "Yaratilmoqda..." : "Referral link olish"}
+                    </Button>
+                  )}
+                </div>
+              </Card>
+            );
+          })}
+        </div>
       )}
     </div>
   );
