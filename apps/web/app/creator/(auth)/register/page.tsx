@@ -61,6 +61,13 @@ function RegisterForm() {
           error={errors.password?.message}
           {...register("password")}
         />
+        <TextField
+          label="Promo kod (ixtiyoriy)"
+          placeholder="Masalan: ABC12"
+          autoComplete="off"
+          error={errors.promoCode?.message}
+          {...register("promoCode")}
+        />
 
         {registerError ? <Alert tone="error">{registerError}</Alert> : null}
 

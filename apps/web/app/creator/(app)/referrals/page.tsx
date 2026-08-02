@@ -54,6 +54,22 @@ export default function CreatorReferralsPage() {
         </p>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle>Sizning promo kodingiz</CardTitle>
+        </CardHeader>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <code className="flex-1 rounded-input border border-border bg-bg px-3 py-2 font-numeric text-sm text-text-primary">
+            {(codeQuery.data as any)?.promoCode || "Yaratilmoqda..."}
+          </code>
+          {(codeQuery.data as any)?.promoCode && (
+            <CopyButton value={(codeQuery.data as any)?.promoCode ?? ""} label="Promo kodni nusxalash" />
+          )}
+        </div>
+        <p className="mt-2 font-body text-xs text-text-muted">
+          Promo kodni do'stlaringizga yuboring. Ular ro'yxatdan o'tganda shu kodni kiritishlari mumkin.
+        </p>
+      </Card>
 
       {summary ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
