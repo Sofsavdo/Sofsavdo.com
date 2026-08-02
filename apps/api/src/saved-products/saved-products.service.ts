@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../prisma/prisma.service";
 import { DomainException } from "../common/errors/domain-error";
 
@@ -10,7 +11,17 @@ export interface SavedProductResponse {
 
 @Injectable()
 export class SavedProductsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private config: ConfigService,
+  ) {}
+
+  private toImageUrl(imagePath: string | null): string | null {
+    if (!imagePath) return null;
+    const publicBaseUrl = this.config.get<string>("storage.publicBaseUrl");
+    if (!publicBaseUrl) return imagePath;
+    return `${publicBaseUrl}/${imagePath}`;
+  }
 
   async list(userId: string): Promise<SavedProductResponse[]> {
     const saved = await this.prisma.savedProduct.findMany({
@@ -26,7 +37,7 @@ export class SavedProductsService {
         name: s.offer.name,
         priceMinor: s.offer.priceMinor,
         currency: s.offer.currency,
-        imageUrl: s.offer.product.images[0] ?? null,
+        imageUrl: this.toImageUrl(s.offer.product.images[0] ?? null),
       },
       createdAt: s.createdAt,
     }));

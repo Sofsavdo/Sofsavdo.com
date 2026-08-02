@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import type { Offer, OfferStatus, Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { DomainException } from "../common/errors/domain-error";
@@ -74,7 +75,17 @@ const ALLOWED_TRANSITIONS: Record<OfferStatus, OfferStatus[]> = {
 
 @Injectable()
 export class OffersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private config: ConfigService,
+  ) {}
+
+  private toImageUrl(imagePath: string | null): string | null {
+    if (!imagePath) return null;
+    const publicBaseUrl = this.config.get<string>("storage.publicBaseUrl");
+    if (!publicBaseUrl) return imagePath;
+    return `${publicBaseUrl}/${imagePath}`;
+  }
 
   // Stored `status` vs. computed `availability` are deliberately different concepts (see the
   // schema comment on OfferStatus): an ACTIVE offer whose expiresAt has passed is still stored as
@@ -383,7 +394,7 @@ export class OffersService {
       priceMinor: o.priceMinor,
       compareAtPriceMinor: o.compareAtPriceMinor,
       currency: o.currency,
-      imageUrl: o.product.images[0] ?? null,
+      imageUrl: this.toImageUrl(o.product.images[0] ?? null),
     }));
   }
 
@@ -429,7 +440,7 @@ export class OffersService {
       priceMinor: o.priceMinor,
       compareAtPriceMinor: o.compareAtPriceMinor,
       currency: o.currency,
-      imageUrl: o.product.images[0] ?? null,
+      imageUrl: this.toImageUrl(o.product.images[0] ?? null),
       productType: o.product.type,
     }));
 
