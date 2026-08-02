@@ -12,6 +12,7 @@ import { SimplifiedButton } from '@/components/simplified/simplified-button';
 import { SimplifiedLoading } from '@/components/simplified/simplified-loading';
 import { SimplifiedBadge } from '@/components/simplified/simplified-badge';
 import { creatorsV2Service, type CreatorStreamDto } from '@/services/v2/creators-v2.service';
+import { QRCodeSVG } from 'qrcode.react';
 
 export default function MyStreamDetailPage({ params }: { params: { id: string } }) {
   const [stream, setStream] = useState<CreatorStreamDto | null>(null);
@@ -138,6 +139,15 @@ export default function MyStreamDetailPage({ params }: { params: { id: string } 
                 </div>
               </div>
               
+              {/* QR Code */}
+              <div className="bg-white p-4 rounded-lg mb-4 flex flex-col items-center">
+                <p className="text-sm text-gray-600 mb-3">QR Kod</p>
+                <div className="bg-white p-2 rounded-lg border border-gray-200">
+                  <QRCodeSVG value={stream.referralLink} size={150} />
+                </div>
+                <p className="text-xs text-gray-500 mt-2">Skayner qiling va havolani oching</p>
+              </div>
+              
               <div className="bg-blue-50 p-4 rounded-lg mb-4">
                 <p className="text-sm text-blue-900 font-medium mb-1">Qancha topishingiz mumkin:</p>
                 <p className="text-2xl font-bold text-blue-600">
@@ -178,7 +188,7 @@ export default function MyStreamDetailPage({ params }: { params: { id: string } 
             </SimplifiedCardHeader>
             <SimplifiedCardContent>
               <ol className="list-decimal list-inside space-y-2 text-sm text-gray-600">
-                <li>Havolani nusxa oling</li>
+                <li>Havolani nusxa oling yoki QR kodni skayner qiling</li>
                 <li>Ijtimoiy tarmoqlarda ulashing</li>
                 <li>Siz havola orqali kelgan har bir sotuvdan komissiya olasiz</li>
                 <li>Daromad "Daromad" bo'limida ko'rinadi</li>
