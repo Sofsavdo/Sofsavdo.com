@@ -53,8 +53,8 @@ export function OfferLandingPageClient({ offerSlug }: { offerSlug: string }) {
 
   return (
     <div className="pb-20 md:pb-0">
-      <header className="border-b border-border bg-surface px-pad-mobile py-3 md:px-pad-desktop">
-        <Link href="/" className="font-heading text-lg font-bold text-text-primary">
+      <header className="border-b border-border bg-surface px-pad-mobile py-2 md:px-pad-desktop md:py-3">
+        <Link href="/" className="font-heading text-base font-bold text-text-primary md:text-lg">
           {BRAND.name}
         </Link>
       </header>

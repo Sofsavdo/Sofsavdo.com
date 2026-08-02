@@ -11,7 +11,7 @@ import { Check, Gift, ImageIcon, PlayCircle, Quote, ShieldCheck, Star, Truck, Wa
 
 export function ReferralBanner({ referral }: { referral: ReferralContext }) {
   return (
-    <div className="bg-accent/10 px-pad-mobile py-2.5 text-center font-body text-sm text-accent md:px-pad-desktop">
+    <div className="bg-accent/10 px-pad-mobile py-2 text-center font-body text-xs text-accent md:px-pad-desktop md:py-2.5 md:text-sm">
       <strong>{referral.creatorDisplayName}</strong> tavsiyasi orqali maxsus taklif
       {referral.discountLabel ? <> — {referral.discountLabel}</> : null}
       {referral.promoCode ? (
