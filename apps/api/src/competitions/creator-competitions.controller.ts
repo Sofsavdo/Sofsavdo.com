@@ -16,7 +16,7 @@ export class CreatorCompetitionsController {
 
   @Get()
   list(@CurrentUser() user: AuthenticatedUser) {
-    return this.competitions.listActiveForCreators(user.creatorId);
+    return this.competitions.listActiveForCreators(user.creatorId ?? undefined);
   }
 
   @Get(":id/leaderboard")
