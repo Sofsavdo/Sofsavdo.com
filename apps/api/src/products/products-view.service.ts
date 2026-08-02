@@ -12,6 +12,7 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma, Product } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { ConfigService } from '@nestjs/config';
 import { SlugGenerator } from '../common/slug-generator';
 import { SKUGenerator } from '../common/sku-generator';
 import {
@@ -31,7 +32,17 @@ type ProductWithOffer = Product & {
 
 @Injectable()
 export class ProductsViewService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private config: ConfigService,
+  ) {}
+
+  private toImageUrl(imagePath: string | null): string | null {
+    if (!imagePath) return null;
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) return imagePath;
+    const baseUrl = this.config.get('STORAGE_PUBLIC_BASE_URL') || 'https://api.sofsavdo.com/media';
+    return `${baseUrl}/${imagePath}`;
+  }
 
   /**
    * Transform a Product entity to a SimplifiedProductDto.
@@ -53,7 +64,7 @@ export class ProductsViewService {
       description: product.shortDescription || undefined,
       priceMinor,
       commissionPercent,
-      images: product.images || [],
+      images: (product.images || []).map(img => this.toImageUrl(img) || img),
       category: undefined, // Category is in Campaign, not Product
       status: product.status,
       estimatedEarningsPerSaleMinor,
