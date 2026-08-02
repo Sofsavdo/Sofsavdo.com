@@ -191,6 +191,10 @@ model CreatorProfile {
   campaignApplications CampaignApplication[]
   referralLinks        ReferralLink[]
   promoCodes           PromoCode[]
+  referralBonusId String?
+  referralBonus   ReferralBonus? @relation(fields: [referralBonusId], references: [id], onDelete: SetNull)
+  referralBonusesGiven    ReferralBonus[] @relation("ReferralBonusReferrer")
+  referralBonusesReceived ReferralBonus[] @relation("ReferralBonusReferred")
   commissions          Commission[]
   payoutMethods        PayoutMethod[]
   payouts              Payout[]
@@ -297,6 +301,66 @@ model CreatorApplication {
 
   @@index([creatorId])
   @@index([status])
+}
+
+
+// ────────────────────────────────────────────────────────────────────────────
+// Promo Code System
+// ────────────────────────────────────────────────────────────────────────────
+
+model PromoCode {
+  id                  String   @id @default(cuid())
+  code                String   @unique
+  creatorId           String
+  creator             CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  offerId             String?
+  offer               Offer?   @relation(fields: [offerId], references: [id], onDelete: SetNull)
+  discountPercentage  Int      @default(0)
+  discountMinor       Int      @default(0)
+  maxUses             Int?
+  usesCount           Int      @default(0)
+  minPurchaseMinor    Int?
+  currency            String   @default("UZS")
+  isActive            Boolean  @default(true)
+  startsAt            DateTime?
+  expiresAt           DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  orders              Order[]
+
+  @@index([creatorId])
+  @@index([code])
+  @@index([offerId])
+  @@index([isActive])
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Referral Bonus System
+// ────────────────────────────────────────────────────────────────────────────
+
+model ReferralBonus {
+  id                      String   @id @default(cuid())
+  referrerId              String
+  referrer                CreatorProfile @relation("ReferralBonusReferrer", fields: [referrerId], references: [id], onDelete: Cascade)
+  referredCreatorId       String
+  referredCreator         CreatorProfile @relation("ReferralBonusReferred", fields: [referredCreatorId], references: [id], onDelete: Cascade)
+  bonusAmountMinor        Int      @default(0)
+  currency                String   @default("UZS")
+  ordersRequiredCount     Int      @default(1)
+  ordersCompletedCount    Int      @default(0)
+  totalRevenueMinor       Int      @default(0)
+  isUnlocked              Boolean  @default(false)
+  unlockedAt              DateTime?
+  expiresAt               DateTime?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  orders                  Order[]
+
+  @@index([referrerId])
+  @@index([referredCreatorId])
+  @@index([isUnlocked])
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -433,6 +497,10 @@ model Offer {
   campaigns       Campaign[]
   referralLinks   ReferralLink[]
   promoCodes      PromoCode[]
+  referralBonusId String?
+  referralBonus   ReferralBonus? @relation(fields: [referralBonusId], references: [id], onDelete: SetNull)
+  referralBonusesGiven    ReferralBonus[] @relation("ReferralBonusReferrer")
+  referralBonusesReceived ReferralBonus[] @relation("ReferralBonusReferred")
   orders          Order[]
   referralVisits  ReferralVisit[]
   deliveryRegions OfferDeliveryRegion[]
@@ -724,6 +792,10 @@ model Campaign {
   creatorCampaigns CreatorCampaign[]
   referralLinks    ReferralLink[]
   promoCodes       PromoCode[]
+  referralBonusId String?
+  referralBonus   ReferralBonus? @relation(fields: [referralBonusId], references: [id], onDelete: SetNull)
+  referralBonusesGiven    ReferralBonus[] @relation("ReferralBonusReferrer")
+  referralBonusesReceived ReferralBonus[] @relation("ReferralBonusReferred")
   referralVisits   ReferralVisit[]
   orders           Order[]
   commissionRules  CommissionRule[]
@@ -1116,6 +1188,8 @@ model ReferralLink {
   offer                 Offer              @relation(fields: [offerId], references: [id])
   promoCodeId           String?            @unique
   promoCode             PromoCode?         @relation(fields: [promoCodeId], references: [id])
+  referralBonusId String?
+  referralBonus   ReferralBonus? @relation(fields: [referralBonusId], references: [id], onDelete: SetNull)
   status                ReferralLinkStatus @default(ACTIVE)
   startsAt              DateTime           @default(now())
   expiresAt             DateTime?
@@ -1201,12 +1275,15 @@ model PromoCodeUsage {
   id          String    @id @default(cuid())
   promoCodeId String
   promoCode   PromoCode @relation(fields: [promoCodeId], references: [id], onDelete: Cascade)
+  referralBonusId String?
+  referralBonus   ReferralBonus? @relation(fields: [referralBonusId], references: [id], onDelete: SetNull)
   orderId     String    @unique
   order       Order     @relation(fields: [orderId], references: [id])
   customerId  String?
   createdAt   DateTime  @default(now())
 
   @@index([promoCodeId])
+  @@index([referralBonusId])
 }
 
 enum AttributionSource {
@@ -1357,6 +1434,8 @@ model Order {
   address        Address?    @relation(fields: [addressId], references: [id])
   promoCodeId    String?
   promoCode      PromoCode?  @relation(fields: [promoCodeId], references: [id])
+  referralBonusId String?
+  referralBonus   ReferralBonus? @relation(fields: [referralBonusId], references: [id], onDelete: SetNull)
   status         OrderStatus @default(CREATED)
   offerSnapshot  Json // frozen offer/variant content at purchase time
   subtotalMinor  Int
@@ -1381,6 +1460,8 @@ model Order {
   commission     Commission?
   refunds        Refund[]
   promoCodeUsage PromoCodeUsage?
+  referralBonusId String?
+  referralBonus   ReferralBonus? @relation(fields: [referralBonusId], references: [id], onDelete: SetNull)
 
   @@index([status])
   @@index([offerId])
