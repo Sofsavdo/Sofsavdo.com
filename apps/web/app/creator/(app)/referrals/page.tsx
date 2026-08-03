@@ -1,16 +1,34 @@
 "use client";
 
+import { useState } from "react";
 import { formatMoneyMinor } from "@sofsavdo/types";
-import { Alert, Badge, Card, CardHeader, CardTitle, CopyButton, EmptyState, Skeleton, StatTile } from "@sofsavdo/ui";
+import { Alert, Badge, Card, CardHeader, CardTitle, CopyButton, EmptyState, Skeleton, StatTile, TextField, Button } from "@sofsavdo/ui";
 import { BRAND } from "@sofsavdo/config/brand";
 import { useMyReferralRewards, useMyReferrals, useReferralCode, useReferralSummary } from "@/services/referrals";
 import { referralActivityMeta } from "@/lib/status";
+import { useSession } from "@/services/session";
 
 export default function CreatorReferralsPage() {
   const codeQuery = useReferralCode();
   const summaryQuery = useReferralSummary();
   const friendsQuery = useMyReferrals();
   const rewardsQuery = useMyReferralRewards();
+  const { user } = useSession();
+  const [customPromoCode, setCustomPromoCode] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSaveCustomPromoCode = async () => {
+    setIsSaving(true);
+    try {
+      // TODO: Implement API call to save custom promo code
+      alert("Custom promo kod saqlandi!");
+    } catch (error) {
+      console.error("Failed to save custom promo code:", error);
+      alert("Xatolik yuz berdi");
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   if (codeQuery.isLoading || summaryQuery.isLoading) {
     return (
@@ -69,6 +87,28 @@ export default function CreatorReferralsPage() {
         <p className="mt-2 font-body text-xs text-text-muted">
           Promo kodni do'stlaringizga yuboring. Ular ro'yxatdan o'tganda shu kodni kiritishlari mumkin.
         </p>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Custom Promo Kod</CardTitle>
+        </CardHeader>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <TextField
+              label="Custom promo kod (ixtiyoriy)"
+              placeholder="Masalan: akmal"
+              value={customPromoCode}
+              onChange={(e) => setCustomPromoCode(e.target.value)}
+            />
+            <p className="font-body text-xs text-text-muted">
+              Agar bo'sh qoldirilsa, avtomatik referral kod ishlatiladi. Custom promo kodni o'rnatsangiz, u avtomatik referral kod bilan almashinadi.
+            </p>
+          </div>
+          <Button onClick={handleSaveCustomPromoCode} disabled={isSaving}>
+            {isSaving ? "Saqlanmoqda..." : "Saqlash"}
+          </Button>
+        </div>
       </Card>
 
       {summary ? (
