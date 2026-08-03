@@ -217,15 +217,16 @@ enum BonusStatus {
 
 model LaunchBonusSettings {
   id                   String   @id @default(cuid())
-  bonusAmountMinor     Int      @default(200000000) // 2,000,000 UZS
+  bonusAmountMinor     Int      @default(150000000) // 1,500,000 UZS - normal registration
+  referralBonusAmountMinor Int  @default(250000000) // 2,500,000 UZS - referral registration
   deadlineDays         Int      @default(30)
-  
+
   // Configurable requirements
   minCommissionMinor  Int?     @default(500000000) // 500,000 UZS
   minReferrals         Int?     @default(3)
   minOrders            Int?     @default(5)
   bioLinkRequired      Boolean  @default(true)
-  
+
   isActive             Boolean  @default(true)
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt

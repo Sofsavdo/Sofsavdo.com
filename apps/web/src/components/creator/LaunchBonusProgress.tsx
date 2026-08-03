@@ -18,8 +18,8 @@ export function LaunchBonusProgress() {
     );
   }
 
-  // Default values when no bonus exists - always show 2,000,000 UZS LOCKED
-  const DEFAULT_BONUS_AMOUNT = 200000000; // 2,000,000 UZS in minor units
+  // Default values when no bonus exists - show 1,500,000 UZS LOCKED (normal registration)
+  const DEFAULT_BONUS_AMOUNT = 150000000; // 1,500,000 UZS in minor units
   const DEFAULT_DEADLINE_DAYS = 30;
   const DEFAULT_MIN_COMMISSION = 500000000; // 5,000,000 UZS
   const DEFAULT_MIN_REFERRALS = 3;

@@ -45,6 +45,7 @@ export interface CreatorStreamDto {
   productPriceMinor: number;
   commissionPercent: number;
   referralLink: string;
+  promoCode?: string;
   totalClicks: number;
   totalSales: number;
   totalEarningsMinor: number;

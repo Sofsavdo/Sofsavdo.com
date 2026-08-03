@@ -17,14 +17,16 @@ export default function LaunchBonusSettingsPage() {
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    
+
     // Get values from form - they're already in so'm for display
-    const bonusAmountSoM = parseInt(formData.get("bonusAmountMinor") as string) || 2000000;
+    const bonusAmountSoM = parseInt(formData.get("bonusAmountMinor") as string) || 1500000;
+    const referralBonusAmountSoM = parseInt(formData.get("referralBonusAmountMinor") as string) || 2500000;
     const minCommissionSoM = parseInt(formData.get("minCommissionMinor") as string) || 5000000;
-    
+
     // Convert so'm to tiyin (multiply by 100) for backend
     updateSettings({
       bonusAmountMinor: bonusAmountSoM * 100,
+      referralBonusAmountMinor: referralBonusAmountSoM * 100,
       deadlineDays: parseInt(formData.get("deadlineDays") as string) || 30,
       minCommissionMinor: minCommissionSoM * 100,
       minReferrals: parseInt(formData.get("minReferrals") as string) || 3,
@@ -94,10 +96,17 @@ export default function LaunchBonusSettingsPage() {
               <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                 <div className="grid grid-cols-2 gap-3">
                   <TextField
-                    label="Bonus Miqdori (so'm)"
+                    label="Bonus Miqdori - Oddiy (so'm)"
                     name="bonusAmountMinor"
                     type="number"
-                    defaultValue={settings?.bonusAmountMinor ? Math.floor(settings.bonusAmountMinor / 100) : 2000000}
+                    defaultValue={settings?.bonusAmountMinor ? Math.floor(settings.bonusAmountMinor / 100) : 1500000}
+                    required
+                  />
+                  <TextField
+                    label="Bonus Miqdori - Referral (so'm)"
+                    name="referralBonusAmountMinor"
+                    type="number"
+                    defaultValue={settings?.referralBonusAmountMinor ? Math.floor(settings.referralBonusAmountMinor / 100) : 2500000}
                     required
                   />
                   <TextField

@@ -46,18 +46,26 @@ export class LaunchBonusService {
       return;
     }
 
+    // Check if creator was referred
+    const referral = await this.prisma.creatorReferral.findUnique({
+      where: { referredCreatorId: creatorProfileId },
+    });
+
+    const isReferred = !!referral;
+    const bonusAmountMinor = isReferred ? settings.referralBonusAmountMinor : settings.bonusAmountMinor;
+
     const deadline = new Date(Date.now() + settings.deadlineDays * 24 * 60 * 60 * 1000);
 
     await this.prisma.launchBonus.create({
       data: {
         creatorProfileId,
         settingsId: settings.id,
-        bonusAmountMinor: settings.bonusAmountMinor,
+        bonusAmountMinor,
         deadline,
       },
     });
 
-    this.logger.log(`Launch bonus created for creator ${creatorProfileId}, deadline: ${deadline}`);
+    this.logger.log(`Launch bonus created for creator ${creatorProfileId} (${isReferred ? 'referred' : 'normal'}), amount: ${bonusAmountMinor}, deadline: ${deadline}`);
   }
 
   async getCreatorStats(creatorProfileId: string): Promise<CreatorStats> {
@@ -201,6 +209,7 @@ export class LaunchBonusService {
 
   async updateSettings(data: {
     bonusAmountMinor?: number;
+    referralBonusAmountMinor?: number;
     deadlineDays?: number;
     minCommissionMinor?: number;
     minReferrals?: number;
@@ -209,7 +218,7 @@ export class LaunchBonusService {
     isActive?: boolean;
   }): Promise<any> {
     const existing = await this.prisma.launchBonusSettings.findFirst();
-    
+
     if (existing) {
       return this.prisma.launchBonusSettings.update({
         where: { id: existing.id },
@@ -220,7 +229,8 @@ export class LaunchBonusService {
     return this.prisma.launchBonusSettings.create({
       data: {
         ...data,
-        bonusAmountMinor: data.bonusAmountMinor ?? 200_000_000,
+        bonusAmountMinor: data.bonusAmountMinor ?? 150_000_000,
+        referralBonusAmountMinor: data.referralBonusAmountMinor ?? 250_000_000,
         deadlineDays: data.deadlineDays ?? 30,
       },
     });

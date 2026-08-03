@@ -18,13 +18,13 @@ export interface AppConfig {
     lockoutDurationMinutes: number;
   };
   storage: {
-    // "local" (LocalDiskStorage, dev/test default) or "s3" (S3Storage — also covers R2/GCS via
-    // their S3-compatible endpoints) — see storage.module.ts. Campaign/media domain code never
-    // sees this value; it only ever depends on STORAGE_PORT.
+    // "local" (LocalDiskStorage, dev/test default), "s3" (S3Storage — also covers R2/GCS via
+    // their S3-compatible endpoints), or "supabase" (SupabaseStorage) — see storage.module.ts.
+    // Campaign/media domain code never sees this value; it only ever depends on STORAGE_PORT.
     driver: string;
     localDir: string;
     // Base URL the local adapter's stored objects are served from (main.ts mounts the static
-    // handler). Unused when driver is "s3" — see storage.s3.publicBaseUrl instead.
+    // handler). Unused when driver is "s3" or "supabase".
     publicBaseUrl: string;
     s3: {
       bucket: string;
@@ -37,6 +37,11 @@ export interface AppConfig {
       // them); real AWS S3 works either way but virtual-hosted-style is its default.
       forcePathStyle: boolean;
       publicBaseUrl?: string;
+    };
+    supabase: {
+      url: string;
+      secretKey: string;
+      bucket: string;
     };
   };
   media: {
@@ -152,6 +157,11 @@ export default (): AppConfig => ({
       endpoint: process.env.STORAGE_ENDPOINT || undefined,
       forcePathStyle: process.env.STORAGE_FORCE_PATH_STYLE === "true",
       publicBaseUrl: process.env.STORAGE_PUBLIC_BASE_URL || undefined,
+    },
+    supabase: {
+      url: process.env.SUPABASE_URL ?? "",
+      secretKey: process.env.SUPABASE_SECRET_KEY ?? "",
+      bucket: process.env.SUPABASE_STORAGE_BUCKET ?? "products",
     },
   },
   media: {

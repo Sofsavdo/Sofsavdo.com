@@ -28,7 +28,7 @@ export interface AdminNavGroup {
 
 // Simplified Admin Navigation - Only essential sections
 export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
-  { label: "", items: [{ href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard }] },
+  { label: "", items: [{ href: "/admin/dashboard", label: "Bosh sahifa", icon: LayoutDashboard }] },
   {
     label: "Asosiy",
     items: [
@@ -36,7 +36,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
       { href: "/admin/orders", label: "Buyurtmalar", icon: ShoppingBag },
       { href: "/admin/creators", label: "Creatorlar", icon: Users },
       { href: "/admin/creator-applications", label: "Creator Arizalari", icon: Users },
-      { href: "/admin/launch-bonus", label: "Launch Bonus", icon: Gift, requiredPermission: "launch_bonus.read" },
+      { href: "/admin/launch-bonus", label: "Bonus", icon: Gift, requiredPermission: "launch_bonus.read" },
       { href: "/admin/competitions", label: "Musobaqalar", icon: Trophy },
       { href: "/admin/settings", label: "Sozlamalar", icon: Settings, requiredPermission: "settings.read" },
     ],

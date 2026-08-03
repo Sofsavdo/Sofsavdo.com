@@ -138,6 +138,35 @@ export default function MyStreamDetailPage({ params }: { params: { id: string } 
                   </SimplifiedButton>
                 </div>
               </div>
+
+              {stream.promoCode && (
+                <div className="bg-purple-50 p-4 rounded-lg mb-4">
+                  <p className="text-sm text-purple-600 mb-2">Promo kod:</p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={stream.promoCode}
+                      readOnly
+                      className="flex-1 bg-white border border-purple-300 rounded-lg px-3 py-2 text-sm font-mono font-bold"
+                    />
+                    <SimplifiedButton
+                      variant="outline"
+                      onClick={async () => {
+                        if (!stream.promoCode) return;
+                        try {
+                          await navigator.clipboard.writeText(stream.promoCode);
+                          setCopied(true);
+                          setTimeout(() => setCopied(false), 2000);
+                        } catch (error) {
+                          console.error('Failed to copy:', error);
+                        }
+                      }}
+                    >
+                      {copied ? 'Nusxa olindi!' : 'Nusxa olish'}
+                    </SimplifiedButton>
+                  </div>
+                </div>
+              )}
               
               {/* QR Code */}
               <div className="bg-white p-4 rounded-lg mb-4 flex flex-col items-center">

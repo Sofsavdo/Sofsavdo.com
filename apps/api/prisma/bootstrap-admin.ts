@@ -23,7 +23,20 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 import { seedRolesAndPermissions } from "./lib/seed-roles-permissions";
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+// Use the same connection configuration as the running API
+const databaseUrl = process.env.DATABASE_URL || process.env.DATABASE_URL;
+if (!databaseUrl) {
+  throw new Error("DATABASE_URL environment variable is not set");
+}
+
+const pool = new Pool({ 
+  connectionString: databaseUrl,
+  connectionTimeoutMillis: 10_000
+});
+pool.on("error", (err) => {
+  console.warn(`Idle PostgreSQL connection dropped: ${err.message}`);
+});
+
 const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
 
 async function main() {

@@ -1,6 +1,6 @@
 /**
  * Market Page - Product Catalog
- * 
+ *
  * Mobile-first product catalog for buyers to browse all products.
  * Simple, clean design optimized for mobile shopping.
  */
@@ -14,25 +14,26 @@ import { SimplifiedButton } from '@/components/simplified/simplified-button';
 import { SimplifiedInput } from '@/components/simplified/simplified-input';
 import { SimplifiedLoading } from '@/components/simplified/simplified-loading';
 import { SimplifiedBadge } from '@/components/simplified/simplified-badge';
-import { productsV2Service, type SimplifiedProductDto } from '@/services/v2/products-v2.service';
+import { getCatalog } from '@/lib/api';
 
 export default function MarketPage() {
-  const [products, setProducts] = useState<SimplifiedProductDto[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  
+
   useEffect(() => {
     loadProducts();
   }, []);
-  
+
   const loadProducts = async () => {
     setLoading(true);
     try {
-      const response = await productsV2Service.list({ status: 'ACTIVE' });
+      const response = await getCatalog({ skip: 0, take: 50 });
       setProducts(response.items);
     } catch (error) {
       console.error('Failed to load products:', error);
+      setProducts([]);
     } finally {
       setLoading(false);
     }
@@ -41,12 +42,12 @@ export default function MarketPage() {
   const formatPrice = (minor: number) => {
     return (minor / 100).toLocaleString('uz-UZ') + " so'm";
   };
-  
-  const categories = ['all', ...new Set(products.map(p => p.category).filter(Boolean))];
-  
+
+  const categories = ['all', ...new Set(products.map(p => p.productType).filter(Boolean))];
+
   const filteredProducts = products.filter(product => {
-    const matchesSearch = product.title.toLowerCase().includes(search.toLowerCase());
-    const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory;
+    const matchesSearch = product.offer.name.toLowerCase().includes(search.toLowerCase());
+    const matchesCategory = selectedCategory === 'all' || product.productType === selectedCategory;
     return matchesSearch && matchesCategory;
   });
   
@@ -108,36 +109,39 @@ export default function MarketPage() {
       
       {/* Products Grid */}
       <div className="max-w-7xl mx-auto px-4 py-6">
-        {filteredProducts.length === 0 ? (
+        {filteredProducts.length === 0 && !loading ? (
           <div className="text-center py-12">
             <p className="text-gray-600 mb-4">
               {search ? 'Mahsulot topilmadi' : 'Mahsulotlar yo\'q'}
             </p>
+            <button onClick={loadProducts} className="text-blue-600 hover:underline">
+              Qayta yuklash
+            </button>
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {filteredProducts.map((product) => (
-              <Link key={product.id} href={`/buyer/v2/products/${product.id}`}>
+              <Link key={product.id} href={`/catalog?offer=${product.offer.slug}`}>
                 <SimplifiedCard className="hover:shadow-lg transition-shadow cursor-pointer">
                   <SimplifiedCardContent className="p-3">
                     <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden mb-3">
                       <img
-                        src={product.images[0] || '/placeholder.png'}
-                        alt={product.title}
+                        src={product.offer.heroImage || '/placeholder.png'}
+                        alt={product.offer.name}
                         className="w-full h-full object-cover"
                       />
                     </div>
-                    
+
                     <h3 className="font-semibold text-gray-900 text-sm mb-2 line-clamp-2 min-h-[2.5rem]">
-                      {product.title}
+                      {product.offer.name}
                     </h3>
-                    
+
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-lg font-bold text-blue-600">
-                        {formatPrice(product.priceMinor)}
+                        {formatPrice(product.offer.priceMinor)}
                       </span>
                     </div>
-                    
+
                     <SimplifiedButton variant="primary" fullWidth size="sm">
                       Sotib olish
                     </SimplifiedButton>

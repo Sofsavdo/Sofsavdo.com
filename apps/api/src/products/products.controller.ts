@@ -40,12 +40,6 @@ export class ProductsController {
     return this.products.update(id, dto);
   }
 
-  @RequirePermissions("product.archive")
-  @Post(":id/archive")
-  archive(@Param("id") id: string) {
-    return this.products.archive(id);
-  }
-
   @Get("my-products")
   listMyProducts(@CurrentUser() user: AuthenticatedUser) {
     return this.products.listByCreator(user.creatorId!);
@@ -102,5 +96,11 @@ export class ProductsController {
         status: "ACTIVE",
       },
     });
+  }
+
+  @RequirePermissions("product.archive")
+  @Post(":id/archive")
+  archive(@Param("id") id: string) {
+    return this.products.archive(id);
   }
 }
