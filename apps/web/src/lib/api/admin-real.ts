@@ -131,7 +131,7 @@ export async function adminLogin(email: string, password: string): Promise<Admin
 // session-presence check, not a hard requirement.
 export async function adminGetSession(): Promise<AdminUser | null> {
   try {
-    const user = await apiRequest<BackendSessionUser>("/auth/me", { skipRefreshOnAuthError: true });
+    const user = await apiRequest<BackendSessionUser>("/auth/me");
     return mapSessionUserToAdminUser(user);
   } catch (err) {
     if (err instanceof ApiError && err.statusCode === 401) return null;

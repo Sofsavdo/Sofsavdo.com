@@ -11,7 +11,13 @@ export function useUpdateLaunchBonusSettings() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: any) => api.updateLaunchBonusSettings(data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["launch-bonus-settings"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["launch-bonus-settings"] });
+      // Show success notification
+      if (typeof window !== 'undefined') {
+        alert("Launch Bonus sozlamalari saqlandi");
+      }
+    },
   });
 }
 
