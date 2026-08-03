@@ -2,12 +2,12 @@
 -- This migration fixes the permission issue where admin users couldn't access launch bonus settings
 
 -- Insert launch_bonus permissions if they don't exist
-INSERT INTO "Permission" (key, label, "createdAt", "updatedAt")
+INSERT INTO "Permission" (key, label)
 VALUES 
-  ('launch_bonus.read', 'launch_bonus.read', NOW(), NOW()),
-  ('launch_bonus.write', 'launch_bonus.write', NOW(), NOW()),
-  ('launch_bonus.verify', 'launch_bonus.verify', NOW(), NOW()),
-  ('launch_bonus.admin', 'launch_bonus.admin', NOW(), NOW())
+  ('launch_bonus.read', 'launch_bonus.read'),
+  ('launch_bonus.write', 'launch_bonus.write'),
+  ('launch_bonus.verify', 'launch_bonus.verify'),
+  ('launch_bonus.admin', 'launch_bonus.admin')
 ON CONFLICT (key) DO NOTHING;
 
 -- Get the admin role ID
@@ -29,11 +29,11 @@ BEGIN
   SELECT id INTO launch_bonus_admin_id FROM "Permission" WHERE key = 'launch_bonus.admin';
   
   -- Assign permissions to admin role if not already assigned
-  INSERT INTO "RolePermission" ("roleId", "permissionId", "createdAt", "updatedAt")
+  INSERT INTO "RolePermission" ("roleId", "permissionId")
   VALUES 
-    (admin_role_id, launch_bonus_read_id, NOW(), NOW()),
-    (admin_role_id, launch_bonus_write_id, NOW(), NOW()),
-    (admin_role_id, launch_bonus_verify_id, NOW(), NOW()),
-    (admin_role_id, launch_bonus_admin_id, NOW(), NOW())
+    (admin_role_id, launch_bonus_read_id),
+    (admin_role_id, launch_bonus_write_id),
+    (admin_role_id, launch_bonus_verify_id),
+    (admin_role_id, launch_bonus_admin_id)
   ON CONFLICT ("roleId", "permissionId") DO NOTHING;
 END $$;
