@@ -97,18 +97,13 @@ export class AuthService {
         await this.referrals.attributeAtRegistration(tx, user.creatorProfile.id, referrer);
       }
 
+      // Create launch bonus inside the transaction to ensure referral row is committed first
+      if (user.creatorProfile) {
+        await this.launchBonus.createBonusForCreatorInTransaction(tx, user.creatorProfile.id);
+      }
+
       return user.id;
     });
-
-    // Create launch bonus for new creator (if active settings exist)
-    // This runs outside the transaction to avoid circular dependency issues
-    const userWithProfile = await this.prisma.user.findUnique({
-      where: { id: userId },
-      include: { creatorProfile: true },
-    });
-    if (userWithProfile?.creatorProfile) {
-      await this.launchBonus.createBonusForCreator(userWithProfile.creatorProfile.id);
-    }
 
     // emitAsync, not emit — see creator-applications.service.ts's identical comment. Without this,
     // a caller (or a test) checking for the resulting welcome notification/email immediately after

@@ -4,6 +4,7 @@ import { AppLogger } from "../common/logging/app-logger.service";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { NOTIFICATION_EVENTS } from "../notifications/events";
 import { Cron, CronExpression } from "@nestjs/schedule";
+import { Prisma } from "@prisma/client";
 
 export interface CreatorStats {
   commissionEarned: number;
@@ -57,6 +58,38 @@ export class LaunchBonusService {
     const deadline = new Date(Date.now() + settings.deadlineDays * 24 * 60 * 60 * 1000);
 
     await this.prisma.launchBonus.create({
+      data: {
+        creatorProfileId,
+        settingsId: settings.id,
+        bonusAmountMinor,
+        deadline,
+      },
+    });
+
+    this.logger.log(`Launch bonus created for creator ${creatorProfileId} (${isReferred ? 'referred' : 'normal'}), amount: ${bonusAmountMinor}, deadline: ${deadline}`);
+  }
+
+  async createBonusForCreatorInTransaction(tx: Prisma.TransactionClient, creatorProfileId: string): Promise<void> {
+    const settings = await tx.launchBonusSettings.findFirst({
+      where: { isActive: true },
+    });
+
+    if (!settings) {
+      this.logger.log(`No active launch bonus settings found, skipping bonus creation for creator ${creatorProfileId}`);
+      return;
+    }
+
+    // Check if creator was referred
+    const referral = await tx.creatorReferral.findUnique({
+      where: { referredCreatorId: creatorProfileId },
+    });
+
+    const isReferred = !!referral;
+    const bonusAmountMinor = isReferred ? settings.referralBonusAmountMinor : settings.bonusAmountMinor;
+
+    const deadline = new Date(Date.now() + settings.deadlineDays * 24 * 60 * 60 * 1000);
+
+    await tx.launchBonus.create({
       data: {
         creatorProfileId,
         settingsId: settings.id,
