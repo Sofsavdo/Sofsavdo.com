@@ -26,7 +26,7 @@ export class LaunchBonusController {
 
   @Put("settings")
   @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @RequirePermissions("launch_bonus.admin")
+  @RequirePermissions("launch_bonus.write")
   async updateSettings(@Body() data: any) {
     return this.launchBonusService.updateSettings(data);
   }
