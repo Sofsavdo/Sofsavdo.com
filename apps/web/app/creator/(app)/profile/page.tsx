@@ -26,7 +26,6 @@ export default function CreatorProfilePage() {
     youtube: "",
     telegram: "",
   });
-  const [customPromoCode, setCustomPromoCode] = useState("");
 
   if (isLoading || !user) {
     return (
@@ -184,26 +183,6 @@ export default function CreatorProfilePage() {
         ) : (
           <p className="font-body text-sm text-text-muted">To'lov usuli kiritilmagan.</p>
         )}
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Custom Promo Kod</CardTitle>
-        </CardHeader>
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <TextField
-              label="Custom promo kod (ixtiyoriy)"
-              placeholder="Masalan: akmal"
-              value={customPromoCode}
-              onChange={(e) => setCustomPromoCode(e.target.value)}
-            />
-            <p className="font-body text-xs text-text-muted">
-              Agar bo'sh qoldirilsa, avtomatik referral kod ishlatiladi
-            </p>
-          </div>
-          <Button onClick={handleSave}>Saqlash</Button>
-        </div>
       </Card>
     </div>
   );
