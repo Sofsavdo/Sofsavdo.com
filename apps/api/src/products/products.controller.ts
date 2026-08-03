@@ -50,6 +50,7 @@ export class ProductsController {
     return this.products.create({ ...dto, creatorProfileId: user.creatorId! });
   }
 
+  @RequirePermissions("product.read")
   @Get("available-for-promotion")
   listAvailableForPromotion() {
     return this.products.listAvailableForPromotion();
