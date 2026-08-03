@@ -27,7 +27,7 @@ const NICHE_OPTIONS = [
 const PLATFORM_OPTIONS: SocialPlatform[] = ["INSTAGRAM", "TIKTOK", "YOUTUBE", "TELEGRAM"];
 
 const STEP_FIELDS: (keyof CreatorApplicationData)[][] = [
-  ["fullName", "phone", "city"],
+  ["phone", "city"],
   ["audienceAgeRange", "audienceGeography", "audienceInterests"],
   [],
 ];
@@ -163,11 +163,6 @@ export function OnboardingWizard({
       <form onSubmit={handleSubmit(onFinalSubmit)} className="flex flex-col gap-5" noValidate>
         {step === 1 ? (
           <>
-            <TextField
-              label="To'liq ism"
-              error={errors.fullName?.message}
-              {...register("fullName", { required: "To'liq ismingizni kiriting" })}
-            />
             <TextField
               label="Telefon raqami"
               placeholder="+998 90 123 45 67"
