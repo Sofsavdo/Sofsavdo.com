@@ -29,7 +29,7 @@ export default function MarketPage() {
   const loadProducts = async () => {
     setLoading(true);
     try {
-      const response = await getCatalog({ skip: 0, take: 50 });
+      const response = await getCatalog({ page: 1 });
       setProducts(response.items);
     } catch (error) {
       console.error('Failed to load products:', error);
