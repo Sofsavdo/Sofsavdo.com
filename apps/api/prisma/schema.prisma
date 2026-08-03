@@ -1248,6 +1248,7 @@ model PromoCodeUsage {
 enum AttributionSource {
   PROMO_CODE
   REFERRAL_VISIT
+  FLOW
   MANUAL
 }
 
@@ -1257,8 +1258,8 @@ model Attribution {
   orderId         String            @unique
   order           Order             @relation(fields: [orderId], references: [id])
   creatorId       String
-  campaignId      String
-  offerId         String
+  campaignId      String?           // Nullable for Flow-based attribution
+  offerId         String?
   source          AttributionSource
   // NOT unique: one ReferralVisit (one click) legitimately backs multiple Orders/Attributions
   // when a buyer returns and purchases more than once inside the attribution window. The
@@ -1577,8 +1578,8 @@ model Commission {
   order              Order                    @relation(fields: [orderId], references: [id])
   creatorId          String
   creator            CreatorProfile           @relation(fields: [creatorId], references: [id])
-  commissionRuleId   String
-  commissionRule     CommissionRule           @relation(fields: [commissionRuleId], references: [id])
+  commissionRuleId   String?                  // Nullable for Flow-based attribution
+  commissionRule     CommissionRule?          @relation(fields: [commissionRuleId], references: [id])
   baseAmountMinor    Int // order subtotal after discount, before shipping/tax/fees
   amountMinor        Int
   currency           String                   @default("UZS")

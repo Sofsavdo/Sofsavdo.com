@@ -6,6 +6,7 @@ import { CampaignsService } from "../campaigns/campaigns.service";
 import { DeliveryService } from "../delivery/delivery.service";
 import { PromoCodesService } from "../promo-codes/promo-codes.service";
 import { ReferralsService } from "../referrals/referrals.service";
+import { FlowsService } from "../flows/flows.service";
 import { AuditService } from "../common/audit/audit.service";
 import { DomainException } from "../common/errors/domain-error";
 import { paginate, type PaginatedResult } from "../common/pagination/pagination.dto";
@@ -145,6 +146,7 @@ export class OrdersService {
     private delivery: DeliveryService,
     private promoCodes: PromoCodesService,
     private referrals: ReferralsService,
+    private flows: FlowsService,
     private audit: AuditService,
   ) {}
 
@@ -314,7 +316,7 @@ export class OrdersService {
     refCode: string | undefined,
     promoCode: string | undefined,
     visitorId: string | undefined,
-  ): Promise<{ source: "PROMO_CODE" | "REFERRAL_VISIT"; creatorId: string; campaignId: string; referralVisitId: string | null } | null> {
+  ): Promise<{ source: "PROMO_CODE" | "REFERRAL_VISIT" | "FLOW"; creatorId: string; campaignId: string | null; referralVisitId: string | null; flowId: string | null; productId: string | null } | null> {
     const now = new Date();
 
     // Promo code takes priority when both are somehow present — it carries its own creator/
@@ -324,7 +326,7 @@ export class OrdersService {
       if (promo && promo.offerId === offerId && promo.isActive) {
         const campaign = await this.prisma.campaign.findUnique({ where: { id: promo.campaignId }, select: { status: true, startDate: true, endDate: true } });
         if (campaign && this.campaigns.computeAvailability(campaign) !== "EXPIRED" && campaign.status === "ACTIVE") {
-          return { source: "PROMO_CODE", creatorId: promo.creatorId, campaignId: promo.campaignId, referralVisitId: null };
+          return { source: "PROMO_CODE", creatorId: promo.creatorId, campaignId: promo.campaignId, referralVisitId: null, flowId: null, productId: null };
         }
       }
       // An invalid/expired promo code used purely as an attribution signal (not for discount) is
@@ -333,6 +335,14 @@ export class OrdersService {
     }
 
     if (refCode) {
+      // First try Flow-based referral (simplified architecture)
+      const flow = await this.prisma.flow.findUnique({ where: { referralCode: refCode } });
+      if (flow && flow.status === "ACTIVE") {
+        // For Flow-based attribution, we don't need campaign or referralVisit
+        return { source: "FLOW", creatorId: flow.creatorProfileId, campaignId: null, referralVisitId: null, flowId: flow.id, productId: flow.productId };
+      }
+
+      // Fallback to legacy Campaign-based referral
       const link = await this.prisma.referralLink.findUnique({ where: { code: refCode } });
       if (!link || link.offerId !== offerId || link.status !== "ACTIVE" || (link.expiresAt && link.expiresAt < now)) {
         throw new DomainException("REFERRAL_CODE_INVALID", "Referral havola yaroqsiz yoki muddati tugagan.");
@@ -350,7 +360,7 @@ export class OrdersService {
         });
         referralVisitId = visit?.id ?? null;
       }
-      return { source: "REFERRAL_VISIT", creatorId: link.creatorId, campaignId: link.campaignId, referralVisitId };
+      return { source: "REFERRAL_VISIT", creatorId: link.creatorId, campaignId: link.campaignId, referralVisitId, flowId: null, productId: null };
     }
 
     return null;
@@ -530,24 +540,55 @@ export class OrdersService {
             orderId: created.id,
             creatorId: attribution.creatorId,
             campaignId: attribution.campaignId,
-            offerId: offer.id,
+            offerId: attribution.source === "FLOW" ? null : offer.id,
             source: attribution.source,
             referralVisitId: attribution.referralVisitId,
             promoCodeId: attribution.source === "PROMO_CODE" ? promoCodeId : null,
           },
         });
 
-        const campaign = await tx.campaign.findUnique({
-          where: { id: attribution.campaignId },
-          select: { id: true, commissionType: true, commissionRateBps: true, commissionAmountMinor: true },
-        });
-        if (campaign) {
-          const rule = await this.getOrCreateCurrentCommissionRule(tx, campaign);
-          const baseAmountMinor = subtotalMinor - discountMinor;
-          const amountMinor = rule.commissionType === "PERCENTAGE" ? applyBasisPoints(baseAmountMinor, rule.commissionRateBps ?? 0) : (rule.commissionAmountMinor ?? 0);
-          await tx.commission.create({
-            data: { orderId: created.id, creatorId: attribution.creatorId, commissionRuleId: rule.id, baseAmountMinor, amountMinor, currency: offer.currency, status: "PENDING" },
+        // Handle commission based on attribution type
+        if (attribution.source === "FLOW" && attribution.productId) {
+          // Flow-based attribution: use Product commission settings
+          const product = await tx.product.findUnique({
+            where: { id: attribution.productId },
+            select: { id: true, commissionType: true, commissionRateBps: true, commissionAmountMinor: true },
           });
+          if (product) {
+            const baseAmountMinor = subtotalMinor - discountMinor;
+            let amountMinor = 0;
+            if (product.commissionType === "PERCENTAGE") {
+              amountMinor = applyBasisPoints(baseAmountMinor, product.commissionRateBps ?? 0);
+            } else if (product.commissionType === "FIXED_AMOUNT") {
+              amountMinor = product.commissionAmountMinor ?? 0;
+            }
+            // Create commission without commissionRule for Flow-based
+            await tx.commission.create({
+              data: { 
+                orderId: created.id, 
+                creatorId: attribution.creatorId, 
+                commissionRuleId: null, // No commissionRule for Flow-based
+                baseAmountMinor, 
+                amountMinor, 
+                currency: offer.currency, 
+                status: "PENDING" 
+              },
+            });
+          }
+        } else if (attribution.campaignId) {
+          // Campaign-based attribution: use Campaign commission settings
+          const campaign = await tx.campaign.findUnique({
+            where: { id: attribution.campaignId },
+            select: { id: true, commissionType: true, commissionRateBps: true, commissionAmountMinor: true },
+          });
+          if (campaign) {
+            const rule = await this.getOrCreateCurrentCommissionRule(tx, campaign);
+            const baseAmountMinor = subtotalMinor - discountMinor;
+            const amountMinor = rule.commissionType === "PERCENTAGE" ? applyBasisPoints(baseAmountMinor, rule.commissionRateBps ?? 0) : (rule.commissionAmountMinor ?? 0);
+            await tx.commission.create({
+              data: { orderId: created.id, creatorId: attribution.creatorId, commissionRuleId: rule.id, baseAmountMinor, amountMinor, currency: offer.currency, status: "PENDING" },
+            });
+          }
         }
       }
 

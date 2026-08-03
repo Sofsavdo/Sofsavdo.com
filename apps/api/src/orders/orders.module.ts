@@ -9,9 +9,10 @@ import { CampaignsModule } from "../campaigns/campaigns.module";
 import { DeliveryModule } from "../delivery/delivery.module";
 import { PromoCodesModule } from "../promo-codes/promo-codes.module";
 import { ReferralsModule } from "../referrals/referrals.module";
+import { FlowsModule } from "../flows/flows.module";
 
 @Module({
-  imports: [OffersModule, CampaignsModule, DeliveryModule, PromoCodesModule, ReferralsModule],
+  imports: [OffersModule, CampaignsModule, DeliveryModule, PromoCodesModule, ReferralsModule, FlowsModule],
   controllers: [AdminOrdersController, BuyerOrdersController, OrdersV2Controller],
   providers: [OrdersService, OrdersViewService],
   exports: [OrdersService, OrdersViewService],
