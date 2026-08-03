@@ -51,7 +51,7 @@ export default function LaunchBonusSettingsPage() {
   }
 
   return (
-    <RoleGuard permission="launch_bonus.admin">
+    <RoleGuard permission="launch_bonus.write">
       <AdminShell>
         <div className="space-y-6">
           <div className="flex items-center justify-between">

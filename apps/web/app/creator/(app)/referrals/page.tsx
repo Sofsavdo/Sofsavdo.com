@@ -60,10 +60,10 @@ export default function CreatorReferralsPage() {
         </CardHeader>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <code className="flex-1 rounded-input border border-border bg-bg px-3 py-2 font-numeric text-sm text-text-primary">
-            {(codeQuery.data as any)?.promoCode || "Yaratilmoqda..."}
+            {codeQuery.data?.referralCode || "Yaratilmoqda..."}
           </code>
-          {(codeQuery.data as any)?.promoCode && (
-            <CopyButton value={(codeQuery.data as any)?.promoCode ?? ""} label="Promo kodni nusxalash" />
+          {codeQuery.data?.referralCode && (
+            <CopyButton value={codeQuery.data?.referralCode ?? ""} label="Promo kodni nusxalash" />
           )}
         </div>
         <p className="mt-2 font-body text-xs text-text-muted">

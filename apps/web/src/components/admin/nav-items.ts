@@ -38,6 +38,8 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
       { href: "/admin/creator-applications", label: "Creator Arizalari", icon: Users },
       { href: "/admin/launch-bonus", label: "Bonus", icon: Gift, requiredPermission: "launch_bonus.read" },
       { href: "/admin/competitions", label: "Musobaqalar", icon: Trophy },
+      { href: "/admin/commissions", label: "Daromad", icon: Wallet, requiredPermission: "commission.read" },
+      { href: "/admin/payouts", label: "Payout So'rovlari", icon: Wallet, requiredPermission: "payout.read" },
       { href: "/admin/settings", label: "Sozlamalar", icon: Settings, requiredPermission: "settings.read" },
     ],
   },
