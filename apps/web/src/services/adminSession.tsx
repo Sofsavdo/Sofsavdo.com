@@ -24,6 +24,17 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
     queryKey: ["admin-session"],
     queryFn: adminApi.adminGetSession,
     staleTime: 60_000,
+    retry: (failureCount, error) => {
+      // Do not retry on 401 Unauthorized - clear session and redirect
+      if (error && typeof error === 'object' && 'statusCode' in error && error.statusCode === 401) {
+        queryClient.setQueryData(["admin-session"], null);
+        if (typeof window !== 'undefined') {
+          window.location.href = '/admin/login';
+        }
+        return false;
+      }
+      return failureCount < 1;
+    },
   });
 
   const loginMutation = useMutation({

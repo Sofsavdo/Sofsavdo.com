@@ -31,6 +31,17 @@ export function BuyerSessionProvider({ children }: { children: ReactNode }) {
     queryKey: ["buyer-session"],
     queryFn: buyerApi.getSession,
     staleTime: 60_000,
+    retry: (failureCount, error) => {
+      // Do not retry on 401 Unauthorized - clear session and redirect
+      if (error && typeof error === 'object' && 'statusCode' in error && error.statusCode === 401) {
+        queryClient.setQueryData(["buyer-session"], null);
+        if (typeof window !== 'undefined') {
+          window.location.href = '/buyer/login';
+        }
+        return false;
+      }
+      return failureCount < 1;
+    },
   });
 
   const loginMutation = useMutation({
