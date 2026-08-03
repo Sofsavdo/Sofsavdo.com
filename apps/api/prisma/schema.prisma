@@ -173,6 +173,9 @@ model CreatorProfile {
   // backfilled for pre-existing creators by the migration, never rotated (no rotation
   // requirement exists; a stable code keeps already-shared links working forever).
   referralCode        String              @unique
+  // Custom promo code for creators to set their own short codes (e.g., "akmal")
+  // If set, this is used for referral attribution instead of referralCode
+  customPromoCode     String?             @unique
   // Phase Q — whether an admin has manually spot-checked that this creator's public social bio
   // mentions sofsavdo.com, per the platform's contractual requirement. PENDING (never checked) is
   // the honest default — never auto-assumed COMPLIANT, since no automated bio-scraping exists (see
