@@ -20,11 +20,26 @@ export default function CreatorReferralsPage() {
   const handleSaveCustomPromoCode = async () => {
     setIsSaving(true);
     try {
-      // TODO: Implement API call to save custom promo code
+      const response = await fetch("/api/creator/referral-code/custom", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ customPromoCode }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Xatolik yuz berdi");
+      }
+
       alert("Custom promo kod saqlandi!");
+      setCustomPromoCode("");
+      // Refresh referral code to show the updated custom code
+      codeQuery.refetch();
     } catch (error) {
       console.error("Failed to save custom promo code:", error);
-      alert("Xatolik yuz berdi");
+      alert(error instanceof Error ? error.message : "Xatolik yuz berdi");
     } finally {
       setIsSaving(false);
     }

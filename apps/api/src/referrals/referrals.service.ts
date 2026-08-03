@@ -387,6 +387,37 @@ export class ReferralsService {
     return { referralCode: code, invitationLink: `${webAppUrl}${INVITATION_BASE_PATH}?ref=${code}` };
   }
 
+  async updateCustomPromoCode(creatorId: string, customPromoCode: string): Promise<{ success: boolean }> {
+    // If empty string, clear the custom promo code
+    if (!customPromoCode || customPromoCode.trim() === "") {
+      await this.prisma.creatorProfile.update({
+        where: { id: creatorId },
+        data: { customPromoCode: null },
+      });
+      return { success: true };
+    }
+
+    // Check if the custom promo code is already taken by another creator
+    const existing = await this.prisma.creatorProfile.findFirst({
+      where: {
+        customPromoCode: customPromoCode.trim(),
+        id: { not: creatorId },
+      },
+    });
+
+    if (existing) {
+      throw new Error("Bu promo kod allaqachon band qilingan");
+    }
+
+    // Update the custom promo code
+    await this.prisma.creatorProfile.update({
+      where: { id: creatorId },
+      data: { customPromoCode: customPromoCode.trim() },
+    });
+
+    return { success: true };
+  }
+
   async getMySummary(creatorId: string, webAppUrl: string): Promise<ReferralSummaryResponse> {
     const [profile, referrals] = await Promise.all([
       this.prisma.creatorProfile.findUniqueOrThrow({ where: { id: creatorId }, select: { referralCode: true } }),

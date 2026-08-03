@@ -1,4 +1,4 @@
-import { Controller, Get, Param, UseGuards } from "@nestjs/common";
+import { Controller, Get, Param, Put, Body, UseGuards } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { ReferralsService } from "./referrals.service";
@@ -42,5 +42,10 @@ export class CreatorReferralsController {
   @Get("referral-rewards")
   listRewards(@CurrentUser() user: AuthenticatedUser) {
     return this.referrals.listMyRewards(user.creatorId!);
+  }
+
+  @Put("referral-code/custom")
+  updateCustomPromoCode(@CurrentUser() user: AuthenticatedUser, @Body() body: { customPromoCode: string }) {
+    return this.referrals.updateCustomPromoCode(user.creatorId!, body.customPromoCode);
   }
 }
