@@ -14,11 +14,4 @@
 set -e
 mkdir -p /app/apps/api/uploads
 chown -R sofsavdo:sofsavdo /app/apps/api/uploads
-
-# Run database migrations on container start
-# This ensures new migrations are applied without manual intervention
-echo "Running database migrations..."
-su-exec sofsavdo npx prisma migrate deploy --schema=/app/apps/api/prisma/schema.prisma
-echo "Migrations completed successfully"
-
 exec su-exec sofsavdo "$@"
