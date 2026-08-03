@@ -10,6 +10,8 @@
     "dev:api": "npm run dev --workspace=@sofsavdo/api",
     "dev:web": "npm run dev --workspace=@sofsavdo/web",
     "prisma:validate": "npm run prisma:validate --workspace=@sofsavdo/api",
-    "prisma:generate": "npm run prisma:generate --workspace=@sofsavdo/api"
+    "prisma:generate": "npm run prisma:generate --workspace=@sofsavdo/api",
+    "bootstrap:admin": "npm run bootstrap:admin --workspace=@sofsavdo/api"
   }
 }
+
