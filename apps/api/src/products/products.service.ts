@@ -42,7 +42,12 @@ export class ProductsService {
 
   async listByCreator(creatorProfileId: string): Promise<Product[]> {
     return this.prisma.product.findMany({
-      where: { creatorProfileId: creatorProfileId },
+      where: {
+        OR: [
+          { creatorProfileId: creatorProfileId },
+          { creatorProfileId: null, status: 'ACTIVE' },
+        ],
+      },
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
