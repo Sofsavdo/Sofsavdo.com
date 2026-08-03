@@ -109,7 +109,16 @@ export class ReferralsService {
     tx: Prisma.TransactionClient,
   ): Promise<{ referrerCreatorId: string; referralCodeUsed: string } | null> {
     if (!referralCodeInput) return null;
-    const referrer = await tx.creatorProfile.findUnique({ where: { referralCode: referralCodeInput }, select: { id: true } });
+    // Check customPromoCode first, then fallback to referralCode
+    const referrer = await tx.creatorProfile.findFirst({
+      where: {
+        OR: [
+          { customPromoCode: referralCodeInput },
+          { referralCode: referralCodeInput },
+        ],
+      },
+      select: { id: true },
+    });
     if (referrer) {
       return { referrerCreatorId: referrer.id, referralCodeUsed: referralCodeInput };
     }
@@ -373,8 +382,9 @@ export class ReferralsService {
   // ---- Creator-facing ----
 
   async getMyReferralCode(creatorId: string, webAppUrl: string): Promise<{ referralCode: string; invitationLink: string }> {
-    const profile = await this.prisma.creatorProfile.findUniqueOrThrow({ where: { id: creatorId }, select: { referralCode: true } });
-    return { referralCode: profile.referralCode, invitationLink: `${webAppUrl}${INVITATION_BASE_PATH}?ref=${profile.referralCode}` };
+    const profile = await this.prisma.creatorProfile.findUniqueOrThrow({ where: { id: creatorId }, select: { referralCode: true, customPromoCode: true } });
+    const code = profile.customPromoCode || profile.referralCode;
+    return { referralCode: code, invitationLink: `${webAppUrl}${INVITATION_BASE_PATH}?ref=${code}` };
   }
 
   async getMySummary(creatorId: string, webAppUrl: string): Promise<ReferralSummaryResponse> {
