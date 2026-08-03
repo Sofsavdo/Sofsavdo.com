@@ -7,6 +7,7 @@ import { BRAND } from "@sofsavdo/config/brand";
 import { useMyReferralRewards, useMyReferrals, useReferralCode, useReferralSummary } from "@/services/referrals";
 import { referralActivityMeta } from "@/lib/status";
 import { useSession } from "@/services/session";
+import { apiRequest } from "@/lib/api/http-client";
 
 export default function CreatorReferralsPage() {
   const codeQuery = useReferralCode();
@@ -20,18 +21,10 @@ export default function CreatorReferralsPage() {
   const handleSaveCustomPromoCode = async () => {
     setIsSaving(true);
     try {
-      const response = await fetch("/creator/referral-code/custom", {
+      await apiRequest("/creator/referral-code/custom", {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ customPromoCode }),
+        body: { customPromoCode },
       });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Xatolik yuz berdi");
-      }
 
       alert("Custom promo kod saqlandi!");
       setCustomPromoCode("");

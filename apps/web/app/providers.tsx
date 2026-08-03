@@ -11,7 +11,17 @@ export function Providers({ children }: { children: ReactNode }) {
     () =>
       new QueryClient({
         defaultOptions: {
-          queries: { retry: 1, refetchOnWindowFocus: false },
+          queries: {
+            retry: (failureCount, error) => {
+              // Do not retry on 401 Unauthorized errors
+              if (error && typeof error === 'object' && 'statusCode' in error && error.statusCode === 401) {
+                return false;
+              }
+              // Retry other errors once
+              return failureCount < 1;
+            },
+            refetchOnWindowFocus: false,
+          },
         },
       }),
   );

@@ -56,6 +56,12 @@ export class ProductsController {
     return this.products.listAvailableForPromotion();
   }
 
+  // Creator-specific endpoint for available products (no admin permission required)
+  @Get("creator-available-for-promotion")
+  listAvailableForPromotionForCreator(@CurrentUser() user: AuthenticatedUser) {
+    return this.products.listAvailableForPromotion();
+  }
+
   @Post("select-for-promotion/:productId")
   async selectForPromotion(@CurrentUser() user: AuthenticatedUser, @Param("productId") productId: string) {
     const product = await this.prisma.product.findUnique({

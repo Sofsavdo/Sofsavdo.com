@@ -996,7 +996,7 @@ export async function createMyProduct(dto: Omit<Product, "id" | "createdAt" | "s
 }
 
 export async function getAvailableProductsForPromotion(): Promise<Product[]> {
-  return apiRequest<Product[]>("/admin/products/available-for-promotion");
+  return apiRequest<Product[]>("/admin/products/creator-available-for-promotion");
 }
 
 export async function selectProductForPromotion(productId: string): Promise<{ code: string }> {
