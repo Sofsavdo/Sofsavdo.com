@@ -71,7 +71,7 @@ export class AdminRefundsService {
       id: r.id,
       orderId: r.orderId,
       orderPublicToken: r.order.publicToken,
-      offerName: r.order.offer.name,
+      offerName: r.order.offer?.name ?? "Unknown",
       customerName: r.order.customer.fullName,
       amountMinor: r.amountMinor,
       isPartial: r.amountMinor < r.order.totalMinor,

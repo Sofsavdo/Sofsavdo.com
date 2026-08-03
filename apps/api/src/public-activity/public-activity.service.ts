@@ -39,7 +39,7 @@ export class PublicActivityService {
     });
 
     const events: PublicActivityEvent[] = orders.map((o) => ({
-      offerName: o.offer.name,
+      offerName: o.offer?.name ?? "Unknown",
       city: o.address?.city ?? null,
       occurredAt: o.createdAt,
     }));

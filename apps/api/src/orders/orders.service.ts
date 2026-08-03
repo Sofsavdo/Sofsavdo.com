@@ -66,7 +66,7 @@ export interface BuyerOrderSummary {
 }
 
 export interface BuyerOrderDetail extends BuyerOrderSummary {
-  offer: { id: string; name: string; slug: string };
+  offer: { id: string; name: string; slug: string } | null;
   items: { id: string; nameSnapshot: string; quantity: number; unitPriceMinor: number; totalMinor: number }[];
   address: { region: string; city: string; district: string | null; line1: string; comment: string | null } | null;
   subtotalMinor: number;
@@ -81,7 +81,7 @@ export interface AdminOrderResponse {
   publicToken: string;
   status: OrderStatus;
   type: string;
-  offer: { id: string; name: string; slug: string };
+  offer: { id: string; name: string; slug: string } | null;
   campaign: { id: string; name: string; slug: string } | null;
   customer: { id: string; fullName: string; phone: string; email: string | null };
   address: { region: string; city: string; district: string | null; line1: string; comment: string | null } | null;
@@ -93,7 +93,7 @@ export interface AdminOrderResponse {
   currency: string;
   deliveryMethod: string | null;
   notes: string | null;
-  attribution: { creatorId: string; campaignId: string; source: string } | null;
+  attribution: { creatorId: string; campaignId: string | null; source: string } | null;
   commission: { id: string; creatorId: string; creatorName: string; amountMinor: number; status: string } | null;
   payment: { id: string; provider: string; status: string; amountMinor: number; providerReference: string | null } | null;
   statusHistory: { fromStatus: OrderStatus | null; toStatus: OrderStatus; note: string | null; createdAt: Date }[];
@@ -157,8 +157,8 @@ export class OrdersService {
     return {
       publicToken: order.publicToken,
       status: order.status,
-      offerName: order.offer.name,
-      variantName: item?.nameSnapshot !== order.offer.name ? (item?.nameSnapshot ?? null) : null,
+      offerName: order.offer?.name ?? "Unknown",
+      variantName: item?.nameSnapshot !== order.offer?.name ? (item?.nameSnapshot ?? null) : null,
       customer: { fullName: order.customer.fullName, phone: order.customer.phone },
       subtotalMinor: order.subtotalMinor,
       discountMinor: order.discountMinor,
@@ -175,8 +175,8 @@ export class OrdersService {
       publicToken: order.publicToken,
       status: order.status,
       type: order.type,
-      offer: order.offer,
-      campaign: order.campaign,
+      offer: order.offer ? { id: order.offer.id, name: order.offer.name, slug: order.offer.slug } : null,
+      campaign: order.campaign ? { id: order.campaign.id, name: order.campaign.name, slug: order.campaign.slug } : null,
       customer: { id: order.customer.id, fullName: order.customer.fullName, phone: order.customer.phone, email: order.customer.email },
       address: order.address
         ? { region: order.address.region, city: order.address.city, district: order.address.district, line1: order.address.line1, comment: order.address.comment }
@@ -208,7 +208,7 @@ export class OrdersService {
       id: order.id,
       publicToken: order.publicToken,
       status: order.status,
-      offerName: order.offer.name,
+      offerName: order.offer?.name ?? "Unknown",
       totalMinor: order.totalMinor,
       currency: order.currency,
       createdAt: order.createdAt,
@@ -265,7 +265,7 @@ export class OrdersService {
       id: o.id,
       publicToken: o.publicToken,
       status: o.status,
-      offerName: o.offer.name,
+      offerName: o.offer?.name ?? "Unknown",
       totalMinor: o.totalMinor,
       currency: o.currency,
       createdAt: o.createdAt,
@@ -692,6 +692,7 @@ export class OrdersService {
   private async reserveStock(tx: Prisma.TransactionClient, orderId: string): Promise<void> {
     const items = await tx.orderItem.findMany({ where: { orderId }, include: { order: { select: { offerId: true } } } });
     for (const item of items) {
+      if (!item.order.offerId) continue;
       const offer = await tx.offer.findUnique({ where: { id: item.order.offerId }, select: { productId: true } });
       if (!offer) continue;
       const product = await tx.product.findUnique({ where: { id: offer.productId }, select: { type: true, stockQuantity: true } });
@@ -706,6 +707,7 @@ export class OrdersService {
   private async releaseStock(tx: Prisma.TransactionClient, orderId: string): Promise<void> {
     const items = await tx.orderItem.findMany({ where: { orderId }, include: { order: { select: { offerId: true } } } });
     for (const item of items) {
+      if (!item.order.offerId) continue;
       const offer = await tx.offer.findUnique({ where: { id: item.order.offerId }, select: { productId: true } });
       if (!offer) continue;
       const product = await tx.product.findUnique({ where: { id: offer.productId }, select: { type: true, stockQuantity: true } });

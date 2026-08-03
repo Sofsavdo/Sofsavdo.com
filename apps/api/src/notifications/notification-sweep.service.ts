@@ -124,14 +124,14 @@ export class NotificationSweepService implements OnApplicationBootstrap {
         await this.notifications.dispatchToCreator(
           order.attribution.creatorId,
           "order.received",
-          { offerName: order.offer.name, amountMinor: order.totalMinor, currency: order.currency, orderPublicToken: order.publicToken },
+          { offerName: order.offer?.name ?? "Unknown", amountMinor: order.totalMinor, currency: order.currency, orderPublicToken: order.publicToken },
           `order.received:${order.id}`,
         );
       } else {
         await this.notifications.dispatchToCreator(
           order.attribution.creatorId,
           "order.delivered",
-          { offerName: order.offer.name, orderPublicToken: order.publicToken },
+          { offerName: order.offer?.name ?? "Unknown", orderPublicToken: order.publicToken },
           `order.delivered:${order.id}`,
         );
       }

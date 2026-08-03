@@ -69,6 +69,10 @@ export class ProductsService {
         creatorProfileId: true,
         createdAt: true,
         updatedAt: true,
+        priceMinor: true,
+        commissionType: true,
+        commissionRateBps: true,
+        commissionAmountMinor: true,
       },
     });
   }
@@ -104,6 +108,10 @@ export class ProductsService {
         creatorProfileId: true,
         createdAt: true,
         updatedAt: true,
+        priceMinor: true,
+        commissionType: true,
+        commissionRateBps: true,
+        commissionAmountMinor: true,
         offers: {
           where: { status: "ACTIVE" },
           select: {

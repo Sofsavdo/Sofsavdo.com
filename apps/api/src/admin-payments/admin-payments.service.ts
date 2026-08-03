@@ -66,7 +66,7 @@ export class AdminPaymentsService {
       providerReference: p.providerReference,
       createdAt: p.createdAt,
       updatedAt: p.updatedAt,
-      order: { id: p.order.id, publicToken: p.order.publicToken, offerName: p.order.offer.name, customerName: p.order.customer.fullName, customerPhone: p.order.customer.phone },
+      order: { id: p.order.id, publicToken: p.order.publicToken, offerName: p.order.offer?.name ?? "Unknown", customerName: p.order.customer.fullName, customerPhone: p.order.customer.phone },
     };
   }
 

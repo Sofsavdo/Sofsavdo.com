@@ -19,7 +19,7 @@ export interface AdminVisitorResponse {
   offerName: string;
   campaignName: string | null;
   creatorName: string | null;
-  source: "PROMO_CODE" | "REFERRAL_VISIT" | "MANUAL" | null;
+  source: "PROMO_CODE" | "REFERRAL_VISIT" | "FLOW" | "MANUAL" | null;
   landingPage: string;
   createdAt: Date;
   expiresAt: Date;

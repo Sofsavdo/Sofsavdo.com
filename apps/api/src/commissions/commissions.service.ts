@@ -27,8 +27,8 @@ export interface AdminCommissionResponse {
   orderId: string;
   orderPublicToken: string;
   creator: { id: string; displayName: string };
-  campaign: { id: string; name: string };
-  commissionType: string;
+  campaign: { id: string; name: string } | null;
+  commissionType: string | null;
   baseAmountMinor: number;
   amountMinor: number;
   currency: string;
@@ -37,7 +37,7 @@ export interface AdminCommissionResponse {
   payableAt: Date | null;
   paidAt: Date | null;
   payoutId: string | null;
-  ledger: { id: string; type: string; amountMinor: number; reason: string | null; createdAt: Date }[];
+  ledger: Array<{ id: string; type: string; amountMinor: number; reason: string | null; createdAt: Date }>;
   createdAt: Date;
 }
 
@@ -111,8 +111,8 @@ export class CommissionsService {
       orderId: c.order.id,
       orderPublicToken: c.order.publicToken,
       creator: c.creator,
-      campaign: c.commissionRule.campaign,
-      commissionType: c.commissionRule.commissionType,
+      campaign: c.commissionRule?.campaign ?? null,
+      commissionType: c.commissionRule?.commissionType ?? null,
       baseAmountMinor: c.baseAmountMinor,
       amountMinor: c.amountMinor,
       currency: c.currency,
@@ -328,8 +328,8 @@ export class CommissionsService {
       id: c.id,
       orderPublicToken: c.order.publicToken,
       createdAt: c.order.createdAt,
-      campaignName: c.commissionRule.campaign.name,
-      offerName: c.order.offer.name,
+      campaignName: c.commissionRule?.campaign?.name ?? "Flow-based",
+      offerName: c.order.offer?.name ?? "Unknown",
       customerMasked: maskCustomerContact(c.order.customer.fullName, c.order.customer.phone),
       amountMinor: c.order.subtotalMinor,
       discountMinor: c.order.discountMinor,
@@ -364,8 +364,8 @@ export class CommissionsService {
     return rows.map((c) => ({
       id: c.id,
       orderPublicToken: c.order.publicToken,
-      campaignName: c.commissionRule.campaign.name,
-      commissionType: c.commissionRule.commissionType,
+      campaignName: c.commissionRule?.campaign?.name ?? "Flow-based",
+      commissionType: c.commissionRule?.commissionType ?? "PERCENTAGE",
       baseAmountMinor: c.baseAmountMinor,
       amountMinor: c.amountMinor,
       currency: c.currency,

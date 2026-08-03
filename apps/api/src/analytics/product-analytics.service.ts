@@ -53,6 +53,7 @@ export class ProductAnalyticsService {
 
     const byProduct = new Map<string, { ordersCount: number; revenueMinor: number; refundsMinor: number }>();
     for (const g of orderGroups) {
+      if (!g.offerId) continue;
       const productId = productIdByOffer.get(g.offerId);
       if (!productId) continue;
       const cur = byProduct.get(productId) ?? { ordersCount: 0, revenueMinor: 0, refundsMinor: 0 };
@@ -61,6 +62,7 @@ export class ProductAnalyticsService {
       byProduct.set(productId, cur);
     }
     for (const r of refundRows) {
+      if (!r.offerId) continue;
       const productId = productIdByOffer.get(r.offerId);
       if (!productId) continue;
       const cur = byProduct.get(productId) ?? { ordersCount: 0, revenueMinor: 0, refundsMinor: 0 };

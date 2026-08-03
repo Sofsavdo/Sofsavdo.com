@@ -133,7 +133,7 @@ export class CreatorAnalyticsService {
 
     const [campaigns, offers] = await Promise.all([
       this.prisma.campaign.findMany({ where: { id: { in: campaignRows.map((r) => r.campaignId as string) } }, select: { id: true, name: true } }),
-      this.prisma.offer.findMany({ where: { id: { in: offerRows.map((r) => r.offerId) } }, select: { id: true, name: true, productId: true } }),
+      this.prisma.offer.findMany({ where: { id: { in: offerRows.map((r) => r.offerId).filter((id): id is string => id !== null) } }, select: { id: true, name: true, productId: true } }),
     ]);
     const campaignNameById = new Map(campaigns.map((c) => [c.id, c.name]));
     const offerNameById = new Map(offers.map((o) => [o.id, o.name]));
@@ -159,12 +159,14 @@ export class CreatorAnalyticsService {
         ordersCount: r._count._all,
         revenueMinor: r._sum.totalMinor ?? 0,
       })),
-      topProducts: offerRows.map((r) => ({
-        productId: offerProductById.get(r.offerId) ?? r.offerId,
-        name: offerNameById.get(r.offerId) ?? r.offerId,
-        ordersCount: r._count._all,
-        revenueMinor: r._sum.totalMinor ?? 0,
-      })),
+      topProducts: offerRows
+        .filter((r) => r.offerId !== null)
+        .map((r) => ({
+          productId: offerProductById.get(r.offerId as string) ?? r.offerId!,
+          name: offerNameById.get(r.offerId as string) ?? r.offerId!,
+          ordersCount: r._count._all,
+          revenueMinor: r._sum.totalMinor ?? 0,
+        })),
       approvalRate: decided > 0 ? approvedCount / decided : 0,
       averagePayoutMinor: Math.round(payoutAvg._avg.amountMinor ?? 0),
       referralStats: {
