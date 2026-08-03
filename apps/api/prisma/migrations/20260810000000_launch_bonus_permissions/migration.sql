@@ -1,13 +1,13 @@
 -- Launch Bonus System permissions
--- This migration ensures the launch_bonus permissions exist in the database
--- and are properly assigned to the admin and super_admin roles.
+-- This migration adds launch_bonus permissions and assigns them to roles
 
--- Insert launch_bonus permissions if they don't exist
-INSERT INTO "Permission" (key, label) VALUES
-  ('launch_bonus.read', 'launch_bonus.read'),
-  ('launch_bonus.write', 'launch_bonus.write'),
-  ('launch_bonus.verify', 'launch_bonus.verify'),
-  ('launch_bonus.admin', 'launch_bonus.admin')
+-- Insert launch_bonus permissions with explicit CUID generation
+-- Using gen_random_uuid() as a fallback since we can't use Prisma's cuid() in raw SQL
+INSERT INTO "Permission" (id, key, label) VALUES
+  (gen_random_uuid(), 'launch_bonus.read', 'launch_bonus.read'),
+  (gen_random_uuid(), 'launch_bonus.write', 'launch_bonus.write'),
+  (gen_random_uuid(), 'launch_bonus.verify', 'launch_bonus.verify'),
+  (gen_random_uuid(), 'launch_bonus.admin', 'launch_bonus.admin')
 ON CONFLICT (key) DO NOTHING;
 
 -- Assign launch_bonus permissions to admin role
