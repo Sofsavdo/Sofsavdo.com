@@ -159,9 +159,9 @@ export default (): AppConfig => ({
       publicBaseUrl: process.env.STORAGE_PUBLIC_BASE_URL || undefined,
     },
     supabase: {
-      url: process.env.SUPABASE_URL ?? "",
-      secretKey: process.env.SUPABASE_SECRET_KEY ?? "",
-      bucket: process.env.SUPABASE_STORAGE_BUCKET ?? "products",
+      url: process.env.STORAGE_SUPABASE_URL ?? "",
+      secretKey: process.env.STORAGE_SUPABASE_SECRET_KEY ?? "",
+      bucket: process.env.STORAGE_SUPABASE_BUCKET ?? "products",
     },
   },
   media: {
