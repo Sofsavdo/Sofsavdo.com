@@ -20,7 +20,7 @@ export default function CreatorReferralsPage() {
   const handleSaveCustomPromoCode = async () => {
     setIsSaving(true);
     try {
-      const response = await fetch("/api/creator/referral-code/custom", {
+      const response = await fetch("/creator/referral-code/custom", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
