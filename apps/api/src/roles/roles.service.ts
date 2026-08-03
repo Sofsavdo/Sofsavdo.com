@@ -37,6 +37,8 @@ export class RolesService {
       include: { role: { include: { permissions: { include: { permission: true } } } } },
     });
 
+    console.log(`[RolesService] User roles for userId=${userId}: count=${userRoles.length}, roles=${JSON.stringify(userRoles.map(ur => ur.role.key))}`);
+
     const roleKeys = new Set<string>();
     const permissions = new Set<PermissionKey>();
     for (const ur of userRoles) {
@@ -45,6 +47,9 @@ export class RolesService {
         permissions.add(rp.permission.key as PermissionKey);
       }
     }
+
+    console.log(`[RolesService] Final result: roleKeys=${JSON.stringify([...roleKeys])}, permissionsCount=${permissions.size}, samplePermissions=${JSON.stringify([...permissions].slice(0, 5))}`);
+
     return { roleKeys: [...roleKeys], permissions: [...permissions] };
   }
 

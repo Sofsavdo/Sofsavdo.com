@@ -32,12 +32,16 @@ export class PermissionsGuard implements CanActivate {
     const user = req.user;
     if (!user) throw new DomainException("UNAUTHORIZED", "Autentifikatsiya talab qilinadi.");
 
+    console.log(`[PermissionsGuard] Checking permissions: userId=${user.userId}, required=${JSON.stringify(required)}, userPermissionsCount=${user.permissions.length}, userRoleKeys=${JSON.stringify(user.roleKeys)}`);
+
     const hasAll = required.every((perm) => user.permissions.includes(perm));
     if (!hasAll) {
+      console.error(`[PermissionsGuard] Permission denied: userId=${user.userId}, missing=${JSON.stringify(required.filter(p => !user.permissions.includes(p)))}, hasPermissions=${JSON.stringify(user.permissions.filter(p => required.includes(p)))}`);
       throw new DomainException("FORBIDDEN", "Bu amal uchun yetarli ruxsatingiz yo'q.", {
         required,
       });
     }
+    console.log(`[PermissionsGuard] Permission granted: userId=${user.userId}`);
     return true;
   }
 }

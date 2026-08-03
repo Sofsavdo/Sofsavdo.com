@@ -32,9 +32,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       include: { creatorProfile: true },
     });
     if (!user || user.status !== "ACTIVE") {
+      console.error(`[JWT Strategy] User not found or inactive: userId=${payload.sub}, user=${!!user}, status=${user?.status}`);
       throw new DomainException("UNAUTHORIZED", "Sessiya yaroqsiz.");
     }
     const { roleKeys, permissions } = await this.roles.getRoleKeysAndPermissionsForUser(user.id);
+    console.log(`[JWT Strategy] Authenticated user: userId=${user.id}, email=${user.email}, roleKeys=${JSON.stringify(roleKeys)}, permissionsCount=${permissions.length}`);
     return {
       userId: user.id,
       email: user.email,
