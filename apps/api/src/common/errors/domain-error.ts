@@ -107,7 +107,9 @@ export type ErrorCode =
   | "INVALID_AMOUNT"
   | "POST_URL_REQUIRED"
   | "BIO_COMPLIANCE_REQUIRED"
-  | "STORAGE_ERROR";
+  | "STORAGE_ERROR"
+  | "INVALID_STATE"
+  | "INTERNAL_ERROR";
 
 const STATUS_BY_CODE: Partial<Record<ErrorCode, number>> = {
   VALIDATION_ERROR: 400,

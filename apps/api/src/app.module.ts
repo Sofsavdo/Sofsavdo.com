@@ -52,6 +52,7 @@ import { ActivityTickerModule } from "./activity-ticker/activity-ticker.module";
 import { CreatorFundModule } from "./creator-fund/creator-fund.module";
 import { PublicActivityModule } from "./public-activity/public-activity.module";
 import { LaunchBonusModule } from "./launch-bonus/launch-bonus.module";
+import { FlowsModule } from "./flows/flows.module";
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "./common/guards/permissions.guard";
 import { RequestLoggingInterceptor } from "./common/interceptors/request-logging.interceptor";
@@ -116,6 +117,7 @@ import configuration from "./config/configuration";
     CreatorFundModule,
     PublicActivityModule,
     LaunchBonusModule,
+    FlowsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

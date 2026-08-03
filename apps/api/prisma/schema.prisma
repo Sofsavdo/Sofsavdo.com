@@ -204,6 +204,7 @@ model CreatorProfile {
   competitionParticipants CompetitionParticipant[]
   products             Product[]
   launchBonuses         LaunchBonus[]
+  flows                Flow[]
 
   @@index([city])
 }
@@ -349,13 +350,44 @@ model Product {
   // Creator who owns this product (for admin-created products to appear in creator dashboard)
   creatorProfileId String?
   creatorProfile   CreatorProfile? @relation(fields: [creatorProfileId], references: [id], onDelete: SetNull)
+  // Commission settings for creators - either percentage (basis points) or fixed amount (minor units)
+  commissionType   String?       @default("PERCENTAGE") // "PERCENTAGE" or "FIXED_AMOUNT"
+  commissionRateBps Int?         // Basis points for percentage commission (e.g., 1000 = 10%)
+  commissionAmountMinor Int?     // Fixed commission amount in minor units (tiyin)
+  priceMinor       Int?          // Selling price in minor units (tiyin)
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
   offers Offer[]
+  flows Flow[]
 
   @@index([type, status])
   @@index([creatorProfileId])
+}
+
+// Flow model - Creator's promotion of a Product with a unique referral code
+// Simplified architecture: Creator selects Product -> creates Flow -> gets referral link -> shares link
+model Flow {
+  id               String        @id @default(cuid())
+  creatorProfileId String
+  creatorProfile   CreatorProfile @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
+  productId        String
+  product          Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  referralCode     String        @unique // Short code for referral link (e.g., "ABC123")
+  status           String        @default("ACTIVE") // "ACTIVE", "PAUSED"
+  clickCount       Int           @default(0)
+  orderCount       Int           @default(0)
+  commissionEarnedMinor Int      @default(0)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  orders Order[]
+
+  @@unique([creatorProfileId, productId])
+  @@index([creatorProfileId])
+  @@index([productId])
+  @@index([status])
+  @@index([referralCode])
 }
 
 enum OfferType {
@@ -1351,8 +1383,8 @@ model Order {
   publicToken    String      @unique @default(cuid())
   idempotencyKey String      @unique
   type           OrderType
-  offerId        String
-  offer          Offer       @relation(fields: [offerId], references: [id])
+  offerId        String?
+  offer          Offer?      @relation(fields: [offerId], references: [id])
   campaignId     String?
   campaign       Campaign?   @relation(fields: [campaignId], references: [id])
   customerId     String
@@ -1374,6 +1406,11 @@ model Order {
   deliveryMethod String?
   notes          String? // buyer's checkout notes ("Customer Information: Notes" in the spec)
   fraudRiskFlags String[]
+  // Simplified attribution - Flow-based instead of Campaign-based
+  flowId         String?
+  flow           Flow?      @relation(fields: [flowId], references: [id])
+  referralCode   String?    // The referral code used (from Flow)
+  productId      String?     // Direct product reference for simplified architecture
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
@@ -1390,6 +1427,8 @@ model Order {
   @@index([offerId])
   @@index([customerId])
   @@index([campaignId])
+  @@index([flowId])
+  @@index([productId])
   // Phase 13 (Analytics) — every analytics KPI is a date-range query; this was the single
   // biggest gap ANALYTICS.md's design flagged (Finding #1). A plain column index lets Postgres
   // bitmap-scan it together with the existing status/offerId/campaignId indexes rather than
