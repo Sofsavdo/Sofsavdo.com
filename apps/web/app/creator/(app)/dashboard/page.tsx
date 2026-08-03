@@ -4,7 +4,7 @@ import Link from "next/link";
 import { formatMoneyMinor, type CreatorApplicationStatus } from "@sofsavdo/types";
 import { Alert, Badge, Button, Card, CardHeader, CardTitle, EmptyState, Skeleton, StatTile } from "@sofsavdo/ui";
 import { useDashboardStats } from "@/services/dashboard";
-import { useMyCampaigns, useCampaigns, useMyProducts, useAvailableProductsForPromotion, useSelectProductForPromotion } from "@/services/campaigns";
+import { useMyCampaigns, useCampaigns } from "@/services/campaigns";
 import { useSales, usePayoutsMine } from "@/services/finance";
 import { useSession } from "@/services/session";
 import { canWorkAsCreator } from "@/lib/routing";
@@ -13,6 +13,9 @@ import { DashboardChart } from "@/components/creator/DashboardChart";
 import { SalesTable } from "@/components/creator/SalesTable";
 import { ActivityTicker } from "@/components/creator/ActivityTicker";
 import { LaunchBonusProgress } from "@/components/creator/LaunchBonusProgress";
+import { useFlows, useCreateFlow, getReferralUrl } from "@/services/flows";
+import { productsV2Service } from "@/services/v2/products-v2.service";
+import { useQuery } from "@tanstack/react-query";
 
 // Shown instead of the real (earning-data-heavy) dashboard while a creator's application is
 // SUBMITTED/UNDER_REVIEW — CreatorAppGuard already lets them reach /creator/dashboard at this
@@ -59,8 +62,13 @@ export default function DashboardPage() {
   const sales = useSales({ enabled: approved });
   const payouts = usePayoutsMine(1, { enabled: approved });
   const allCampaigns = useCampaigns({ enabled: approved });
-  const availableProducts = useAvailableProductsForPromotion({ enabled: approved });
-  const selectProduct = useSelectProductForPromotion();
+  const flows = useFlows();
+  const createFlowMutation = useCreateFlow();
+  const products = useQuery({
+    queryKey: ["products", "ACTIVE"],
+    queryFn: () => productsV2Service.list({ status: "ACTIVE" }),
+    enabled: approved,
+  });
 
   const isLoading = stats.isLoading || (approved && myCampaigns.isLoading);
 
@@ -256,33 +264,33 @@ export default function DashboardPage() {
         <CardHeader>
           <CardTitle>Mahsulotlar uchun referral link olish</CardTitle>
         </CardHeader>
-        {availableProducts.data?.length === 0 ? (
+        {products.data?.items.length === 0 ? (
           <EmptyState
             title="Mahsulot yo'q"
             description="Hozircha targ'ib qilish uchun mahsulot yo'q."
           />
         ) : (
           <ul className="flex flex-col gap-2">
-            {availableProducts.data?.map((product: any) => {
-              const referralLink = product.offers?.[0]?.campaigns?.[0]?.referralLinks?.[0];
+            {products.data?.items.map((product) => {
+              const existingFlow = flows.data?.flows.find((f) => f.productId === product.id);
               return (
                 <li key={product.id} className="flex flex-col gap-2 rounded-input border border-border px-3 py-2">
                   <div className="flex items-center justify-between">
-                    <span className="font-body text-sm text-text-primary">{product.name}</span>
-                    <Badge tone="neutral">{product.type}</Badge>
+                    <span className="font-body text-sm text-text-primary">{product.title}</span>
+                    <Badge tone="neutral">{product.status}</Badge>
                   </div>
-                  {referralLink ? (
+                  {existingFlow ? (
                     <div className="flex items-center gap-2">
                       <input
                         type="text"
                         readOnly
-                        value={`${window.location.origin}/?ref=${referralLink.code}`}
+                        value={getReferralUrl(existingFlow.referralCode)}
                         className="flex-1 rounded-input border border-border bg-bg px-2 py-1 font-body text-xs text-text-muted"
                       />
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => navigator.clipboard.writeText(`${window.location.origin}/?ref=${referralLink.code}`)}
+                        onClick={() => navigator.clipboard.writeText(getReferralUrl(existingFlow.referralCode))}
                       >
                         Nusxa olish
                       </Button>
@@ -291,10 +299,10 @@ export default function DashboardPage() {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => selectProduct.mutateAsync(product.id)}
-                      disabled={selectProduct.isPending}
+                      onClick={() => createFlowMutation.mutateAsync(product.id)}
+                      disabled={createFlowMutation.isPending}
                     >
-                      {selectProduct.isPending ? "Yaratilmoqda..." : "Referral link olish"}
+                      {createFlowMutation.isPending ? "Yaratilmoqda..." : "Flow yaratish"}
                     </Button>
                   )}
                 </li>
