@@ -2,22 +2,22 @@
 -- This migration fixes the permission issue where admin users couldn't access launch bonus settings
 
 -- Insert launch_bonus permissions if they don't exist
-INSERT INTO "Permission" (key, label)
+INSERT INTO "Permission" (id, key, label)
 VALUES 
-  ('launch_bonus.read', 'launch_bonus.read'),
-  ('launch_bonus.write', 'launch_bonus.write'),
-  ('launch_bonus.verify', 'launch_bonus.verify'),
-  ('launch_bonus.admin', 'launch_bonus.admin')
+  (gen_random_uuid()::text, 'launch_bonus.read', 'launch_bonus.read'),
+  (gen_random_uuid()::text, 'launch_bonus.write', 'launch_bonus.write'),
+  (gen_random_uuid()::text, 'launch_bonus.verify', 'launch_bonus.verify'),
+  (gen_random_uuid()::text, 'launch_bonus.admin', 'launch_bonus.admin')
 ON CONFLICT (key) DO NOTHING;
 
 -- Get the admin role ID
 DO $$
 DECLARE
-  admin_role_id UUID;
-  launch_bonus_read_id UUID;
-  launch_bonus_write_id UUID;
-  launch_bonus_verify_id UUID;
-  launch_bonus_admin_id UUID;
+  admin_role_id TEXT;
+  launch_bonus_read_id TEXT;
+  launch_bonus_write_id TEXT;
+  launch_bonus_verify_id TEXT;
+  launch_bonus_admin_id TEXT;
 BEGIN
   -- Get admin role
   SELECT id INTO admin_role_id FROM "Role" WHERE key = 'admin';
