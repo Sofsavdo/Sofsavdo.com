@@ -1,9 +1,9 @@
-import { Search, ClipboardList, CreditCard, PackageCheck } from "lucide-react";
+import { Search, ClipboardList, PhoneCall, PackageCheck } from "lucide-react";
 
 const STEPS = [
   { icon: Search, title: "Mahsulotni tanlang", body: "Katalogdan yoki tanlangan mahsulotlardan yoqqanini toping." },
   { icon: ClipboardList, title: "Buyurtma bering", body: "Ism va telefon raqamingizni kiriting, yetkazib berish manzilini tanlang." },
-  { icon: CreditCard, title: "To'lovni amalga oshiring", body: "Click orqali onlayn yoki yetkazib berishda naqd to'lang." },
+  { icon: PhoneCall, title: "Tasdiqlang", body: "Operatorimiz buyurtmangizni tasdiqlash uchun siz bilan bog'lanadi." },
   { icon: PackageCheck, title: "Qabul qilib oling", body: "Buyurtmangiz holati haqida xabardor bo'lasiz va belgilangan manzilga yetkaziladi." },
 ];
 

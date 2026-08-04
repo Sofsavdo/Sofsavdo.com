@@ -21,8 +21,8 @@ const DEFAULT_REASONS: WhySofsavdoReason[] = [
   },
   {
     icon: "ShieldCheck",
-    title: "Xavfsiz to'lov",
-    body: "Click orqali xavfsiz onlayn to'lov, xohlasangiz yetkazib berishda naqd to'lov ham mavjud.",
+    title: "Ishonchli xarid",
+    body: "Buyurtmangiz tasdiqlanguncha hech narsa to'lamaysiz — yetkazib berilganda qabul qilib olasiz.",
   },
   {
     icon: "Truck",

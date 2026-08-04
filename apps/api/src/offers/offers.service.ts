@@ -378,19 +378,31 @@ export class OffersService {
   // caller-supplied value — it's the curated homepage section, not the catalog.
   async listFeaturedPublic(): Promise<PublicFeaturedOffer[]> {
     const now = new Date();
-    const offers = await this.prisma.offer.findMany({
-      where: {
-        isFeatured: true,
-        status: "ACTIVE",
-        AND: [
-          { OR: [{ startsAt: null }, { startsAt: { lte: now } }] },
-          { OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
-        ],
-      },
+    const liveWindow = {
+      status: "ACTIVE" as const,
+      AND: [
+        { OR: [{ startsAt: null }, { startsAt: { lte: now } }] },
+        { OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
+      ],
+    };
+    let offers = await this.prisma.offer.findMany({
+      where: { isFeatured: true, ...liveWindow },
       orderBy: { updatedAt: "desc" },
       take: FEATURED_OFFERS_LIMIT,
       include: { product: { select: { images: true } } },
     });
+
+    // No admin has curated a featured set yet (a real launch-week state) — fall back to the most
+    // recently active offers rather than showing an empty homepage. Still capped the same way,
+    // still live-window filtered; just without the isFeatured requirement.
+    if (offers.length === 0) {
+      offers = await this.prisma.offer.findMany({
+        where: liveWindow,
+        orderBy: { updatedAt: "desc" },
+        take: FEATURED_OFFERS_LIMIT,
+        include: { product: { select: { images: true } } },
+      });
+    }
 
     return offers.map((o) => ({
       id: o.id,

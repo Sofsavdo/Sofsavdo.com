@@ -10,8 +10,8 @@ export interface FaqContent {
 
 const DEFAULT_FAQ_ITEMS: FaqItem[] = [
   {
-    question: "To'lovni qanday amalga oshiraman?",
-    answer: "Click orqali xavfsiz onlayn to'lov qilishingiz mumkin, ba'zi mahsulotlarda yetkazib berishda naqd to'lov ham mavjud.",
+    question: "Qachon to'layman?",
+    answer: "Hech qanday oldindan to'lov shart emas — buyurtmani tasdiqlab, mahsulotni yetkazib berishda qabul qilib olasiz.",
   },
   {
     question: "Yetkazib berish qancha vaqt oladi?",
