@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
-import { Prisma, type CreatorApplication, type CreatorApplicationStatus } from "@prisma/client";
+import { Prisma, SocialPlatform, type CreatorApplication, type CreatorApplicationStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { ReferralsService } from "../referrals/referrals.service";
 import { AuditService, type AuditLogEntry } from "../common/audit/audit.service";
@@ -220,6 +220,44 @@ export class OnboardingService {
     return this.findOneOrThrow(id);
   }
 
+  // The onboarding wizard's own "Ijtimoiy tarmoqlar" step already collects platform/handle/
+  // profileUrl (OnboardingWizard.tsx's socialAccounts field array) — but it only ever lands in
+  // this application's `formData` JSON blob, never in the real SocialAccount table that the admin
+  // Launch Bonus bio-verification queue (and campaign eligibility checks) actually read from. That
+  // meant the admin's "Social Accounts" card — which already renders a clickable link per
+  // platform — could never show anything for any creator, ever: right approval gate, no way to
+  // reach it. Syncing here, at the one moment a formData snapshot becomes "the creator's real
+  // profile", closes that gap without needing a separate creator-facing edit endpoint.
+  private async syncSocialAccountsFromFormData(creatorId: string, formData: Prisma.JsonValue): Promise<void> {
+    if (!formData || typeof formData !== "object" || Array.isArray(formData)) return;
+    const raw = (formData as Record<string, unknown>).socialAccounts;
+    if (!Array.isArray(raw)) return;
+
+    const valid = raw.filter(
+      (a): a is { platform: string; handle: string; profileUrl: string; followerCount?: number } =>
+        !!a &&
+        typeof a === "object" &&
+        typeof (a as Record<string, unknown>).platform === "string" &&
+        (Object.values(SocialPlatform) as string[]).includes((a as Record<string, unknown>).platform as string) &&
+        typeof (a as Record<string, unknown>).handle === "string" &&
+        !!(a as Record<string, unknown>).handle &&
+        typeof (a as Record<string, unknown>).profileUrl === "string" &&
+        !!(a as Record<string, unknown>).profileUrl,
+    );
+
+    await this.prisma.socialAccount.deleteMany({ where: { creatorId } });
+    if (valid.length === 0) return;
+    await this.prisma.socialAccount.createMany({
+      data: valid.map((a) => ({
+        creatorId,
+        platform: a.platform as SocialPlatform,
+        handle: a.handle,
+        profileUrl: a.profileUrl,
+        followerCount: typeof a.followerCount === "number" && a.followerCount >= 0 ? Math.floor(a.followerCount) : 0,
+      })),
+    });
+  }
+
   async approve(id: string, actorId: string): Promise<OnboardingAdminResponse> {
     const existing = await this.findOneWithCreatorOrThrow(id);
     if (!DECIDE_FROM.includes(existing.status)) {
@@ -227,6 +265,7 @@ export class OnboardingService {
     }
     const now = new Date();
     await this.prisma.creatorApplication.update({ where: { id }, data: { status: "APPROVED", reviewedAt: now, reviewedById: actorId } });
+    await this.syncSocialAccountsFromFormData(existing.creatorId, existing.formData);
     await this.audit.record({ actorId, action: "ONBOARDING_APPROVED", entityType: "CreatorApplication", entityId: id, before: { status: existing.status }, after: { status: "APPROVED" } });
     await this.referrals.onCreatorApproved(existing.creatorId);
     await this.events.emitAsync(NOTIFICATION_EVENTS.ONBOARDING_APPROVED, { applicationId: id, creatorId: existing.creatorId, creatorName: existing.creator.displayName });
