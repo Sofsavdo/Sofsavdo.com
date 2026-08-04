@@ -63,76 +63,77 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
   const mobilePrimary = visibleGroups.flatMap((g) => g.items).filter((i) => ADMIN_MOBILE_PRIMARY_HREFS.includes(i.href));
 
-  const sidebarContent = (
-    <>
-      <div>
-        <Link href="/admin/dashboard" className="mb-6 block font-heading text-xl font-bold text-text-primary">
-          {BRAND.name} Admin
-        </Link>
-        <nav className="flex flex-col gap-4">
-          {visibleGroups.map((group) => (
-            <div key={group.label || "root"}>
-              {group.label ? (
-                <p className="mb-1.5 px-3 font-body text-[11px] font-semibold uppercase tracking-wide text-text-muted">
-                  {group.label}
-                </p>
-              ) : null}
-              <div className="flex flex-col gap-0.5">
-                {group.items.map((item) => (
-                  <NavLink
-                    key={item.href}
-                    {...item}
-                    active={pathname.startsWith(item.href)}
-                    badge={item.href === "/admin/notifications" ? unreadCount : undefined}
-                    onClick={() => setDrawerOpen(false)}
-                  />
-                ))}
-              </div>
-            </div>
-          ))}
-        </nav>
-      </div>
-
-      <div className="border-t border-border pt-4">
-        {isDev ? (
-          <div className="mb-3 rounded-input border border-dashed border-border p-2.5">
-            <p className="mb-1.5 flex items-center gap-1 font-body text-[11px] font-medium text-text-muted">
-              <FlaskConical className="size-3" /> Dev: rolni almashtirish
-            </p>
-            <div className="flex gap-1">
-              {DEV_ROLES.map((role) => (
-                <button
-                  key={role}
-                  type="button"
-                  onClick={() => devSwitchRole(role)}
-                  className={cn(
-                    "flex-1 rounded-input border px-1.5 py-1 font-body text-[11px]",
-                    user?.role === role ? "border-accent text-accent" : "border-border text-text-secondary",
-                  )}
-                >
-                  {ROLE_LABELS[role]}
-                </button>
+  const navContent = (
+    <div>
+      <Link href="/admin/dashboard" className="mb-6 block font-heading text-xl font-bold text-text-primary">
+        {BRAND.name} Admin
+      </Link>
+      <nav className="flex flex-col gap-4">
+        {visibleGroups.map((group) => (
+          <div key={group.label || "root"}>
+            {group.label ? (
+              <p className="mb-1.5 px-3 font-body text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                {group.label}
+              </p>
+            ) : null}
+            <div className="flex flex-col gap-0.5">
+              {group.items.map((item) => (
+                <NavLink
+                  key={item.href}
+                  {...item}
+                  active={pathname.startsWith(item.href)}
+                  badge={item.href === "/admin/notifications" ? unreadCount : undefined}
+                  onClick={() => setDrawerOpen(false)}
+                />
               ))}
             </div>
           </div>
-        ) : null}
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="font-body text-sm text-text-primary">{user?.displayName}</p>
-            <p className="font-body text-xs text-text-muted">{user ? ROLE_LABELS[user.role] : ""}</p>
+        ))}
+      </nav>
+    </div>
+  );
+
+  const footerContent = (
+    <div className="border-t border-border pt-4">
+      {isDev ? (
+        <div className="mb-3 rounded-input border border-dashed border-border p-2.5">
+          <p className="mb-1.5 flex items-center gap-1 font-body text-[11px] font-medium text-text-muted">
+            <FlaskConical className="size-3" /> Dev: rolni almashtirish
+          </p>
+          <div className="flex gap-1">
+            {DEV_ROLES.map((role) => (
+              <button
+                key={role}
+                type="button"
+                onClick={() => devSwitchRole(role)}
+                className={cn(
+                  "flex-1 rounded-input border px-1.5 py-1 font-body text-[11px]",
+                  user?.role === role ? "border-accent text-accent" : "border-border text-text-secondary",
+                )}
+              >
+                {ROLE_LABELS[role]}
+              </button>
+            ))}
           </div>
-          <button type="button" onClick={logout} aria-label="Chiqish" className="rounded-input p-2 text-text-muted hover:bg-bg hover:text-error">
-            <LogOut className="size-4" />
-          </button>
         </div>
+      ) : null}
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="font-body text-sm text-text-primary">{user?.displayName}</p>
+          <p className="font-body text-xs text-text-muted">{user ? ROLE_LABELS[user.role] : ""}</p>
+        </div>
+        <button type="button" onClick={logout} aria-label="Chiqish" className="rounded-input p-2 text-text-muted hover:bg-bg hover:text-error">
+          <LogOut className="size-4" />
+        </button>
       </div>
-    </>
+    </div>
   );
 
   return (
     <div className="min-h-screen bg-bg md:flex">
-      <aside className="hidden w-64 shrink-0 flex-col justify-between overflow-y-auto border-r border-border bg-surface px-4 py-6 md:flex">
-        {sidebarContent}
+      <aside className="hidden w-64 shrink-0 flex-col border-r border-border bg-surface md:flex">
+        <div className="flex-1 overflow-y-auto px-4 py-6">{navContent}</div>
+        <div className="shrink-0 px-4 pb-6">{footerContent}</div>
       </aside>
 
       <header className="flex items-center justify-between border-b border-border bg-surface px-pad-mobile py-3 md:hidden">
@@ -147,14 +148,17 @@ export function AdminShell({ children }: { children: ReactNode }) {
       {drawerOpen ? (
         <div className="fixed inset-0 z-50 flex md:hidden">
           <div className="absolute inset-0 bg-dark/40" onClick={() => setDrawerOpen(false)} />
-          <div className="relative ml-auto flex h-full w-80 flex-col justify-between overflow-y-auto bg-surface px-4 py-6">
-            <div className="mb-2 flex items-center justify-between">
-              <span className="font-heading text-lg font-bold text-text-primary">Menyu</span>
-              <button type="button" onClick={() => setDrawerOpen(false)} aria-label="Yopish" className="rounded-input p-2 text-text-muted hover:bg-bg">
-                <X className="size-5" />
-              </button>
+          <div className="relative ml-auto flex h-full w-80 flex-col bg-surface">
+            <div className="flex-1 overflow-y-auto px-4 py-6">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="font-heading text-lg font-bold text-text-primary">Menyu</span>
+                <button type="button" onClick={() => setDrawerOpen(false)} aria-label="Yopish" className="rounded-input p-2 text-text-muted hover:bg-bg">
+                  <X className="size-5" />
+                </button>
+              </div>
+              {navContent}
             </div>
-            {sidebarContent}
+            <div className="shrink-0 px-4 pb-6">{footerContent}</div>
           </div>
         </div>
       ) : null}

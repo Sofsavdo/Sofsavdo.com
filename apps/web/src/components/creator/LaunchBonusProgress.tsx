@@ -147,6 +147,11 @@ export function LaunchBonusProgress() {
                 >
                   {submitBioLink.isPending ? "Yuborilmoqda..." : "Bioga qo'ydim, tekshiring"}
                 </Button>
+                {submitBioLink.isError ? (
+                  <Alert tone="error">
+                    Yuborishda xatolik yuz berdi. Internetni tekshirib, qayta urinib ko&apos;ring.
+                  </Alert>
+                ) : null}
               </>
             )}
           </div>

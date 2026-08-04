@@ -186,7 +186,7 @@ export class FlowsService {
               width="${pillWidth}" height="${pillHeight}" rx="${pillHeight / 2}"
               fill="black" fill-opacity="0.45" />
         <text x="${width - padding - pillWidth / 2}" y="${height - padding - pillHeight / 2 + fontSize * 0.33}"
-              font-family="sans-serif" font-size="${fontSize}" font-weight="700"
+              font-family="DejaVu Sans, sans-serif" font-size="${fontSize}" font-weight="700"
               fill="white" text-anchor="middle">${label}</text>
       </svg>
     `;

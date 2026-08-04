@@ -54,7 +54,11 @@ RUN addgroup -S sofsavdo && adduser -S sofsavdo -G sofsavdo
 # root-only setup step (same package official Postgres/Redis Alpine images use for this exact
 # purpose) — needed by docker-entrypoint.sh below to re-chown a freshly-mounted Railway Volume
 # before running the app as `sofsavdo`.
-RUN apk add --no-cache su-exec
+# fontconfig + a real TTF: sharp's SVG compositing (flows.service.ts's watermark) renders text via
+# librsvg/pango, which resolves font-family names through fontconfig — with zero fonts installed,
+# Alpine has nothing to resolve "sans-serif" to, so text silently rendered as tofu/boxes in
+# production. Confirmed only in the deployed container; the developer's own OS always had fonts.
+RUN apk add --no-cache su-exec fontconfig ttf-dejavu
 COPY --from=prod-deps --chown=sofsavdo:sofsavdo /app/node_modules ./node_modules
 # Same non-hoisting behavior as the build stage's deps, just for the prod-only dependency subset —
 # verified `@nestjs/terminus` (a real runtime dependency, used by HealthController) is one of the

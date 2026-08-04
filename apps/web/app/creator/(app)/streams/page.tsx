@@ -38,13 +38,17 @@ export default function StreamsPage() {
   const createFlow = useCreateFlow();
   const flowByProductId = new Map((flowsQuery.data ?? []).map((flow) => [flow.productId, flow]));
   const [creatingError, setCreatingError] = useState<{ productId: string; message: string } | null>(null);
+  const [submittingProductId, setSubmittingProductId] = useState<string | null>(null);
 
   async function onTakeFlow(productId: string) {
     setCreatingError(null);
+    setSubmittingProductId(productId);
     try {
       await createFlow.mutateAsync(productId);
     } catch (err) {
       setCreatingError({ productId, message: (err as ApiError).message ?? "Oqim yaratishda xatolik yuz berdi." });
+    } finally {
+      setSubmittingProductId(null);
     }
   }
 
@@ -177,9 +181,9 @@ export default function StreamsPage() {
                         size="sm"
                         className="w-full"
                         onClick={() => onTakeFlow(product.id)}
-                        disabled={createFlow.isPending}
+                        disabled={submittingProductId === product.id}
                       >
-                        {createFlow.isPending ? "Yaratilmoqda..." : "Oqim olish"}
+                        {submittingProductId === product.id ? "Yaratilmoqda..." : "Oqim olish"}
                       </Button>
                       {creatingError && creatingError.productId === product.id ? (
                         <Alert tone="error">{creatingError.message}</Alert>

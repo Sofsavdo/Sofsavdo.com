@@ -167,6 +167,10 @@ export function CheckoutPageClient({ offerSlug }: { offerSlug: string }) {
         fullName: values.fullName,
         phone: values.phone,
         secondPhone: values.secondPhone || undefined,
+        // The backend's region-required check reads customer.region (a display name stored
+        // straight onto Address), which is a different field from the top-level regionCode used
+        // for delivery-fee lookup — both must be sent or physical orders get falsely rejected.
+        region: isPhysical ? (selectedRegion?.regionName ?? regionCode) : undefined,
         address: values.address,
         email: values.email || undefined,
         comment: values.comment,

@@ -7,6 +7,7 @@
 
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { formatMoneyMinor } from '@sofsavdo/types';
 import { Alert, Badge, Button, Card, CardHeader, CardTitle, EmptyState, Skeleton } from '@sofsavdo/ui';
@@ -19,6 +20,17 @@ export default function MyStreamsPage() {
   const isApproved = user ? canWorkAsCreator(user.application.status) : false;
 
   const flowsQuery = useFlows();
+  const [copiedFlowId, setCopiedFlowId] = useState<string | null>(null);
+
+  async function onCopy(flowId: string, referralCode: string) {
+    try {
+      await navigator.clipboard.writeText(getReferralUrl(referralCode));
+      setCopiedFlowId(flowId);
+      setTimeout(() => setCopiedFlowId((current) => (current === flowId ? null : current)), 2000);
+    } catch {
+      // Ignore — button label simply won't flip to "Nusxa olindi!" if the browser blocked it.
+    }
+  }
 
   if (sessionLoading || (isApproved && flowsQuery.isLoading)) {
     return (
@@ -116,9 +128,9 @@ export default function MyStreamsPage() {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => navigator.clipboard.writeText(getReferralUrl(flow.referralCode))}
+                    onClick={() => onCopy(flow.id, flow.referralCode)}
                   >
-                    Nusxa
+                    {copiedFlowId === flow.id ? 'Nusxa olindi!' : 'Nusxa'}
                   </Button>
                 </div>
 
