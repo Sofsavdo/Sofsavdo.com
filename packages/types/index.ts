@@ -606,6 +606,9 @@ export interface Offer {
   slug: string;
   headline: string;
   subheadline: string;
+  // The product's own long-form description, authored by the admin — shown as-written (line
+  // breaks preserved) below the headline/subheadline on the buyer-facing landing page.
+  description?: string;
   priceMinor: number;
   compareAtPriceMinor?: number;
   currency: string;

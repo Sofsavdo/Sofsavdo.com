@@ -7,7 +7,6 @@ import { Skeleton } from "@sofsavdo/ui";
 import { BRAND } from "@sofsavdo/config/brand";
 import { useOfferPublic } from "@/services/offer";
 import { LandingSectionRenderer, ReferralBanner, StickyMobileCta } from "./sections";
-import { DeliveryQuoteBox } from "./DeliveryQuoteBox";
 
 // The single most important negative-space rule on this page: there is no link anywhere in this
 // tree to any other offer, product, course, or a catalog — a buyer who arrives here can only buy
@@ -40,7 +39,7 @@ export function OfferLandingPageClient({ offerSlug }: { offerSlug: string }) {
     );
   }
 
-  const { offer, productType, deliveryRegions, sections, referral } = query.data;
+  const { offer, productType, sections, referral } = query.data;
   const activeVariantId = selectedVariantId ?? offer.variants.find((v) => v.isDefault)?.id ?? offer.variants[0]?.id ?? "";
   const activeVariant = offer.variants.find((v) => v.id === activeVariantId) ?? offer.variants[0]!;
 
@@ -69,10 +68,9 @@ export function OfferLandingPageClient({ offerSlug }: { offerSlug: string }) {
           selectedVariantId={activeVariantId}
           onSelectVariant={setSelectedVariantId}
           onBuyClick={goToCheckout}
+          productType={productType}
         />
       ))}
-
-      {productType === "PHYSICAL_PRODUCT" ? <DeliveryQuoteBox offerSlug={offerSlug} deliveryRegions={deliveryRegions} /> : null}
 
       <footer className="border-t border-border bg-surface px-pad-mobile py-6 text-center font-body text-xs text-text-muted md:px-pad-desktop">
         <p>

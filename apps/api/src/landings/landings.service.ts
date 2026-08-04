@@ -44,6 +44,7 @@ export interface PublicLandingResponse {
     slug: string;
     headline: string;
     subheadline: string | null;
+    description: string | null;
     priceMinor: number;
     compareAtPriceMinor: number | null;
     currency: string;
@@ -344,6 +345,7 @@ export class LandingsService {
         slug: offer.slug,
         headline: offer.headline,
         subheadline: offer.subheadline,
+        description: offer.product.description,
         priceMinor: offer.priceMinor,
         compareAtPriceMinor: offer.compareAtPriceMinor,
         currency: offer.currency,

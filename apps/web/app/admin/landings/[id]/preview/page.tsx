@@ -38,7 +38,7 @@ export default function LandingPreviewPage({ params }: { params: Promise<{ id: s
 
   if (!query.data) return <Alert tone="error">Bu offer uchun landing sahifa hali yaratilmagan.</Alert>;
 
-  const { offer, sections } = query.data;
+  const { offer, sections, productType } = query.data;
   const activeVariantId = selectedVariantId ?? offer.variants.find((v) => v.isDefault)?.id ?? offer.variants[0]?.id ?? "";
 
   return (
@@ -51,6 +51,7 @@ export default function LandingPreviewPage({ params }: { params: Promise<{ id: s
           selectedVariantId={activeVariantId}
           onSelectVariant={setSelectedVariantId}
           onBuyClick={() => undefined}
+          productType={productType}
         />
       ))}
     </div>

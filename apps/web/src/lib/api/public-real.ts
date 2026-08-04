@@ -21,6 +21,7 @@ interface BackendPublicOffer {
   slug: string;
   headline: string;
   subheadline: string | null;
+  description: string | null;
   priceMinor: number;
   compareAtPriceMinor: number | null;
   currency: string;
@@ -55,6 +56,7 @@ function mapBackendPublicOffer(o: BackendPublicOffer): Offer {
     slug: o.slug,
     headline: o.headline,
     subheadline: o.subheadline ?? "",
+    description: o.description ?? undefined,
     priceMinor: o.priceMinor,
     compareAtPriceMinor: o.compareAtPriceMinor ?? undefined,
     currency: o.currency,

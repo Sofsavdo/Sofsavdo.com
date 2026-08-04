@@ -1,7 +1,8 @@
+import { useRef, useState } from "react";
 import type { AdminOfferVariant, LandingSectionAdmin, Offer, ReferralContext } from "@sofsavdo/types";
 import { formatMoneyMinor } from "@sofsavdo/types";
 import { Button, cn } from "@sofsavdo/ui";
-import { Check, Gift, ImageIcon, PlayCircle, Quote, ShieldCheck, Star, Truck, Wallet } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Gift, ImageIcon, PlayCircle, Quote, ShieldCheck, Star, Truck, Wallet } from "lucide-react";
 
 // Every offer landing is built from these standalone, full-width sections — never the
 // creator/admin shell (see DESIGN_SYSTEM.md "landing vs dashboard"). None of them link to any
@@ -24,34 +25,121 @@ export function ReferralBanner({ referral }: { referral: ReferralContext }) {
   );
 }
 
-// The buyer's very first (and, for a short product page, only) view: image, then name, then
-// description, then price, then the buy button — in exactly that reading order on mobile, where
-// it's a single vertical stack; the desktop two-column layout keeps the same top-to-bottom order
-// within the text column so nothing reflows out of sequence at any width.
+// A swipeable image strip (native scroll-snap — works with touch drag on mobile with zero extra
+// JS) with desktop arrow buttons and dot indicators, replacing the old single static <img>. Falls
+// back to a plain placeholder tile when the product has no photos at all.
+function MediaCarousel({ images, name }: { images: string[]; name: string }) {
+  const [index, setIndex] = useState(0);
+  const scrollerRef = useRef<HTMLDivElement>(null);
+
+  function scrollToIndex(i: number) {
+    const el = scrollerRef.current;
+    if (!el) return;
+    el.scrollTo({ left: i * el.clientWidth, behavior: "smooth" });
+    setIndex(i);
+  }
+
+  function onScroll() {
+    const el = scrollerRef.current;
+    if (!el || el.clientWidth === 0) return;
+    setIndex(Math.round(el.scrollLeft / el.clientWidth));
+  }
+
+  if (images.length === 0) {
+    return (
+      <div className="flex aspect-square items-center justify-center overflow-hidden rounded-media bg-gradient-to-br from-accent/10 to-bg">
+        <ImageIcon className="size-16 text-accent/30" strokeWidth={1.5} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative">
+      <div
+        ref={scrollerRef}
+        onScroll={onScroll}
+        className="flex aspect-square snap-x snap-mandatory overflow-x-auto overscroll-x-contain rounded-media bg-bg [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
+        {images.map((img, i) => (
+          <div key={img + i} className="aspect-square w-full shrink-0 snap-center">
+            {/* eslint-disable-next-line @next/next/no-img-element -- storage-driver-dependent host, see ProductCard's own comment */}
+            <img src={img} alt={`${name} — ${i + 1}`} className="h-full w-full object-cover" />
+          </div>
+        ))}
+      </div>
+      {images.length > 1 ? (
+        <>
+          {index > 0 ? (
+            <button
+              type="button"
+              onClick={() => scrollToIndex(index - 1)}
+              aria-label="Oldingi rasm"
+              className="absolute left-2 top-1/2 hidden size-8 -translate-y-1/2 items-center justify-center rounded-full bg-dark/50 text-white hover:bg-dark/70 md:flex"
+            >
+              <ChevronLeft className="size-5" />
+            </button>
+          ) : null}
+          {index < images.length - 1 ? (
+            <button
+              type="button"
+              onClick={() => scrollToIndex(index + 1)}
+              aria-label="Keyingi rasm"
+              className="absolute right-2 top-1/2 hidden size-8 -translate-y-1/2 items-center justify-center rounded-full bg-dark/50 text-white hover:bg-dark/70 md:flex"
+            >
+              <ChevronRight className="size-5" />
+            </button>
+          ) : null}
+          <div className="absolute inset-x-0 bottom-2 flex justify-center gap-1.5">
+            {images.map((img, i) => (
+              <button
+                key={img + i}
+                type="button"
+                onClick={() => scrollToIndex(i)}
+                aria-label={`${i + 1}-rasmga o'tish`}
+                className={cn("size-1.5 rounded-full transition-colors", i === index ? "bg-white" : "bg-white/50")}
+              />
+            ))}
+          </div>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+// The buyer's very first (and, for a short product page, only) view: media, then name, then
+// (for a physical product) the Original badge, then the full admin-authored description, then
+// price, then one buy button — in exactly that reading order on mobile, where it's a single
+// vertical stack; the desktop two-column layout keeps the same top-to-bottom order within the
+// text column so nothing reflows out of sequence at any width.
 export function Hero({
   offer,
   selectedVariant,
+  productType,
   onBuyClick,
 }: {
   offer: Offer;
   selectedVariant: AdminOfferVariant;
+  productType?: "PHYSICAL_PRODUCT" | "DIGITAL_PRODUCT" | "SERVICE" | string;
   onBuyClick: () => void;
 }) {
   return (
     <section className="mx-auto max-w-page px-pad-mobile py-6 md:px-pad-desktop md:py-12">
       <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-2 md:gap-10">
-        <div className="flex aspect-square items-center justify-center overflow-hidden rounded-media bg-gradient-to-br from-accent/10 to-bg">
-          {offer.images[0] ? (
-            // eslint-disable-next-line @next/next/no-img-element -- storage-driver-dependent host, see ProductCard's own comment
-            <img src={offer.images[0]} alt={offer.name} className="h-full w-full object-cover" />
-          ) : (
-            <ImageIcon className="size-16 text-accent/30" strokeWidth={1.5} />
-          )}
-        </div>
+        <MediaCarousel images={offer.images} name={offer.name} />
         <div className="flex flex-col gap-4">
-          <h1 className="break-words font-heading text-2xl font-bold text-text-primary md:text-4xl">{offer.headline}</h1>
+          <div>
+            <h1 className="break-words font-heading text-2xl font-bold text-text-primary md:text-4xl">{offer.headline}</h1>
+            {productType === "PHYSICAL_PRODUCT" ? (
+              <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-success/10 px-2.5 py-1 font-body text-xs font-medium text-success">
+                <ShieldCheck className="size-3.5" /> Original / Kafolat bilan
+              </span>
+            ) : null}
+          </div>
           {offer.subheadline ? (
             <p className="whitespace-pre-wrap break-words font-body text-text-secondary">{offer.subheadline}</p>
+          ) : null}
+          {offer.description ? (
+            <p className="whitespace-pre-wrap break-words font-body text-sm text-text-secondary">{offer.description}</p>
           ) : null}
           <div className="flex flex-wrap items-baseline gap-3">
             <span className="font-numeric text-3xl font-bold tabular-nums text-accent md:text-4xl">
@@ -346,19 +434,23 @@ export function LandingSectionRenderer({
   selectedVariantId,
   onSelectVariant,
   onBuyClick,
+  productType,
 }: {
   offer: Offer;
   section: LandingSectionAdmin;
   selectedVariantId: string;
   onSelectVariant: (id: string) => void;
   onBuyClick: () => void;
+  productType?: string;
 }) {
   const c = section.content as Record<string, unknown>;
   const selectedVariant = offer.variants.find((v) => v.id === selectedVariantId) ?? offer.variants[0];
 
   switch (section.type) {
     case "HERO":
-      return selectedVariant ? <Hero offer={offer} selectedVariant={selectedVariant} onBuyClick={onBuyClick} /> : null;
+      return selectedVariant ? (
+        <Hero offer={offer} selectedVariant={selectedVariant} productType={productType} onBuyClick={onBuyClick} />
+      ) : null;
     case "PROBLEM":
       return <Problem text={(c.text as string) ?? ""} />;
     case "SOLUTION":
