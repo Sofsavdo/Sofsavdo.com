@@ -286,10 +286,14 @@ export class OrdersService {
 
   // ---- Validation helpers ----
 
+  // Only region is required for a physical product now, matching the 100k.uz-style checkout this
+  // was rebuilt from: name, phone, region — the operator calls the buyer to confirm the exact
+  // street address afterward rather than requiring it typed in at order time. `address` is still
+  // accepted and stored (see the Address.create below) whenever the buyer does fill it in.
   private assertCustomerInfoValid(customer: CustomerInfoDto, productType: ProductType): void {
-    if (productType === "PHYSICAL_PRODUCT" && (!customer.region?.trim() || !customer.address?.trim())) {
-      throw new DomainException("CUSTOMER_INFO_INVALID", "Jismoniy mahsulot uchun region va manzil kiritilishi shart.", {
-        fields: ["region", "address"],
+    if (productType === "PHYSICAL_PRODUCT" && !customer.region?.trim()) {
+      throw new DomainException("CUSTOMER_INFO_INVALID", "Jismoniy mahsulot uchun yetkazib berish hududi tanlanishi shart.", {
+        fields: ["region"],
       });
     }
   }

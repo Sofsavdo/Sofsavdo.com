@@ -226,16 +226,15 @@ export function CheckoutPageClient({ offerSlug }: { offerSlug: string }) {
             {...register("secondPhone")}
           />
 
-          {isPhysical ? (
-            <>
-              {deliveryRegions.length > 0 ? (
-                <div>
-                  <p className="mb-1.5 font-body text-sm font-medium text-text-primary">Yetkazib berish hududi</p>
-                  <RegionSelect regions={deliveryRegions} value={regionCode} onChange={setRegionCode} />
-                </div>
-              ) : null}
-              <TextField label="Manzil (ko'cha, uy)" {...register("address")} />
-            </>
+          {/* Matches the 100k.uz reference this checkout was rebuilt from: name, phone, region —
+              no street-address field. The courier confirms the exact address by phone after the
+              order is placed, same as that reference flow; `address` (still optional on the
+              backend/schema) is simply never collected here. */}
+          {isPhysical && deliveryRegions.length > 0 ? (
+            <div>
+              <p className="mb-1.5 font-body text-sm font-medium text-text-primary">Yetkazib berish hududi</p>
+              <RegionSelect regions={deliveryRegions} value={regionCode} onChange={setRegionCode} />
+            </div>
           ) : null}
 
           <div>

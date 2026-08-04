@@ -39,9 +39,17 @@ export function OfferLandingPageClient({ offerSlug }: { offerSlug: string }) {
     );
   }
 
-  const { offer, productType, sections, referral } = query.data;
+  const { offer, productType, sections: allSections, referral } = query.data;
   const activeVariantId = selectedVariantId ?? offer.variants.find((v) => v.isDefault)?.id ?? offer.variants[0]?.id ?? "";
   const activeVariant = offer.variants.find((v) => v.id === activeVariantId) ?? offer.variants[0]!;
+
+  // Hero already owns the name, price, and the one buy CTA (see sections.tsx's Hero) — older
+  // offers configured before that consolidation still carry their own standalone PRICING/FINAL_CTA
+  // sections, which stacked a second price display and a second (or third, with the sticky mobile
+  // CTA) buy button below the fold. Drop those specific duplicates whenever HERO is present, rather
+  // than rewriting every offer's stored section list.
+  const hasHero = allSections.some((s) => s.type === "HERO");
+  const sections = hasHero ? allSections.filter((s) => s.type !== "PRICING" && s.type !== "FINAL_CTA") : allSections;
 
   function goToCheckout() {
     const qs = new URLSearchParams();

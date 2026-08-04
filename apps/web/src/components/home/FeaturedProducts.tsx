@@ -17,7 +17,7 @@ export function FeaturedProducts({ offers }: { offers: FeaturedOffer[] }) {
           Hozircha tanlangan mahsulotlar yo&apos;q — tez orada qo&apos;shiladi.
         </p>
       ) : (
-        <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-8 grid grid-cols-2 gap-3 sm:gap-6 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
           {offers.map((offer) => (
             <ProductCard key={offer.id} offer={offer} />
           ))}
