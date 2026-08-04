@@ -429,8 +429,15 @@ export class ReferralsService {
     let earningCount = 0;
     const allRewards = referrals.flatMap((r) => r.rewards);
 
-    for (const referral of referrals) {
-      const { activity } = await this.computeActivity(referral.referredCreatorId, referral.registeredAt);
+    // Was a sequential for-await loop — computeActivity does 2 DB round-trips per referral, so a
+    // creator with N referrals meant 2N queries run one after another instead of in parallel. This
+    // page (the creator's own "Do'stlar" referral summary) is exactly the kind of thing a real
+    // creator with an active referral network hits often, and the sequential version only gets
+    // slower as their network grows.
+    const activities = await Promise.all(
+      referrals.map((referral) => this.computeActivity(referral.referredCreatorId, referral.registeredAt)),
+    );
+    for (const { activity } of activities) {
       if (activity === "EARNING") earningCount++;
       else if (activity === "ACTIVE_NO_EARNINGS") activeCount++;
       else if (activity === "ONBOARDING_STALLED" || activity === "APPROVED_INACTIVE" || activity === "DORMANT") needsEncouragementCount++;

@@ -7,13 +7,27 @@
 
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { formatMoneyMinor } from '@sofsavdo/types';
 import { Alert, Badge, Button, Card, CardHeader, CardTitle, EmptyState, Skeleton } from '@sofsavdo/ui';
+import { CheckCircle2 } from 'lucide-react';
 import { useAvailableProductsForPromotion } from '@/services/campaigns';
 import { useFlows, useCreateFlow } from '@/services/flows';
 import { useSession } from '@/services/session';
 import { canWorkAsCreator } from '@/lib/routing';
+import { ApiError } from '@/lib/api';
+
+// What THIS creator would actually earn from one sale — shown before they commit to a flow, so
+// they can pick a product by earning potential rather than price alone.
+function computeEarningsMinor(product: { commissionType?: string | null; commissionRateBps?: number | null; commissionAmountMinor?: number | null; offers?: { priceMinor: number }[] }): number {
+  const priceMinor = product.offers?.[0]?.priceMinor ?? 0;
+  if (product.commissionType === 'FIXED_AMOUNT') return product.commissionAmountMinor ?? 0;
+  if (product.commissionType === 'PERCENTAGE' && product.commissionRateBps) {
+    return Math.round((priceMinor * product.commissionRateBps) / 10_000);
+  }
+  return 0;
+}
 
 export default function StreamsPage() {
   const { user, isLoading: sessionLoading } = useSession();
@@ -22,7 +36,17 @@ export default function StreamsPage() {
   const productsQuery = useAvailableProductsForPromotion({ enabled: isApproved });
   const flowsQuery = useFlows();
   const createFlow = useCreateFlow();
-  const flowByProductId = new Map((flowsQuery.data?.flows ?? []).map((flow) => [flow.productId, flow]));
+  const flowByProductId = new Map((flowsQuery.data ?? []).map((flow) => [flow.productId, flow]));
+  const [creatingError, setCreatingError] = useState<{ productId: string; message: string } | null>(null);
+
+  async function onTakeFlow(productId: string) {
+    setCreatingError(null);
+    try {
+      await createFlow.mutateAsync(productId);
+    } catch (err) {
+      setCreatingError({ productId, message: (err as ApiError).message ?? "Oqim yaratishda xatolik yuz berdi." });
+    }
+  }
 
   if (sessionLoading) {
     return (
@@ -121,7 +145,19 @@ export default function StreamsPage() {
                     <span className="font-numeric text-lg font-bold tabular-nums text-accent">
                       {formatMoneyMinor(product.offers?.[0]?.priceMinor ?? 0)}
                     </span>
-                    <Badge tone="neutral">{product.type}</Badge>
+                    {product.type === "PHYSICAL_PRODUCT" ? (
+                      <Badge tone="success">
+                        <CheckCircle2 className="mr-1 size-3" />
+                        Original
+                      </Badge>
+                    ) : null}
+                  </div>
+
+                  <div className="rounded-input border border-success/30 bg-success/5 px-3 py-2">
+                    <p className="font-body text-xs text-text-secondary">Siz ishlab olasiz</p>
+                    <p className="font-numeric text-base font-bold tabular-nums text-success">
+                      {formatMoneyMinor(computeEarningsMinor(product))}
+                    </p>
                   </div>
 
                   {flow ? (
@@ -136,14 +172,19 @@ export default function StreamsPage() {
                       </Link>
                     </Button>
                   ) : (
-                    <Button
-                      size="sm"
-                      className="w-full"
-                      onClick={() => createFlow.mutateAsync(product.id)}
-                      disabled={createFlow.isPending}
-                    >
-                      {createFlow.isPending ? "Yaratilmoqda..." : "Oqim olish"}
-                    </Button>
+                    <>
+                      <Button
+                        size="sm"
+                        className="w-full"
+                        onClick={() => onTakeFlow(product.id)}
+                        disabled={createFlow.isPending}
+                      >
+                        {createFlow.isPending ? "Yaratilmoqda..." : "Oqim olish"}
+                      </Button>
+                      {creatingError && creatingError.productId === product.id ? (
+                        <Alert tone="error">{creatingError.message}</Alert>
+                      ) : null}
+                    </>
                   )}
                 </div>
               </Card>

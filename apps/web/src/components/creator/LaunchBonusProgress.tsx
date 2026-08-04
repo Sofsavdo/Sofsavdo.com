@@ -1,11 +1,12 @@
 "use client";
 
-import { useMyLaunchBonus } from "@/services/creator/launch-bonus";
-import { Alert, Badge, Card, CardHeader, CardTitle, Skeleton } from "@sofsavdo/ui";
+import { useMyLaunchBonus, useSubmitBioLink } from "@/services/creator/launch-bonus";
+import { Alert, Badge, Button, Card, CardHeader, CardTitle, Skeleton } from "@sofsavdo/ui";
 import { formatMoneyMinor } from "@sofsavdo/types";
 
 export function LaunchBonusProgress() {
   const { data: bonus, isLoading } = useMyLaunchBonus();
+  const submitBioLink = useSubmitBioLink();
 
   if (isLoading) {
     return (
@@ -32,6 +33,7 @@ export function LaunchBonusProgress() {
   const referralsCount = bonus?.referralsCount ?? 0;
   const ordersCount = bonus?.ordersCount ?? 0;
   const bioLinkVerified = bonus?.bioLinkVerified ?? false;
+  const bioLinkSubmittedAt = bonus?.bioLinkSubmittedAt ?? null;
   const minCommissionMinor = bonus?.minCommissionMinor ?? DEFAULT_MIN_COMMISSION;
   const minReferrals = bonus?.minReferrals ?? DEFAULT_MIN_REFERRALS;
   const minOrders = bonus?.minOrders ?? DEFAULT_MIN_ORDERS;
@@ -67,7 +69,7 @@ export function LaunchBonusProgress() {
     },
     {
       label: "Bio link",
-      current: bioLinkVerified ? "Tasdiqlangan" : "Kutilmoqda",
+      current: bioLinkVerified ? "Tasdiqlangan" : bioLinkSubmittedAt ? "Ko'rib chiqilmoqda" : "Yuborilmagan",
       target: "Tasdiqlash kerak",
       met: !bioLinkRequired || bioLinkVerified,
     },
@@ -125,9 +127,29 @@ export function LaunchBonusProgress() {
         )}
 
         {status === "LOCKED" && !bioLinkVerified && bioLinkRequired && (
-          <Alert tone="info">
-            Bio link tekshirish uchun admin tomonidan ko'rib chiqilmoqda. Profil sahifasida sofsavdo.com havolasini qo'shing.
-          </Alert>
+          <div className="flex flex-col gap-2">
+            {bioLinkSubmittedAt ? (
+              <Alert tone="info">
+                So&apos;rovingiz yuborildi — admin ijtimoiy tarmog&apos;ingizni tekshirib chiqmoqda.
+              </Alert>
+            ) : (
+              <>
+                <Alert tone="warning">
+                  Ijtimoiy tarmoq bio&apos;ingizga sofsavdo.com havolasini qo&apos;shing, keyin pastdagi
+                  tugmani bosing — admin tekshirib tasdiqlaydi.
+                </Alert>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-fit"
+                  onClick={() => submitBioLink.mutate()}
+                  disabled={submitBioLink.isPending}
+                >
+                  {submitBioLink.isPending ? "Yuborilmoqda..." : "Bioga qo'ydim, tekshiring"}
+                </Button>
+              </>
+            )}
+          </div>
         )}
 
         {status === "UNLOCKED" && (

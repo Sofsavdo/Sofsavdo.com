@@ -9,14 +9,18 @@
 import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import { QRCodeSVG } from 'qrcode.react';
+import { Download } from 'lucide-react';
 import { formatMoneyMinor } from '@sofsavdo/types';
-import { Badge, Button, Card, CardHeader, CardTitle, Skeleton } from '@sofsavdo/ui';
-import { useFlows, getReferralUrl } from '@/services/flows';
+import { Alert, Badge, Button, Card, CardHeader, CardTitle, Skeleton } from '@sofsavdo/ui';
+import { useFlows, getReferralUrl, downloadWatermarkedImage } from '@/services/flows';
 
 export default function MyStreamDetailPage() {
   const params = useParams<{ id: string }>();
   const flowsQuery = useFlows();
   const [copied, setCopied] = useState(false);
+  const [descriptionCopied, setDescriptionCopied] = useState(false);
+  const [downloadingIndex, setDownloadingIndex] = useState<number | null>(null);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
 
   if (flowsQuery.isLoading) {
     return (
@@ -27,7 +31,7 @@ export default function MyStreamDetailPage() {
     );
   }
 
-  const flow = flowsQuery.data?.flows.find((f) => f.id === params.id);
+  const flow = flowsQuery.data?.find((f) => f.id === params.id);
 
   if (!flow) {
     return (
@@ -54,6 +58,25 @@ export default function MyStreamDetailPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleCopyDescription = async () => {
+    if (!flow.product.description) return;
+    await navigator.clipboard.writeText(flow.product.description);
+    setDescriptionCopied(true);
+    setTimeout(() => setDescriptionCopied(false), 2000);
+  };
+
+  const handleDownload = async (index: number) => {
+    setDownloadError(null);
+    setDownloadingIndex(index);
+    try {
+      await downloadWatermarkedImage(flow.id, index, `sofsavdo-${flow.product.name}-${index + 1}.jpg`);
+    } catch {
+      setDownloadError("Rasmni yuklab bo'lmadi. Qaytadan urinib ko'ring.");
+    } finally {
+      setDownloadingIndex(null);
+    }
+  };
+
   const shareText = `Bu mahsulotni ko'ring: ${flow.product.name}\n\n${referralUrl}`;
 
   return (
@@ -66,13 +89,34 @@ export default function MyStreamDetailPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>
           <div className="p-4">
-            <div className="mb-4 aspect-square overflow-hidden rounded-lg bg-bg">
-              {flow.product.images.length > 0 ? (
-                <img src={flow.product.images[0]} alt={flow.product.name} className="h-full w-full object-cover" />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center text-text-muted">Rasm yo&apos;q</div>
-              )}
-            </div>
+            {flow.product.images.length > 0 ? (
+              <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {flow.product.images.map((imageUrl, index) => (
+                  <div key={imageUrl} className="relative aspect-square overflow-hidden rounded-lg bg-bg">
+                    <img src={imageUrl} alt={flow.product.name} className="h-full w-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => handleDownload(index)}
+                      disabled={downloadingIndex === index}
+                      aria-label="Rasmni yuklab olish"
+                      className="absolute bottom-1.5 right-1.5 flex items-center gap-1 rounded-full bg-dark/70 px-2.5 py-1.5 font-body text-xs text-white hover:bg-dark/90"
+                    >
+                      <Download className="size-3.5" />
+                      {downloadingIndex === index ? "..." : "Yuklab olish"}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="mb-4 flex aspect-square items-center justify-center rounded-lg bg-bg text-text-muted">
+                Rasm yo&apos;q
+              </div>
+            )}
+            {downloadError ? (
+              <Alert tone="error" className="mb-4">
+                {downloadError}
+              </Alert>
+            ) : null}
             <h2 className="mb-2 font-heading text-xl font-bold text-text-primary">{flow.product.name}</h2>
             <div className="mb-4 flex items-center gap-3">
               <span className="font-numeric text-2xl font-bold tabular-nums text-accent">
@@ -156,6 +200,20 @@ export default function MyStreamDetailPage() {
               </Button>
             </div>
           </Card>
+
+          {flow.product.description ? (
+            <Card>
+              <CardHeader className="flex-row items-center justify-between gap-2">
+                <CardTitle>Mahsulot tavsifi</CardTitle>
+                <Button variant="outline" size="sm" onClick={handleCopyDescription}>
+                  {descriptionCopied ? 'Nusxa olindi!' : 'Nusxa olish'}
+                </Button>
+              </CardHeader>
+              <p className="whitespace-pre-wrap px-6 pb-6 font-body text-sm text-text-secondary">
+                {flow.product.description}
+              </p>
+            </Card>
+          ) : null}
         </div>
       </div>
     </div>

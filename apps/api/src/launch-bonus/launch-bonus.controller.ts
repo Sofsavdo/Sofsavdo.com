@@ -31,6 +31,17 @@ export class LaunchBonusController {
     return this.launchBonusService.updateSettings(data);
   }
 
+  // Creator-facing: "I've added the link, please review" — sets bioLinkSubmittedAt so this
+  // creator actually shows up in admin's pending-verifications queue below (which used to have no
+  // way to distinguish "hasn't done it yet" from "is asking for review").
+  @Post("submit-bio")
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  async submitBioLink(@Request() req: { user: AuthenticatedUser }) {
+    const creatorId = req.user.creatorId;
+    if (!creatorId) return null;
+    return this.launchBonusService.submitBioLink(creatorId);
+  }
+
   @Get("pending-verifications")
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePermissions("launch_bonus.verify")

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/api/http-client";
+import { apiRequest, getAccessToken } from "@/lib/api/http-client";
 
 export interface Flow {
   id: string;
@@ -15,6 +15,7 @@ export interface Flow {
   product: {
     id: string;
     name: string;
+    description: string | null;
     images: string[];
     commissionType: string | null;
     commissionRateBps: number | null;
@@ -26,26 +27,37 @@ export interface Flow {
 }
 
 async function createFlowFn(productId: string) {
-  return apiRequest<{ flow: Flow }>("/flows", {
+  // apiRequest already JSON.stringifies `body` itself (see http-client.ts) — passing a
+  // pre-stringified string here double-encoded it into a JSON string literal, which the backend's
+  // ValidationPipe rejected as not matching CreateFlowDto's shape. Every "Oqim olish" click was
+  // silently failing on this alone (compounded by the button's onClick never handling the
+  // rejected promise, so the failure was invisible to the creator).
+  //
+  // FlowsController's handlers all return the raw Prisma result directly (never wrapped in
+  // `{ flow: ... }` / `{ flows: ... }`) — these were typed as if they were wrapped, so
+  // `.flow`/`.flows` was `undefined` on the real response every single time. Combined with the
+  // double-stringify bug above, this meant even a successfully-created Flow could never actually
+  // be found in the list afterward — "Mening oqimlarim" stayed empty regardless.
+  return apiRequest<Flow>("/flows", {
     method: "POST",
-    body: JSON.stringify({ productId }),
+    body: { productId },
   });
 }
 
 async function listFlowsFn() {
-  return apiRequest<{ flows: Flow[] }>("/flows", {
+  return apiRequest<Flow[]>("/flows", {
     method: "GET",
   });
 }
 
 async function pauseFlowFn(flowId: string) {
-  return apiRequest<{ flow: Flow }>(`/flows/${flowId}/pause`, {
+  return apiRequest<Flow>(`/flows/${flowId}/pause`, {
     method: "POST",
   });
 }
 
 async function activateFlowFn(flowId: string) {
-  return apiRequest<{ flow: Flow }>(`/flows/${flowId}/activate`, {
+  return apiRequest<Flow>(`/flows/${flowId}/activate`, {
     method: "POST",
   });
 }
@@ -89,4 +101,24 @@ export function useActivateFlow() {
 
 export function getReferralUrl(referralCode: string) {
   return `${window.location.origin}/r/${referralCode}`;
+}
+
+// A plain <a href> can't carry the Bearer token this endpoint requires (browsers don't attach
+// Authorization headers to ordinary navigation), so this fetches the watermarked image as a blob
+// with the real auth header and triggers the save-as dialog itself via a throwaway object URL.
+export async function downloadWatermarkedImage(flowId: string, imageIndex: number, filename: string): Promise<void> {
+  const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+  const res = await fetch(`${apiBase}/flows/${flowId}/images/${imageIndex}/download`, {
+    headers: getAccessToken() ? { Authorization: `Bearer ${getAccessToken()}` } : undefined,
+  });
+  if (!res.ok) throw new Error("Rasmni yuklab bo'lmadi.");
+  const blob = await res.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = objectUrl;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(objectUrl);
 }

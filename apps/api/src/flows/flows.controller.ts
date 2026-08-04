@@ -45,4 +45,20 @@ export class FlowsController {
     }
     return this.flowsService.activateFlow(id, user.creatorId);
   }
+
+  @Get(":id/images/:index/download")
+  async downloadWatermarkedImage(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+    @Param("index") index: string,
+    @Res() res: Response,
+  ) {
+    if (!user.creatorId) {
+      throw new Error("Creator profile not found");
+    }
+    const { buffer, contentType } = await this.flowsService.getWatermarkedProductImage(id, user.creatorId, Number(index));
+    res.setHeader("Content-Type", contentType);
+    res.setHeader("Content-Disposition", `attachment; filename="sofsavdo-${id}-${index}.jpg"`);
+    res.send(buffer);
+  }
 }

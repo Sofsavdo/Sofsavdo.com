@@ -49,7 +49,7 @@ export default function MyStreamsPage() {
     );
   }
 
-  const flows = flowsQuery.data?.flows ?? [];
+  const flows = flowsQuery.data ?? [];
 
   return (
     <div className="space-y-6">

@@ -82,7 +82,7 @@ export default function DashboardPage() {
   const d = stats.data;
   const payoutItems = payouts.data?.items ?? [];
   const latestPayout = payoutItems[0];
-  const flowsList = flows.data?.flows ?? [];
+  const flowsList = flows.data ?? [];
 
   return (
     <div className="space-y-6">

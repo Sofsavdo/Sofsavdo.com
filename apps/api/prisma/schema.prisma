@@ -257,6 +257,11 @@ model LaunchBonus {
   bioLinkVerified        Boolean @default(false)
   bioLinkVerifiedAt      DateTime?
   bioLinkVerifiedBy      String?
+  // Set when the creator themselves says "I've added the link" — distinct from bioLinkVerified
+  // (the admin's verdict after checking). Without this, admin's pending-review queue could only
+  // ever list every non-compliant creator regardless of whether they'd actually done anything yet,
+  // with no way to tell "hasn't done it" apart from "says they've done it, please check."
+  bioLinkSubmittedAt     DateTime?
   
   unlockedAt            DateTime?
   createdAt             DateTime @default(now())

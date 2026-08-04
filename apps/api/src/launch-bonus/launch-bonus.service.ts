@@ -22,6 +22,7 @@ export interface LaunchBonusProgress {
   referralsCount: number;
   ordersCount: number;
   bioLinkVerified: boolean;
+  bioLinkSubmittedAt: Date | null;
   minCommissionMinor: number | null;
   minReferrals: number | null;
   minOrders: number | null;
@@ -145,6 +146,14 @@ export class LaunchBonusService {
     };
   }
 
+  async submitBioLink(creatorProfileId: string): Promise<{ bioLinkSubmittedAt: Date }> {
+    const updated = await this.prisma.launchBonus.update({
+      where: { creatorProfileId },
+      data: { bioLinkSubmittedAt: new Date() },
+    });
+    return { bioLinkSubmittedAt: updated.bioLinkSubmittedAt! };
+  }
+
   async getCreatorBonusProgress(creatorProfileId: string): Promise<LaunchBonusProgress | null> {
     const bonus = await this.prisma.launchBonus.findUnique({
       where: { creatorProfileId },
@@ -162,6 +171,7 @@ export class LaunchBonusService {
       referralsCount: bonus.referralsCount,
       ordersCount: bonus.ordersCount,
       bioLinkVerified: bonus.bioLinkVerified,
+      bioLinkSubmittedAt: bonus.bioLinkSubmittedAt,
       minCommissionMinor: bonus.settings.minCommissionMinor,
       minReferrals: bonus.settings.minReferrals,
       minOrders: bonus.settings.minOrders,
@@ -283,6 +293,10 @@ export class LaunchBonusService {
         bioLinkVerified: approved,
         bioLinkVerifiedAt: approved ? new Date() : null,
         bioLinkVerifiedBy: approved ? verifiedBy : null,
+        // A rejected submission clears back out of the pending queue — the creator has to fix
+        // their bio and press "submit" again rather than sitting in admin's queue forever with
+        // nothing new for admin to check.
+        bioLinkSubmittedAt: approved ? undefined : null,
       },
     });
 
@@ -295,13 +309,18 @@ export class LaunchBonusService {
     });
   }
 
+  // Only creators who actually said "I've done it" — before bioLinkSubmittedAt existed, this
+  // matched every non-compliant creator regardless of whether they'd touched their bio at all,
+  // which admin had no way to act on (nothing to check yet).
   async getPendingBioVerifications(): Promise<any[]> {
     const bonuses = await this.prisma.launchBonus.findMany({
       where: {
         status: "LOCKED",
         bioLinkVerified: false,
+        bioLinkSubmittedAt: { not: null },
         settings: { bioLinkRequired: true },
       },
+      orderBy: { bioLinkSubmittedAt: "asc" },
       include: {
         creatorProfile: {
           include: {

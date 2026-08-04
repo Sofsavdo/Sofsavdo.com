@@ -1,9 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Badge, Card, CardHeader, CardTitle, Skeleton, Button, TextField, Alert } from "@sofsavdo/ui";
 import { useSession } from "@/services/session";
 import { applicationStatusMeta } from "@/lib/status";
+import { useCreatePayoutMethod, useDeletePayoutMethod, useRealPayoutMethods } from "@/services/finance";
+import { payoutMethodSchema, type PayoutMethodInput } from "@/lib/schemas";
 
 const PLATFORM_LABELS: Record<string, string> = {
   INSTAGRAM: "Instagram",
@@ -11,11 +15,6 @@ const PLATFORM_LABELS: Record<string, string> = {
   YOUTUBE: "YouTube",
   TELEGRAM: "Telegram",
 };
-
-function maskCardNumber(digits: string): string {
-  const last4 = digits.replace(/\s/g, "").slice(-4);
-  return `•••• ${last4}`;
-}
 
 export default function CreatorProfilePage() {
   const { user, isLoading } = useSession();
@@ -26,6 +25,19 @@ export default function CreatorProfilePage() {
     youtube: "",
     telegram: "",
   });
+
+  const methodsQuery = useRealPayoutMethods();
+  const createMethod = useCreatePayoutMethod();
+  const deleteMethod = useDeletePayoutMethod();
+  const [showAddMethod, setShowAddMethod] = useState(false);
+  const methodForm = useForm<PayoutMethodInput>({ resolver: zodResolver(payoutMethodSchema) });
+  const payoutMethods = methodsQuery.data ?? [];
+
+  async function onAddMethod(values: PayoutMethodInput) {
+    await createMethod.mutateAsync({ type: "CARD", cardNumber: values.cardNumber, cardHolder: values.cardHolder });
+    methodForm.reset();
+    setShowAddMethod(false);
+  }
 
   if (isLoading || !user) {
     return (
@@ -171,17 +183,58 @@ export default function CreatorProfilePage() {
         <CardHeader>
           <CardTitle>To'lov ma'lumoti</CardTitle>
         </CardHeader>
-        {data.payoutMethodType === "CARD" && data.payoutCardNumber ? (
-          <p className="font-body text-sm text-text-primary">
-            Bank kartasi — {maskCardNumber(data.payoutCardNumber)}
-            {data.payoutCardHolder ? ` (${data.payoutCardHolder})` : ""}
-          </p>
-        ) : data.payoutMethodType === "BANK_ACCOUNT" && data.payoutBankName ? (
-          <p className="font-body text-sm text-text-primary">
-            {data.payoutBankName} — {data.payoutBankAccount ? maskCardNumber(data.payoutBankAccount) : "—"}
-          </p>
+        {methodsQuery.isLoading ? (
+          <Skeleton className="h-16 w-full" />
         ) : (
-          <p className="font-body text-sm text-text-muted">To'lov usuli kiritilmagan.</p>
+          <>
+            {payoutMethods.length === 0 ? (
+              <p className="mb-3 font-body text-sm text-text-muted">Hali to&apos;lov usuli qo&apos;shilmagan.</p>
+            ) : (
+              <ul className="mb-3 flex flex-col gap-2">
+                {payoutMethods.map((m) => (
+                  <li key={m.id} className="flex items-center justify-between rounded-input border border-border px-3 py-2 font-body text-sm">
+                    <span className="text-text-primary">{m.label}</span>
+                    <div className="flex items-center gap-2">
+                      {m.isDefault ? <Badge tone="accent">Asosiy</Badge> : null}
+                      <Button size="sm" variant="ghost" onClick={() => deleteMethod.mutate(m.id)}>
+                        O&apos;chirish
+                      </Button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {showAddMethod ? (
+              <form onSubmit={methodForm.handleSubmit(onAddMethod)} className="flex flex-col gap-3 border-t border-border pt-4" noValidate>
+                <TextField
+                  label="Karta raqami"
+                  placeholder="8600 0000 0000 0000"
+                  error={methodForm.formState.errors.cardNumber?.message}
+                  {...methodForm.register("cardNumber")}
+                />
+                <TextField
+                  label="Karta egasi"
+                  placeholder="MALIKA YUSUPOVA"
+                  error={methodForm.formState.errors.cardHolder?.message}
+                  {...methodForm.register("cardHolder")}
+                />
+                {createMethod.isError ? <Alert tone="error">Qo&apos;shishda xatolik yuz berdi.</Alert> : null}
+                <div className="flex gap-2">
+                  <Button type="submit" disabled={createMethod.isPending}>
+                    {createMethod.isPending ? "Saqlanmoqda..." : "Saqlash"}
+                  </Button>
+                  <Button type="button" variant="ghost" onClick={() => setShowAddMethod(false)}>
+                    Bekor qilish
+                  </Button>
+                </div>
+              </form>
+            ) : (
+              <Button variant="outline" size="sm" onClick={() => setShowAddMethod(true)}>
+                Karta qo&apos;shish
+              </Button>
+            )}
+          </>
         )}
       </Card>
     </div>

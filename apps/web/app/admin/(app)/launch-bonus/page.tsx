@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { AdminShell } from "@/components/admin/AdminShell";
 import { RoleGuard } from "@/components/admin/RoleGuard";
 import { useLaunchBonusSettings, useUpdateLaunchBonusSettings, usePendingBioVerifications, useVerifyBioLink } from "@/services/admin/launch-bonus";
 import { Alert, Button, Card, CardHeader, CardTitle, TextField } from "@sofsavdo/ui";
@@ -42,17 +41,14 @@ export default function LaunchBonusSettingsPage() {
 
   if (settingsLoading) {
     return (
-      <AdminShell>
-        <div className="flex items-center justify-center h-64">
-          <p>Yuklanmoqda...</p>
-        </div>
-      </AdminShell>
+      <div className="flex items-center justify-center h-64">
+        <p>Yuklanmoqda...</p>
+      </div>
     );
   }
 
   return (
     <RoleGuard permission="launch_bonus.write">
-      <AdminShell>
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
@@ -201,11 +197,14 @@ export default function LaunchBonusSettingsPage() {
                               {item.creatorProfile.user.email || item.creatorProfile.user.phone}
                             </p>
                           </div>
-                          <div className="font-body text-sm text-text-muted">
-                            {new Date(item.deadline).toLocaleDateString('uz-UZ')}
+                          <div className="text-right">
+                            <p className="font-body text-xs text-text-muted">So&apos;ralgan sana</p>
+                            <p className="font-body text-sm text-text-primary">
+                              {item.bioLinkSubmittedAt ? new Date(item.bioLinkSubmittedAt).toLocaleDateString('uz-UZ') : "—"}
+                            </p>
                           </div>
                         </div>
-                        
+
                         {item.creatorProfile.socialAccounts && item.creatorProfile.socialAccounts.length > 0 && (
                           <div className="space-y-2">
                             <p className="font-body text-sm font-medium text-text-primary">Social Accounts:</p>
@@ -245,7 +244,6 @@ export default function LaunchBonusSettingsPage() {
             </Card>
           )}
         </div>
-      </AdminShell>
     </RoleGuard>
   );
 }
