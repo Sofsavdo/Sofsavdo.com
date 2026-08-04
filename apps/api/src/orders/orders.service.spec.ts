@@ -1,4 +1,5 @@
 import { Test } from "@nestjs/testing";
+import { ConfigService } from "@nestjs/config";
 import { OrdersService } from "./orders.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { OffersService } from "../offers/offers.service";
@@ -115,6 +116,7 @@ describe("OrdersService", () => {
         { provide: PromoCodesService, useValue: promoCodes },
         { provide: ReferralsService, useValue: referrals },
         { provide: AuditService, useValue: audit },
+        { provide: ConfigService, useValue: { get: jest.fn() } },
       ],
     }).compile();
     service = moduleRef.get(OrdersService);
@@ -126,7 +128,7 @@ describe("OrdersService", () => {
       publicToken: "public-token-1",
       status: "CREATED",
       type: "PHYSICAL",
-      offer: { id: "offer1", name: "Fizik taklif", slug: "physical-offer" },
+      offer: { id: "offer1", name: "Fizik taklif", slug: "physical-offer", product: { images: [] } },
       campaign: null,
       customer: { id: "customer1", fullName: "Aziz Karimov", phone: "+998901234567", email: null },
       address: null,

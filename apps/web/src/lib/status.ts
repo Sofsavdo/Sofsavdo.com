@@ -99,6 +99,28 @@ export const commissionStatusMeta: Record<CommissionStatus, { label: string; ton
   DONATED: { label: "Fondga ulashilgan", tone: "info" },
 };
 
+// Payment.provider / Payment.status (apps/api/prisma/schema.prisma) — raw enum values were
+// leaking straight into the admin order detail page ("CLICK", "CASH_ON_DELIVERY", "PAID" next to
+// otherwise-fully-Uzbek labels). `Record<string, ...>` rather than the Prisma enum type: this
+// frontend package doesn't import Prisma's generated enums directly.
+export const paymentProviderMeta: Record<string, string> = {
+  CLICK: "Click",
+  PAYME: "Payme",
+  UZUM_NASIYA: "Uzum Nasiya",
+  CARD: "Bank kartasi",
+  CASH_ON_DELIVERY: "Naqd pul (yetkazib berilganda)",
+  MANUAL: "Bo'lib to'lash",
+};
+
+export const paymentStatusMeta: Record<string, { label: string; tone: Tone }> = {
+  PENDING: { label: "Kutilmoqda", tone: "neutral" },
+  PROCESSING: { label: "Jarayonda", tone: "info" },
+  PAID: { label: "To'landi", tone: "success" },
+  FAILED: { label: "Muvaffaqiyatsiz", tone: "error" },
+  CANCELLED: { label: "Bekor qilindi", tone: "neutral" },
+  REFUNDED: { label: "Qaytarildi", tone: "error" },
+};
+
 export const payoutStatusMeta: Record<PayoutStatus, { label: string; tone: Tone }> = {
   REQUESTED: { label: "So'ralgan", tone: "neutral" },
   UNDER_REVIEW: { label: "Ko'rib chiqilmoqda", tone: "info" },

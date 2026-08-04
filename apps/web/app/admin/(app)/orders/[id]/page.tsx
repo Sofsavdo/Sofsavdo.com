@@ -8,7 +8,7 @@ import { Alert, Badge, Button, Card, CardHeader, CardTitle, ConfirmModal, Skelet
 import { useAdminOrder, useUpdateOrderNotes, useUpdateOrderStatus, useCreateRefund } from "@/services/admin/orders";
 import { useOrderReviewDetail, useUpdateRealOrderStatus, useUpdateRealOrderNotes, useCreateRealOrderRefund } from "@/services/admin/orders";
 import { useAdminCommissions } from "@/services/admin/finance";
-import { orderStatusMeta, realOrderStatusMeta } from "@/lib/status";
+import { orderStatusMeta, realOrderStatusMeta, commissionStatusMeta, paymentProviderMeta, paymentStatusMeta } from "@/lib/status";
 import { ApiError } from "@/lib/api/admin";
 
 // Mirrors OrdersService.TRANSITIONS, minus REFUNDED — the backend's adminUpdateStatus rejects a
@@ -51,12 +51,60 @@ function RealOrderDetailPage({ id }: { id: string }) {
   const nextStatuses = REAL_NEXT_STATUSES[order.status];
   const canRefund = ["PAID", "PROCESSING", "SHIPPED", "IN_TRANSIT", "DELIVERED"].includes(order.status);
 
+  const paymentProviderLabel = order.payment ? (paymentProviderMeta[order.payment.provider] ?? order.payment.provider) : "—";
+  const paymentStatusLabel = order.payment ? (paymentStatusMeta[order.payment.status]?.label ?? order.payment.status) : "To'lanmagan";
+  const addressLine = order.address
+    ? [order.address.region, order.address.city, order.address.line1].filter(Boolean).join(", ") || "—"
+    : "—";
+
   return (
-    <div className="space-y-6">
+    <>
+      {/* Print-only summary — `window.print()` used to print this entire admin page (sidebar,
+          buttons, internal notes editor and all) with zero way to limit it. This is the only
+          thing visible when printing (see the `print:hidden` on the real page content below):
+          just what a courier/admin actually needs on paper. */}
+      <div className="hidden print:block">
+        <h1 className="text-xl font-bold">{order.offer.name}</h1>
+        <p className="mt-1 text-sm">Buyurtma #{order.publicToken}</p>
+        <dl className="mt-4 space-y-2 text-sm">
+          <div className="flex justify-between border-b py-1">
+            <dt>Mijoz</dt>
+            <dd>{order.customer.fullName}</dd>
+          </div>
+          <div className="flex justify-between border-b py-1">
+            <dt>Telefon</dt>
+            <dd>{order.customer.phone}</dd>
+          </div>
+          <div className="flex justify-between border-b py-1">
+            <dt>Manzil</dt>
+            <dd>{addressLine}</dd>
+          </div>
+          <div className="flex justify-between border-b py-1">
+            <dt>Jami summa</dt>
+            <dd>{formatMoneyMinor(order.totalMinor, order.currency)}</dd>
+          </div>
+          <div className="flex justify-between border-b py-1">
+            <dt>To&apos;lov usuli</dt>
+            <dd>{paymentProviderLabel}</dd>
+          </div>
+          <div className="flex justify-between border-b py-1">
+            <dt>To&apos;lov holati</dt>
+            <dd>{paymentStatusLabel}</dd>
+          </div>
+        </dl>
+      </div>
+
+    <div className="space-y-6 print:hidden">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="font-heading text-2xl font-bold text-text-primary">{order.offer.name}</h1>
-          <p className="font-body text-sm text-text-muted">#{order.publicToken}</p>
+        <div className="flex items-center gap-3">
+          {order.offer.imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element -- storage-driver-dependent host
+            <img src={order.offer.imageUrl} alt="" className="size-14 shrink-0 rounded-input object-cover" />
+          ) : null}
+          <div>
+            <h1 className="font-heading text-2xl font-bold text-text-primary">{order.offer.name}</h1>
+            <p className="font-body text-sm text-text-muted">#{order.publicToken}</p>
+          </div>
         </div>
         <StatusBadge tone={realOrderStatusMeta[order.status].tone} label={realOrderStatusMeta[order.status].label} />
       </div>
@@ -118,7 +166,9 @@ function RealOrderDetailPage({ id }: { id: string }) {
                 <span className="text-text-primary">
                   {order.commission.creatorName} — {formatMoneyMinor(order.commission.amountMinor, order.currency)}
                 </span>
-                <Badge tone="neutral">{order.commission.status}</Badge>
+                <Badge tone={(commissionStatusMeta[order.commission.status as keyof typeof commissionStatusMeta]?.tone) ?? "neutral"}>
+                  {commissionStatusMeta[order.commission.status as keyof typeof commissionStatusMeta]?.label ?? order.commission.status}
+                </Badge>
               </div>
               {order.status === "CANCELLED" || order.status === "REFUNDED" ? (
                 <Alert tone="warning" className="mt-2">
@@ -149,18 +199,20 @@ function RealOrderDetailPage({ id }: { id: string }) {
           </div>
           <div>
             <dt className="text-text-muted">To&apos;lov usuli</dt>
-            <dd className="text-text-primary">{order.payment?.provider ?? "—"}</dd>
+            <dd className="text-text-primary">{order.payment ? (paymentProviderMeta[order.payment.provider] ?? order.payment.provider) : "—"}</dd>
           </div>
           <div>
             <dt className="text-text-muted">To&apos;lov holati</dt>
-            <dd className="text-text-primary">{order.payment?.status ?? "—"}</dd>
+            <dd className="text-text-primary">
+              {order.payment ? (paymentStatusMeta[order.payment.status]?.label ?? order.payment.status) : "—"}
+            </dd>
           </div>
           <div>
             <dt className="text-text-muted">Jami summa</dt>
             <dd className="font-numeric tabular-nums text-text-primary">{formatMoneyMinor(order.totalMinor, order.currency)}</dd>
           </div>
         </dl>
-        {order.type === "PHYSICAL_PRODUCT" && order.address ? (
+        {order.type === "PHYSICAL" && order.address ? (
           <div className="mt-3 border-t border-border pt-3">
             <p className="mb-1 font-body text-xs font-medium text-text-muted">Yetkazib berish manzili</p>
             <p className="font-body text-sm text-text-primary">
@@ -264,6 +316,7 @@ function RealOrderDetailPage({ id }: { id: string }) {
         />
       </ConfirmModal>
     </div>
+    </>
   );
 }
 

@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import type { Order, OrderStatus, PaymentProviderType, Prisma, ProductType } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { OffersService } from "../offers/offers.service";
@@ -16,7 +17,7 @@ import type { OrderQueryDto } from "./dto/order-query.dto";
 import type { CreateRefundDto } from "./dto/create-refund.dto";
 
 const ORDER_INCLUDE = {
-  offer: { select: { id: true, name: true, slug: true } },
+  offer: { select: { id: true, name: true, slug: true, product: { select: { images: true } } } },
   campaign: { select: { id: true, name: true, slug: true } },
   customer: true,
   address: true,
@@ -80,7 +81,7 @@ export interface AdminOrderResponse {
   publicToken: string;
   status: OrderStatus;
   type: string;
-  offer: { id: string; name: string; slug: string } | null;
+  offer: { id: string; name: string; slug: string; imageUrl: string | null } | null;
   campaign: { id: string; name: string; slug: string } | null;
   customer: { id: string; fullName: string; phone: string; email: string | null };
   address: { region: string; city: string; district: string | null; line1: string; comment: string | null } | null;
@@ -147,9 +148,20 @@ export class OrdersService {
     private promoCodes: PromoCodesService,
     private referrals: ReferralsService,
     private audit: AuditService,
+    private config: ConfigService,
   ) {}
 
   // ---- Response mapping ----
+
+  // Same resolution OffersService/LandingsService's own copies use — kept as a small local copy
+  // rather than a shared export, matching this codebase's existing convention.
+  private toImageUrl(imagePath: string | null): string | null {
+    if (!imagePath) return null;
+    if (/^https?:\/\//.test(imagePath)) return imagePath;
+    const publicBaseUrl = this.config.get<string>("storage.publicBaseUrl");
+    if (!publicBaseUrl) return imagePath;
+    return `${publicBaseUrl}/${imagePath}`;
+  }
 
   private toPublicResponse(order: OrderWithRelations, paymentRedirectUrl: string | null = null): PublicOrderResponse {
     const item = order.items[0];
@@ -174,7 +186,9 @@ export class OrdersService {
       publicToken: order.publicToken,
       status: order.status,
       type: order.type,
-      offer: order.offer ? { id: order.offer.id, name: order.offer.name, slug: order.offer.slug } : null,
+      offer: order.offer
+        ? { id: order.offer.id, name: order.offer.name, slug: order.offer.slug, imageUrl: this.toImageUrl(order.offer.product.images[0] ?? null) }
+        : null,
       campaign: order.campaign ? { id: order.campaign.id, name: order.campaign.name, slug: order.campaign.slug } : null,
       customer: { id: order.customer.id, fullName: order.customer.fullName, phone: order.customer.phone, email: order.customer.email },
       address: order.address

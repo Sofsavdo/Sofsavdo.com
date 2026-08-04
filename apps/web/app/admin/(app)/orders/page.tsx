@@ -76,6 +76,7 @@ function RealAdminOrdersPage() {
           key={o.id}
           href={`/admin/orders/${o.id}`}
           title={o.offer.name}
+          image={o.offer.imageUrl ?? undefined}
           meta={<StatusBadge tone={realOrderStatusMeta[o.status].tone} label={realOrderStatusMeta[o.status].label} />}
           fields={[
             { label: "Mijoz", value: o.customer.fullName },
@@ -104,7 +105,11 @@ function RealAdminOrdersPage() {
             return (
               <tr key={o.id} className="border-t border-border hover:bg-bg">
                 <td className="px-4 py-2.5">
-                  <Link href={`/admin/orders/${o.id}`} className="font-medium text-text-primary hover:text-accent">
+                  <Link href={`/admin/orders/${o.id}`} className="flex items-center gap-2.5 font-medium text-text-primary hover:text-accent">
+                    {o.offer.imageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- storage-driver-dependent host
+                      <img src={o.offer.imageUrl} alt="" className="size-8 shrink-0 rounded-input object-cover" />
+                    ) : null}
                     {o.offer.name}
                   </Link>
                 </td>

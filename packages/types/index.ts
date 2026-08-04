@@ -910,7 +910,7 @@ export interface RealAdminOrder {
   publicToken: string;
   status: RealOrderStatus;
   type: string;
-  offer: { id: string; name: string; slug: string };
+  offer: { id: string; name: string; slug: string; imageUrl: string | null };
   campaign?: { id: string; name: string; slug: string };
   customer: { id: string; fullName: string; phone: string; email?: string };
   address?: { region: string; city: string; district?: string; line1: string; comment?: string };

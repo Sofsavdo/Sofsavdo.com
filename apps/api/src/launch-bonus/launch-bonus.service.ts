@@ -146,7 +146,19 @@ export class LaunchBonusService {
     };
   }
 
+  // `update` assumes a LaunchBonus row already exists — true for every creator who registered
+  // while LaunchBonusSettings.isActive was true (AuthService.register creates one in the same
+  // transaction), but silently NOT true for anyone who registered before that setting existed or
+  // while it was off (createBonusForCreator*'s own "no active settings, skipping" branch). For
+  // those creators `update` threw Prisma's raw "record not found" straight through the controller
+  // as an unhandled 500 — exactly the silent "Yuborishda xatolik" a real creator hit in production.
+  // Self-heal instead: create the row on demand (using whatever settings are active right now) the
+  // first time this is called for a creator who's missing one.
   async submitBioLink(creatorProfileId: string): Promise<{ bioLinkSubmittedAt: Date }> {
+    const existing = await this.prisma.launchBonus.findUnique({ where: { creatorProfileId } });
+    if (!existing) {
+      await this.createBonusForCreator(creatorProfileId);
+    }
     const updated = await this.prisma.launchBonus.update({
       where: { creatorProfileId },
       data: { bioLinkSubmittedAt: new Date() },

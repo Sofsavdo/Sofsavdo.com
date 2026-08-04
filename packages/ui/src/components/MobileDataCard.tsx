@@ -13,6 +13,9 @@ export interface MobileDataCardProps {
   title: ReactNode;
   /** Rendered next to the title (e.g. a StatusBadge) — the single most important secondary fact about this row. */
   meta?: ReactNode;
+  /** Optional small square thumbnail (e.g. a product photo) rendered left of the title — helps
+   *  distinguish rows whose titles alone are ambiguous (near-identical product names). */
+  image?: string;
   fields: MobileDataCardField[];
   /** Row actions (e.g. a link to detail, a dropdown) — rendered bottom-right. */
   actions?: ReactNode;
@@ -26,7 +29,7 @@ export interface MobileDataCardProps {
 // at each table's call site — this component only owns the card's own layout, not the
 // responsive switch itself, since which columns become "fields" vs. "title" is a per-table
 // editorial decision, not something to infer generically.
-export function MobileDataCard({ title, meta, fields, actions, href, className }: MobileDataCardProps) {
+export function MobileDataCard({ title, meta, image, fields, actions, href, className }: MobileDataCardProps) {
   const Wrapper = href ? "a" : "div";
   return (
     <Wrapper
@@ -34,7 +37,13 @@ export function MobileDataCard({ title, meta, fields, actions, href, className }
       className={cn("block rounded-card border border-border bg-surface p-4 shadow-card", className)}
     >
       <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 font-body text-sm font-medium text-text-primary">{title}</div>
+        <div className="flex min-w-0 items-center gap-2.5">
+          {image ? (
+            // eslint-disable-next-line @next/next/no-img-element -- shared package, no next/image available here
+            <img src={image} alt="" className="size-9 shrink-0 rounded-input object-cover" />
+          ) : null}
+          <div className="min-w-0 font-body text-sm font-medium text-text-primary">{title}</div>
+        </div>
         {meta}
       </div>
       <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2">
