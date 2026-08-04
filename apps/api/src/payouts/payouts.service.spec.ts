@@ -11,6 +11,7 @@ describe("PayoutsService", () => {
     payout: { findUnique: jest.Mock; findMany: jest.Mock; count: jest.Mock; update: jest.Mock; updateMany: jest.Mock };
     payoutMethod: { findUnique: jest.Mock };
     creatorProfile: { findUniqueOrThrow: jest.Mock };
+    launchBonus: { findUnique: jest.Mock };
     $transaction: jest.Mock;
   };
   let tx: { payout: { create: jest.Mock; update: jest.Mock; updateMany: jest.Mock } };
@@ -41,6 +42,7 @@ describe("PayoutsService", () => {
       payout: { findUnique: jest.fn(), findMany: jest.fn(), count: jest.fn(), update: jest.fn(), updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
       payoutMethod: { findUnique: jest.fn() },
       creatorProfile: { findUniqueOrThrow: jest.fn().mockResolvedValue({ bioComplianceStatus: "PENDING", tier: "STANDARD" }) },
+      launchBonus: { findUnique: jest.fn().mockResolvedValue(null) },
       $transaction: jest.fn(),
     };
     tx = { payout: { create: jest.fn(), update: jest.fn(), updateMany: jest.fn().mockResolvedValue({ count: 1 }) } };

@@ -32,7 +32,11 @@ describe("CustomerAnalyticsService", () => {
   });
 
   it("classifies a customer as new when their first-ever order falls inside the period", async () => {
-    const inPeriod = new Date(2026, 6, 10);
+    // Relative to "now" (not a hardcoded date) so this test doesn't silently start failing once
+    // the calendar moves past whatever month it was written in — "this_month" resolves against
+    // the real system clock (see time-range.resolver.ts), so a fixed date drifts out of range.
+    const now = new Date();
+    const inPeriod = new Date(now.getFullYear(), now.getMonth(), 1);
     prisma = {
       order: {
         groupBy: jest.fn((args: { where?: { customerId?: unknown } }) => {

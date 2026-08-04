@@ -246,9 +246,6 @@ export const createMyProduct = (dto: Omit<import("@sofsavdo/types").Product, "id
 export const getAvailableProductsForPromotion = (): Promise<import("@sofsavdo/types").Product[]> =>
   USE_REAL_API ? creatorRealApi.getAvailableProductsForPromotion() : Promise.resolve([]);
 
-export const selectProductForPromotion = (productId: string): Promise<{ code: string }> =>
-  USE_REAL_API ? creatorRealApi.selectProductForPromotion(productId) : Promise.reject(new Error("Product selection is only available in real-API mode."));
-
 export {
   apiGetContent as getContent,
   apiSubmitContent as submitContent,

@@ -217,6 +217,10 @@ enum BonusStatus {
   LOCKED
   UNLOCKED
   EXPIRED
+  // Successfully unlocked AND redeemed into a real payout — distinct from EXPIRED (failed to meet
+  // requirements by the deadline, forfeited). Conflating the two under EXPIRED would make a
+  // creator who actually succeeded and cashed out look, in their own history, like they failed.
+  PAID
 }
 
 model LaunchBonusSettings {
@@ -1404,6 +1408,10 @@ model Order {
   // convention as Shipment.method. Copied into Shipment.method when fulfillment creates that row;
   // kept here too since a Shipment may not exist yet at every point in the Order's early lifecycle.
   deliveryMethod String?
+  // Optional second contact number captured at checkout — a backup for the courier if the
+  // primary number is unreachable. Per-order (not on Customer) since it's delivery-specific, not
+  // part of the buyer's lasting identity.
+  secondPhone    String?
   notes          String? // buyer's checkout notes ("Customer Information: Notes" in the spec)
   fraudRiskFlags String[]
   // Simplified attribution - Flow-based instead of Campaign-based

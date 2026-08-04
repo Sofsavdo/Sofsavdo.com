@@ -24,6 +24,7 @@ interface BackendPublicOffer {
   priceMinor: number;
   compareAtPriceMinor: number | null;
   currency: string;
+  images: string[];
   variants: BackendPublicOfferVariant[];
   bonuses: string[] | null;
   deliveryInfo: string | null;
@@ -57,6 +58,7 @@ function mapBackendPublicOffer(o: BackendPublicOffer): Offer {
     priceMinor: o.priceMinor,
     compareAtPriceMinor: o.compareAtPriceMinor ?? undefined,
     currency: o.currency,
+    images: o.images,
     variants: o.variants.map((v) => ({ id: v.id, name: v.name, priceMinor: v.priceMinor, isDefault: v.isDefault })),
     bonuses: o.bonuses ?? [],
     deliveryInfo: o.deliveryInfo ?? undefined,

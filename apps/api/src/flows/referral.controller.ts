@@ -1,4 +1,5 @@
 import { Controller, Get, Param, Res } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
 import { FlowsService } from "./flows.service";
 import { Public } from "../common/decorators/public.decorator";
@@ -7,19 +8,26 @@ import type { Response } from "express";
 @ApiTags("referral")
 @Controller("r")
 export class ReferralController {
-  constructor(private readonly flowsService: FlowsService) {}
+  constructor(
+    private readonly flowsService: FlowsService,
+    private readonly config: ConfigService,
+  ) {}
 
   @Public()
   @Get(":code")
-  @ApiOperation({ summary: "Handle referral link and redirect to product page" })
-  @ApiResponse({ status: 302, description: "Redirect to product page" })
+  @ApiOperation({ summary: "Handle referral link and redirect to the product's live offer page" })
+  @ApiResponse({ status: 302, description: "Redirect to product offer page" })
   @ApiResponse({ status: 404, description: "Referral code not found" })
   async handleReferral(@Param("code") code: string, @Res() res: Response) {
+    const frontendUrl = this.config.get<string>("FRONTEND_URL") ?? "https://sofsavdo.com";
     try {
       const flow = await this.flowsService.getFlowByReferralCode(code);
-      
-      // Store referral information in session/cookie for attribution
-      // This will be used when the buyer makes a purchase
+      const offer = flow.product.offers[0];
+      if (!offer) {
+        // Product has no live offer to sell through yet — nothing to redirect a buyer to.
+        return res.redirect(302, frontendUrl);
+      }
+
       res.cookie("referral_code", code, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
@@ -34,13 +42,10 @@ export class ReferralController {
         sameSite: "lax",
       });
 
-      // Redirect to product page
-      // For now, redirect to homepage since product pages need to be created
-      // TODO: Update to redirect to actual product page: /products/${flow.product.slug}
-      return res.redirect(302, `/?ref=${code}`);
-    } catch (error) {
-      // If referral code not found, redirect to homepage
-      return res.redirect(302, "/");
+      return res.redirect(302, `${frontendUrl}/o/${offer.slug}?ref=${code}`);
+    } catch {
+      // Referral code not found/inactive — fall back to homepage rather than a broken page.
+      return res.redirect(302, frontendUrl);
     }
   }
 }

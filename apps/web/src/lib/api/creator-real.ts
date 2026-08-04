@@ -999,10 +999,6 @@ export async function getAvailableProductsForPromotion(): Promise<Product[]> {
   return apiRequest<Product[]>("/admin/products/creator-available-for-promotion");
 }
 
-export async function selectProductForPromotion(productId: string): Promise<{ code: string }> {
-  return apiRequest<{ code: string }>(`/admin/products/select-for-promotion/${productId}`, { method: "POST" });
-}
-
 // ---- Launch Bonus System (Creator Growth Strategy) ----
 export async function getMyLaunchBonus(): Promise<any> {
   return apiRequest("/launch-bonus/my-progress");

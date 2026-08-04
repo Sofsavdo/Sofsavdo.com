@@ -13,6 +13,12 @@ export class CustomerInfoDto {
   @Matches(/^\+?[0-9]{9,15}$/, { message: "Telefon raqami noto'g'ri formatda." })
   phone!: string;
 
+  @ApiPropertyOptional({ description: "Optional backup contact number for the courier." })
+  @IsOptional()
+  @IsString()
+  @Matches(/^\+?[0-9]{9,15}$/, { message: "Telefon raqami noto'g'ri formatda." })
+  secondPhone?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsEmail()

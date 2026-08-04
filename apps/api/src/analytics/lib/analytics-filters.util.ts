@@ -16,7 +16,16 @@ export function buildOrderDimensionFilters(query: Pick<AnalyticsQueryDto, "campa
   return where;
 }
 
-export const PAID_ORDER_STATUSES = ["DELIVERED"] as const;
+// An order that has been paid for, regardless of fulfillment stage or later refund — this is the
+// set every revenue/commission-eligibility query in the codebase (admin dashboard, creator
+// dashboard, campaign/product/refund analytics, admin-referral-links attribution) filters on.
+// Was accidentally narrowed to just ["DELIVERED"] by an unrelated commit (150b3ade, "Simplify
+// checkout and improve admin order management" — its actual diff only touched
+// Payment.merchantReference/Click-callback code, never mentioning this constant), which meant
+// every one of those metrics only counted an order once an admin manually marked it DELIVERED —
+// invisible for the entire PAID/PROCESSING/SHIPPED/IN_TRANSIT lifespan every real order spends
+// most of its life in.
+export const PAID_ORDER_STATUSES = ["PAID", "PROCESSING", "SHIPPED", "IN_TRANSIT", "DELIVERED", "REFUNDED"] as const;
 export const REVENUE_ORDER_STATUSES = ["PAID", "PROCESSING", "SHIPPED", "IN_TRANSIT", "DELIVERED"] as const;
 export const PENDING_ORDER_STATUSES = ["CREATED", "PAYMENT_PENDING"] as const;
 export const DECIDED_REFUND_STATUSES = ["APPROVED", "PROCESSED"] as const;

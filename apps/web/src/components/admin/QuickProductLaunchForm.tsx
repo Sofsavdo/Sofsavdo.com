@@ -11,6 +11,7 @@ import {
   useCreateLanding,
   useCreateOffer,
   useCreateProduct,
+  useUpdateProduct,
   usePublishLanding,
   useUploadImage,
 } from "@/services/admin/catalog";
@@ -25,9 +26,12 @@ const PRODUCT_TYPES: { value: ProductType; label: string }[] = [
   { value: "CONSULTATION", label: "Konsultatsiya" },
 ];
 
-// Same scaffold set the step-by-step wizard uses (ProductLaunchWizard.tsx) — a populated skeleton
-// instead of a blank landing page, still fully editable afterward via SectionEditor.
-const SCAFFOLD_SECTION_TYPES: LandingSectionType[] = ["HERO", "BENEFITS", "PRICING", "FAQ", "FINAL_CTA"];
+// Hero alone (image, name, description, price, buy button — see sections.tsx) is a complete,
+// working buyer page on its own now; BENEFITS/FAQ used to be scaffolded here too but
+// LandingSectionRenderer never had a case for either type, so they silently rendered nothing —
+// dead sections an admin could edit in the Landing builder with no visible effect. PRICING/
+// FINAL_CTA were also just duplicating what Hero already shows above the fold.
+const SCAFFOLD_SECTION_TYPES: LandingSectionType[] = ["HERO"];
 
 function slugify(name: string): string {
   const base = name
@@ -83,6 +87,7 @@ export function QuickProductLaunchForm({ existingProduct }: { existingProduct?: 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const uploadImage = useUploadImage();
   const createProduct = useCreateProduct();
+  const updateProduct = useUpdateProduct();
   const createOffer = useCreateOffer();
   const activateOffer = useActivateOffer();
   const createLanding = useCreateLanding();
@@ -121,6 +126,13 @@ export function QuickProductLaunchForm({ existingProduct }: { existingProduct?: 
     let offer: Offer | undefined;
     let campaign: Campaign | undefined;
 
+    const isPercentCommission = commissionType === "PERCENTAGE";
+    const productCommission = {
+      commissionType,
+      commissionRateBps: isPercentCommission ? Math.round(Number(commissionValue) * 100) : undefined,
+      commissionAmountMinor: isPercentCommission ? undefined : Math.round(Number(commissionValue) * 100),
+    };
+
     try {
       if (!product) {
         product = await createProduct.mutateAsync({
@@ -128,10 +140,25 @@ export function QuickProductLaunchForm({ existingProduct }: { existingProduct?: 
           slug: slugify(name),
           type,
           shortDescription: shortDescription.trim() || undefined,
+          description: shortDescription.trim() || undefined,
           images,
           costPriceMinor: costPriceMinor ? Math.round(Number(costPriceMinor) * 100) : undefined,
           attributes: [],
+          // This form activates the Offer/Campaign it creates alongside this Product in the same
+          // submit (see activateOffer/activateCampaign below) — the Product itself needs the same
+          // treatment, or it stays DRAFT forever and never appears to creators/buyers even though
+          // its Offer is live (confirmed: every product created through this form before this fix
+          // was stuck exactly this way).
+          status: "ACTIVE",
+          // A Flow-based order prices its Commission from the Product's own fields (see
+          // orders.service.ts's resolveAttribution FLOW branch) — this was previously only ever
+          // set on the Campaign below, which Flow-based orders never read, so every product
+          // created through this form paid a real creator exactly 0 commission regardless of
+          // what was entered here.
+          ...productCommission,
         });
+      } else {
+        product = await updateProduct.mutateAsync({ id: product.id, patch: productCommission });
       }
 
       offer = await createOffer.mutateAsync({
@@ -145,10 +172,12 @@ export function QuickProductLaunchForm({ existingProduct }: { existingProduct?: 
         currency: "UZS",
         variants: [{ id: "v1", name: "Standart", priceMinor: Math.round(Number(priceMinor) * 100), isDefault: true }],
         bonuses: [],
-        // Includes COD ("naqd to'lov, yetkazilganda") and PAY_LATER ("bo'lib to'lash") by
-        // default — both are already fully wired end-to-end server-side, and buyers expect them
-        // available without the admin needing a separate step to turn them on.
-        paymentOptions: ["CLICK", "PAYME", "CARD", "COD", "PAY_LATER"],
+        // Exactly the three real, working payment choices — CLICK (online now), COD (cash on
+        // delivery), PAY_LATER (12-month installment) — all fully wired end-to-end server-side.
+        // PAYME/CARD are deliberately excluded: they have no real payment adapter behind them
+        // (OrdersService.resolvePaymentProvider), so including them would show the buyer a
+        // selectable option that does nothing when chosen.
+        paymentOptions: ["CLICK", "COD", "PAY_LATER"],
         ctaType: "BUY_NOW",
         ctaLabel: "Sotib olish",
       });
@@ -219,18 +248,12 @@ export function QuickProductLaunchForm({ existingProduct }: { existingProduct?: 
         </CardHeader>
         <div className="flex flex-col gap-3">
           <Alert tone="success">
-            &quot;{result.product.name}&quot; endi katalogda buyerlarga ko&apos;rinadi va creatorlar reklama
-            kampaniyasiga qo&apos;shilishi mumkin — qo&apos;shimcha hech narsa qilish shart emas.
+            &quot;{result.product.name}&quot; endi buyerlarga ko&apos;rinadi va creatorlar uni tanlab o&apos;z
+            oqimini yaratishi mumkin — qo&apos;shimcha hech narsa qilish shart emas.
           </Alert>
           <div className="flex flex-wrap gap-3">
             <Link href={`/admin/products/${result.product.id}`} className="font-body text-sm text-accent underline">
               Mahsulotni ko&apos;rish
-            </Link>
-            <Link href={`/admin/offers/${result.offer.id}`} className="font-body text-sm text-accent underline">
-              Offerni ko&apos;rish
-            </Link>
-            <Link href={`/admin/campaigns/${result.campaign.id}`} className="font-body text-sm text-accent underline">
-              Campaignni ko&apos;rish
             </Link>
           </div>
           <Button variant="outline" className="w-fit" onClick={() => window.location.reload()}>
@@ -246,10 +269,10 @@ export function QuickProductLaunchForm({ existingProduct }: { existingProduct?: 
   return (
     <Card>
       <CardHeader className="flex-col items-start gap-1">
-        <CardTitle>Tezkor mahsulot yaratish</CardTitle>
+        <CardTitle>Yangi mahsulot</CardTitle>
         <p className="font-body text-sm text-text-secondary">
-          Faqat kerakli maydonlarni to&apos;ldiring — offer, landing va creator kampaniyasi avtomatik yaratiladi va
-          darhol jonli holatga o&apos;tadi.
+          Faqat kerakli maydonlarni to&apos;ldiring — mahsulot darhol jonli holatga o&apos;tadi va creatorlar uni
+          tanlab oqim yaratishi mumkin bo&apos;ladi.
         </p>
       </CardHeader>
       <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
@@ -264,13 +287,16 @@ export function QuickProductLaunchForm({ existingProduct }: { existingProduct?: 
               ))}
             </SelectField>
             <TextAreaField
-              label="Qisqacha tavsif (ixtiyoriy)"
+              label="Tavsif"
+              placeholder="Mahsulot haqida, undan qanday foydalanish kerakligi va afzalliklari haqida yozing"
+              rows={5}
               value={shortDescription}
               onChange={(e) => setShortDescription(e.target.value)}
             />
 
             <div>
               <p className="mb-1.5 font-body text-sm font-medium text-text-primary">Rasmlar</p>
+              <p className="mb-2 font-body text-xs text-text-muted">Kamida 2-3 ta rasm yuklashni tavsiya qilamiz</p>
               <div className="flex flex-wrap gap-3">
                 {images.map((url, index) => (
                   <div key={url} className="relative size-24 overflow-hidden rounded-input border border-border">
@@ -367,23 +393,11 @@ export function QuickProductLaunchForm({ existingProduct }: { existingProduct?: 
         {error ? (
           <Alert tone="error">
             {error.message}
-            {error.partial?.product || error.partial?.offer || error.partial?.campaign ? (
+            {error.partial?.product ? (
               <div className="mt-2 flex flex-wrap gap-3">
-                {error.partial.product ? (
-                  <Link href={`/admin/products/${error.partial.product.id}`} className="underline">
-                    Mahsulot yaratildi — davom ettirish
-                  </Link>
-                ) : null}
-                {error.partial.offer ? (
-                  <Link href={`/admin/offers/${error.partial.offer.id}`} className="underline">
-                    Offer yaratildi — davom ettirish
-                  </Link>
-                ) : null}
-                {error.partial.campaign ? (
-                  <Link href={`/admin/campaigns/${error.partial.campaign.id}`} className="underline">
-                    Campaign yaratildi — davom ettirish
-                  </Link>
-                ) : null}
+                <Link href={`/admin/products/launch?productId=${error.partial.product.id}`} className="underline">
+                  Mahsulot yaratildi — davom ettirish
+                </Link>
               </div>
             ) : null}
           </Alert>

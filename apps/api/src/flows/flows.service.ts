@@ -2,6 +2,13 @@ import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { DomainException } from "../common/errors/domain-error";
 
+// Product has no priceMinor of its own — price lives on its (hidden, internal) Offer. Every Flow
+// read includes the product's one live offer so the creator-facing UI can show a real price
+// without ever needing to know Offer exists as a separate concept.
+const PRODUCT_WITH_ACTIVE_OFFER = {
+  include: { offers: { where: { status: "ACTIVE" as const }, take: 1 } },
+};
+
 @Injectable()
 export class FlowsService {
   constructor(private prisma: PrismaService) {}
@@ -28,6 +35,10 @@ export class FlowsService {
           productId,
         },
       },
+      include: {
+        product: PRODUCT_WITH_ACTIVE_OFFER,
+        creatorProfile: true,
+      },
     });
 
     if (existingFlow) {
@@ -46,7 +57,7 @@ export class FlowsService {
         status: "ACTIVE",
       },
       include: {
-        product: true,
+        product: PRODUCT_WITH_ACTIVE_OFFER,
         creatorProfile: true,
       },
     });
@@ -58,7 +69,7 @@ export class FlowsService {
     return this.prisma.flow.findMany({
       where: { creatorProfileId },
       include: {
-        product: true,
+        product: PRODUCT_WITH_ACTIVE_OFFER,
       },
       orderBy: { createdAt: "desc" },
     });
@@ -68,7 +79,7 @@ export class FlowsService {
     const flow = await this.prisma.flow.findUnique({
       where: { referralCode },
       include: {
-        product: true,
+        product: PRODUCT_WITH_ACTIVE_OFFER,
         creatorProfile: true,
       },
     });

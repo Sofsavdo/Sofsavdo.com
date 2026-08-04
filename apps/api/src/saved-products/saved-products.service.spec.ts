@@ -1,4 +1,5 @@
 import { Test } from "@nestjs/testing";
+import { ConfigService } from "@nestjs/config";
 import { SavedProductsService } from "./saved-products.service";
 import { PrismaService } from "../prisma/prisma.service";
 
@@ -15,7 +16,11 @@ describe("SavedProductsService", () => {
       offer: { findUnique: jest.fn() },
     };
     const moduleRef = await Test.createTestingModule({
-      providers: [SavedProductsService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        SavedProductsService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: ConfigService, useValue: { get: jest.fn() } },
+      ],
     }).compile();
     service = moduleRef.get(SavedProductsService);
   });

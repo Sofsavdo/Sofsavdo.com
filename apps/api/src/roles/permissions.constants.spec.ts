@@ -5,10 +5,11 @@ import { DEFAULT_ROLE_PERMISSIONS, PERMISSIONS } from "./permissions.constants";
 // permissions.constants.ts that silently drops or duplicates a grant fails immediately, without
 // needing a database to catch it. RBAC.md's tables must match this file exactly.
 describe("permission matrix", () => {
-  it("has exactly 74 permission keys, each domain.action shaped", () => {
-    expect(PERMISSIONS).toHaveLength(74);
+  it("has exactly 78 permission keys, each domain.action shaped", () => {
+    expect(PERMISSIONS).toHaveLength(78);
     for (const key of PERMISSIONS) {
-      expect(key).toMatch(/^[a-z]+\.[a-z]+$/);
+      // domain segment allows snake_case (e.g. "launch_bonus") for multi-word domains.
+      expect(key).toMatch(/^[a-z][a-z_]*\.[a-z]+$/);
     }
   });
 

@@ -6,7 +6,6 @@ import { CampaignsService } from "../campaigns/campaigns.service";
 import { DeliveryService } from "../delivery/delivery.service";
 import { PromoCodesService } from "../promo-codes/promo-codes.service";
 import { ReferralsService } from "../referrals/referrals.service";
-import { FlowsService } from "../flows/flows.service";
 import { AuditService } from "../common/audit/audit.service";
 import { DomainException } from "../common/errors/domain-error";
 import { paginate, type PaginatedResult } from "../common/pagination/pagination.dto";
@@ -92,6 +91,7 @@ export interface AdminOrderResponse {
   totalMinor: number;
   currency: string;
   deliveryMethod: string | null;
+  secondPhone: string | null;
   notes: string | null;
   attribution: { creatorId: string; campaignId: string | null; source: string } | null;
   commission: { id: string; creatorId: string; creatorName: string; amountMinor: number; status: string } | null;
@@ -146,7 +146,6 @@ export class OrdersService {
     private delivery: DeliveryService,
     private promoCodes: PromoCodesService,
     private referrals: ReferralsService,
-    private flows: FlowsService,
     private audit: AuditService,
   ) {}
 
@@ -188,6 +187,7 @@ export class OrdersService {
       totalMinor: order.totalMinor,
       currency: order.currency,
       deliveryMethod: order.deliveryMethod,
+      secondPhone: order.secondPhone,
       notes: order.notes,
       attribution: order.attribution ? { creatorId: order.attribution.creatorId, campaignId: order.attribution.campaignId, source: order.attribution.source } : null,
       commission: order.commission
@@ -522,7 +522,11 @@ export class OrdersService {
           totalMinor,
           currency: offer.currency,
           deliveryMethod: dto.deliveryMethod,
+          secondPhone: dto.customer.secondPhone,
           notes: dto.customer.notes,
+          flowId: attribution?.source === "FLOW" ? attribution.flowId : null,
+          referralCode: attribution?.source === "FLOW" ? dto.refCode : null,
+          productId: attribution?.source === "FLOW" ? attribution.productId : null,
         },
       });
 
@@ -564,16 +568,23 @@ export class OrdersService {
             }
             // Create commission without commissionRule for Flow-based
             await tx.commission.create({
-              data: { 
-                orderId: created.id, 
-                creatorId: attribution.creatorId, 
+              data: {
+                orderId: created.id,
+                creatorId: attribution.creatorId,
                 commissionRuleId: null, // No commissionRule for Flow-based
-                baseAmountMinor, 
-                amountMinor, 
-                currency: offer.currency, 
-                status: "PENDING" 
+                baseAmountMinor,
+                amountMinor,
+                currency: offer.currency,
+                status: "PENDING"
               },
             });
+
+            if (attribution.flowId) {
+              await tx.flow.update({
+                where: { id: attribution.flowId },
+                data: { orderCount: { increment: 1 }, commissionEarnedMinor: { increment: amountMinor } },
+              });
+            }
           }
         } else if (attribution.campaignId) {
           // Campaign-based attribution: use Campaign commission settings

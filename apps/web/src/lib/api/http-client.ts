@@ -75,6 +75,31 @@ async function rawRequest<T>(path: string, options: RequestOptions): Promise<T> 
   return json as T;
 }
 
+// Shared across every concurrent caller — the refresh cookie is single-use per rotation
+// (apps/api/src/auth/token.service.ts's rotateRefreshToken revokes-then-reissues in one
+// transaction), so two independent /auth/refresh calls firing at once is a real, previously-hit
+// bug: the second call presents the token the first call just rotated away, TokenService treats
+// that as theft/replay and revokes the ENTIRE token family — including the brand-new token the
+// first call just successfully obtained a moment earlier — hard-logging the user out even though
+// the first refresh actually succeeded. A dashboard mounting several queries at once (the normal
+// case right after a token expires) is exactly the scenario that triggered this. Every concurrent
+// 401 now awaits this one shared promise instead of each independently calling /auth/refresh.
+let refreshPromise: Promise<string> | null = null;
+
+function refreshAccessToken(): Promise<string> {
+  if (!refreshPromise) {
+    refreshPromise = rawRequest<{ accessToken: string }>("/auth/refresh", { method: "POST", skipRefreshOnAuthError: true })
+      .then((refreshed) => {
+        setAccessToken(refreshed.accessToken);
+        return refreshed.accessToken;
+      })
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+  return refreshPromise;
+}
+
 // One retry, exactly once, on a 401 — matches TokenService's rotation model (see
 // apps/api/src/auth/token.service.ts): the refresh cookie is single-use per rotation, so a loop
 // here would just burn through the token family for no benefit, not actually recover.
@@ -86,11 +111,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
       throw err;
     }
     try {
-      const refreshed = await rawRequest<{ accessToken: string }>("/auth/refresh", {
-        method: "POST",
-        skipRefreshOnAuthError: true,
-      });
-      setAccessToken(refreshed.accessToken);
+      await refreshAccessToken();
     } catch {
       setAccessToken(null);
       throw err; // surface the ORIGINAL 401, not the refresh failure

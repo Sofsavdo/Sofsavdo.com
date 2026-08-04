@@ -16,22 +16,13 @@ export interface Flow {
     id: string;
     name: string;
     images: string[];
-    priceMinor: number | null;
     commissionType: string | null;
     commissionRateBps: number | null;
     commissionAmountMinor: number | null;
+    // Product has no price of its own — it lives on the one active Offer behind it (an
+    // internal implementation detail never surfaced to creators as a separate concept).
+    offers: { priceMinor: number; compareAtPriceMinor: number | null; currency: string }[];
   };
-}
-
-export interface Product {
-  id: string;
-  name: string;
-  images: string[];
-  priceMinor: number | null;
-  commissionType: string | null;
-  commissionRateBps: number | null;
-  commissionAmountMinor: number | null;
-  status: string;
 }
 
 async function createFlowFn(productId: string) {

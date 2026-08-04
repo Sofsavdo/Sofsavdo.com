@@ -30,8 +30,8 @@ export default function CreatorLandingPage() {
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-bold text-purple-600">Sofsavdo</h1>
-            <SimplifiedButton variant="primary" onClick={() => window.location.href = '/creator/v2/auth/register'}>
-              Ro'yxatdan o'tish
+            <SimplifiedButton variant="primary" onClick={() => window.location.href = '/creator/register'}>
+              Ro&apos;yxatdan o&apos;tish
             </SimplifiedButton>
           </div>
         </div>
@@ -41,21 +41,21 @@ export default function CreatorLandingPage() {
       <section className="py-20 px-4">
         <div className="max-w-4xl mx-auto text-center">
           <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
-            Bloger bo'lib daromad toping
+            Bloger bo&apos;lib daromad toping
           </h1>
           <p className="text-xl text-gray-600 mb-8">
-            3 daqiqada ro'yxatdan o'ting, 5 daqiqada birinchi link oling
+            3 daqiqada ro&apos;yxatdan o&apos;ting, 5 daqiqada birinchi link oling
           </p>
           <div className="flex gap-4 justify-center">
             <SimplifiedButton 
               variant="primary" 
               size="lg"
-              onClick={() => window.location.href = '/creator/v2/auth/register'}
+              onClick={() => window.location.href = '/creator/register'}
             >
-              Ro'yxatdan o'tish
+              Ro&apos;yxatdan o&apos;tish
             </SimplifiedButton>
-            <SimplifiedButton 
-              variant="outline" 
+            <SimplifiedButton
+              variant="outline"
               size="lg"
               onClick={() => document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' })}
             >
@@ -76,8 +76,8 @@ export default function CreatorLandingPage() {
               <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <span className="text-2xl font-bold text-purple-600">1</span>
               </div>
-              <h3 className="font-bold text-gray-900 mb-2">Ro'yxatdan o'ting</h3>
-              <p className="text-gray-600">3 daqiqada bepul ro'yxatdan o'ting</p>
+              <h3 className="font-bold text-gray-900 mb-2">Ro&apos;yxatdan o&apos;ting</h3>
+              <p className="text-gray-600">3 daqiqada bepul ro&apos;yxatdan o&apos;ting</p>
             </div>
             <div className="text-center">
               <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -142,7 +142,7 @@ export default function CreatorLandingPage() {
             <SimplifiedCard>
               <SimplifiedCardContent>
                 <h3 className="font-bold text-gray-900 mb-2">Sodda</h3>
-                <p className="text-gray-600">3 daqiqada ro'yxatdan o'tish, 5 daqiqada link olish</p>
+                <p className="text-gray-600">3 daqiqada ro&apos;yxatdan o&apos;tish, 5 daqiqada link olish</p>
               </SimplifiedCardContent>
             </SimplifiedCard>
             <SimplifiedCard>
@@ -166,13 +166,13 @@ export default function CreatorLandingPage() {
             <SimplifiedCard>
               <SimplifiedCardContent>
                 <h3 className="font-bold text-gray-900 mb-2">Mahalliy</h3>
-                <p className="text-gray-600">O'zbekiston uchun moslashgan</p>
+                <p className="text-gray-600">O&apos;zbekiston uchun moslashgan</p>
               </SimplifiedCardContent>
             </SimplifiedCard>
             <SimplifiedCard>
               <SimplifiedCardContent>
                 <h3 className="font-bold text-gray-900 mb-2">Support</h3>
-                <p className="text-gray-600">O'zbek tilida 24/7 support</p>
+                <p className="text-gray-600">O&apos;zbek tilida 24/7 support</p>
               </SimplifiedCardContent>
             </SimplifiedCard>
           </div>
@@ -186,19 +186,19 @@ export default function CreatorLandingPage() {
             Bugun boshlang
           </h2>
           <p className="text-xl text-purple-100 mb-8">
-            3 daqiqada ro'yxatdan o'ting, daromad topishni boshlang
+            3 daqiqada ro&apos;yxatdan o&apos;ting, daromad topishni boshlang
           </p>
           <SimplifiedButton 
             variant="primary" 
             size="lg"
             className="bg-white text-purple-600 hover:bg-gray-100"
-            onClick={() => window.location.href = '/creator/v2/auth/register'}
+            onClick={() => window.location.href = '/creator/register'}
           >
-            Ro'yxatdan o'tish
+            Ro&apos;yxatdan o&apos;tish
           </SimplifiedButton>
         </div>
       </section>
-      
+
       {/* FAQ */}
       <section className="py-16 px-4">
         <div className="max-w-4xl mx-auto">
@@ -208,20 +208,20 @@ export default function CreatorLandingPage() {
           <div className="space-y-4">
             <SimplifiedCard>
               <SimplifiedCardContent>
-                <h3 className="font-bold text-gray-900 mb-2">Ro'yxatdan o'tish bepulmi?</h3>
-                <p className="text-gray-600">Ha, ro'yxatdan o'tish to'liq bepul. Hech qanday investitsiya kerak emas.</p>
+                <h3 className="font-bold text-gray-900 mb-2">Ro&apos;yxatdan o&apos;tish bepulmi?</h3>
+                <p className="text-gray-600">Ha, ro&apos;yxatdan o&apos;tish to&apos;liq bepul. Hech qanday investitsiya kerak emas.</p>
               </SimplifiedCardContent>
             </SimplifiedCard>
             <SimplifiedCard>
               <SimplifiedCardContent>
                 <h3 className="font-bold text-gray-900 mb-2">Qancha daromad topishim mumkin?</h3>
-                <p className="text-gray-600">Daromad sizning sotuvlaringizga bog'liq. O'rtacha 20% komissiya olasiz.</p>
+                <p className="text-gray-600">Daromad sizning sotuvlaringizga bog&apos;liq. O&apos;rtacha 20% komissiya olasiz.</p>
               </SimplifiedCardContent>
             </SimplifiedCard>
             <SimplifiedCard>
               <SimplifiedCardContent>
-                <h3 className="font-bold text-gray-900 mb-2">Payout qachon bo'ladi?</h3>
-                <p className="text-gray-600">Buyurtma yetkazib berilgandan so'ng 14 kun ichida payout bo'ladi.</p>
+                <h3 className="font-bold text-gray-900 mb-2">Payout qachon bo&apos;ladi?</h3>
+                <p className="text-gray-600">Buyurtma yetkazib berilgandan so&apos;ng 14 kun ichida payout bo&apos;ladi.</p>
               </SimplifiedCardContent>
             </SimplifiedCard>
             <SimplifiedCard>

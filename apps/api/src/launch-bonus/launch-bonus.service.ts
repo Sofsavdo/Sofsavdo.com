@@ -5,6 +5,7 @@ import { EventEmitter2 } from "@nestjs/event-emitter";
 import { NOTIFICATION_EVENTS } from "../notifications/events";
 import { Cron, CronExpression } from "@nestjs/schedule";
 import { Prisma } from "@prisma/client";
+import { PAID_ORDER_STATUSES } from "../analytics/lib/analytics-filters.util";
 
 export interface CreatorStats {
   commissionEarned: number;
@@ -102,32 +103,38 @@ export class LaunchBonusService {
   }
 
   async getCreatorStats(creatorProfileId: string): Promise<CreatorStats> {
-    // Commission from successful orders only (PAID payouts)
-    const commission = await this.prisma.payout.aggregate({
+    // What the creator has actually EARNED from real sales — every non-reversed Commission,
+    // regardless of whether it's been paid out yet (PENDING/APPROVED/PAYABLE/PAID/DONATED all
+    // count; REJECTED/REFUNDED don't). Was previously summing Payout.amountMinor where
+    // status="PAID", which only counts money the creator has already successfully withdrawn —
+    // a much later, stricter condition than "earned," and one a creator working toward this exact
+    // bonus would rarely have hit yet (payouts are a separate, creator-initiated, admin-approved
+    // request). See CommissionsService.getWalletBalance for the same non-reversed-statuses
+    // convention used everywhere else "earned" is computed.
+    const commission = await this.prisma.commission.aggregate({
       where: {
         creatorId: creatorProfileId,
-        status: "PAID",
+        status: { notIn: ["REJECTED", "REFUNDED"] },
       },
       _sum: { amountMinor: true },
     });
 
-    // Referrals - creator who joined OR started ordering
+    // Total friends this creator has referred — was previously filtered to only referred
+    // creators whose OWN account was created within a rolling 30-days-from-now window, which has
+    // no relationship to this creator's own bonus deadline and would silently stop counting a
+    // referral the moment it turned 30 days old, no matter how active or long-standing.
     const referrals = await this.prisma.creatorReferral.count({
-      where: {
-        referrerCreatorId: creatorProfileId,
-        referred: {
-          OR: [
-            { createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } },
-          ],
-        },
-      },
+      where: { referrerCreatorId: creatorProfileId },
     });
 
-    // Successful orders only (PAID status) - use attribution relation
+    // Real, paid-for orders attributed to this creator — matches PAID_ORDER_STATUSES (paid
+    // through delivered, plus refunded since it was still a real sale) used everywhere else in
+    // the codebase for "this order counts as a real sale," rather than the single "PAID" status,
+    // which excludes an order the moment it progresses to PROCESSING/SHIPPED/IN_TRANSIT/DELIVERED.
     const orders = await this.prisma.order.count({
       where: {
         attribution: { creatorId: creatorProfileId },
-        status: "PAID",
+        status: { in: [...PAID_ORDER_STATUSES] },
       },
     });
 

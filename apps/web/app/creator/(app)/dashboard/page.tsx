@@ -4,18 +4,15 @@ import Link from "next/link";
 import { formatMoneyMinor, type CreatorApplicationStatus } from "@sofsavdo/types";
 import { Alert, Badge, Button, Card, CardHeader, CardTitle, EmptyState, Skeleton, StatTile } from "@sofsavdo/ui";
 import { useDashboardStats } from "@/services/dashboard";
-import { useMyCampaigns, useCampaigns } from "@/services/campaigns";
 import { useSales, usePayoutsMine } from "@/services/finance";
 import { useSession } from "@/services/session";
 import { canWorkAsCreator } from "@/lib/routing";
-import { applicationStatusMeta, creatorCampaignStatusMeta, realPayoutStatusMeta } from "@/lib/status";
+import { applicationStatusMeta, realPayoutStatusMeta } from "@/lib/status";
 import { DashboardChart } from "@/components/creator/DashboardChart";
 import { SalesTable } from "@/components/creator/SalesTable";
 import { ActivityTicker } from "@/components/creator/ActivityTicker";
 import { LaunchBonusProgress } from "@/components/creator/LaunchBonusProgress";
-import { useFlows, useCreateFlow, getReferralUrl } from "@/services/flows";
-import { productsV2Service } from "@/services/v2/products-v2.service";
-import { useQuery } from "@tanstack/react-query";
+import { useFlows, getReferralUrl } from "@/services/flows";
 
 // Shown instead of the real (earning-data-heavy) dashboard while a creator's application is
 // SUBMITTED/UNDER_REVIEW — CreatorAppGuard already lets them reach /creator/dashboard at this
@@ -58,19 +55,11 @@ export default function DashboardPage() {
   const approved = !!user && canWorkAsCreator(user.application.status);
 
   const stats = useDashboardStats();
-  const myCampaigns = useMyCampaigns({ enabled: approved });
   const sales = useSales({ enabled: approved });
   const payouts = usePayoutsMine(1, { enabled: approved });
-  const allCampaigns = useCampaigns({ enabled: approved });
   const flows = useFlows();
-  const createFlowMutation = useCreateFlow();
-  const products = useQuery({
-    queryKey: ["products", "ACTIVE"],
-    queryFn: () => productsV2Service.list({ status: "ACTIVE" }),
-    enabled: approved,
-  });
 
-  const isLoading = stats.isLoading || (approved && myCampaigns.isLoading);
+  const isLoading = stats.isLoading;
 
   if (isLoading || !stats.data) {
     return (
@@ -91,20 +80,9 @@ export default function DashboardPage() {
   }
 
   const d = stats.data;
-  const activeCampaigns = (myCampaigns.data ?? []).filter((cc) => cc.status === "ACTIVE");
   const payoutItems = payouts.data?.items ?? [];
-  const requiredActions = [
-    ...payoutItems
-      .filter((p) => p.status === "REQUESTED" || p.status === "PROCESSING")
-      .map((p) => ({
-        key: `payout_${p.id}`,
-        text: `${formatMoneyMinor(p.amountMinor)} miqdoridagi payout so'rovingiz ko'rib chiqilmoqda`,
-        href: "/creator/earnings",
-      })),
-  ];
   const latestPayout = payoutItems[0];
-  const joinedCampaignIds = new Set((myCampaigns.data ?? []).map((cc) => cc.campaignId));
-  const recommended = (allCampaigns.data ?? []).filter((c) => !joinedCampaignIds.has(c.id)).slice(0, 3);
+  const flowsList = flows.data?.flows ?? [];
 
   return (
     <div className="space-y-6">
@@ -233,83 +211,56 @@ export default function DashboardPage() {
       <DashboardChart dailyRevenue30d={d.dailyRevenue30d} />
 
       <Card>
-        <CardHeader>
-          <CardTitle>Faol kampaniyalar</CardTitle>
+        <CardHeader className="flex-row items-center justify-between gap-2">
+          <CardTitle>Mening oqimlarim</CardTitle>
+          <Link href="/creator/streams" className="font-body text-sm text-accent underline">
+            Mahsulot tanlash
+          </Link>
         </CardHeader>
-        {activeCampaigns.length === 0 ? (
+        {flowsList.length === 0 ? (
           <EmptyState
-            title="Faol kampaniya yo'q"
-            description="Katalogdan kampaniya tanlab, hamkorlikni boshlang."
+            title="Oqim yo'q"
+            description="Mahsulot tanlab, bir bosishda o'z oqimingizni oling."
             action={
               <Button asChild size="sm" variant="outline">
-                <Link href="/creator/campaigns">Kampaniyalarni ko&apos;rish</Link>
+                <Link href="/creator/streams">Mahsulotlarni ko&apos;rish</Link>
               </Button>
             }
           />
         ) : (
           <ul className="flex flex-col gap-2">
-            {activeCampaigns.map((cc) => (
-              <li key={cc.id} className="flex items-center justify-between rounded-input border border-border px-3 py-2">
-                <span className="font-body text-sm text-text-primary">{cc.campaign.name}</span>
-                <Badge tone={creatorCampaignStatusMeta[cc.status].tone}>
-                  {creatorCampaignStatusMeta[cc.status].label}
-                </Badge>
+            {flowsList.slice(0, 3).map((flow) => (
+              <li key={flow.id} className="flex flex-col gap-2 rounded-input border border-border px-3 py-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-body text-sm text-text-primary">{flow.product.name}</span>
+                  <Badge tone={flow.status === "ACTIVE" ? "success" : "neutral"}>
+                    {flow.status === "ACTIVE" ? "Faol" : "To'xtatilgan"}
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={getReferralUrl(flow.referralCode)}
+                    className="flex-1 rounded-input border border-border bg-bg px-2 py-1 font-body text-xs text-text-muted"
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => navigator.clipboard.writeText(getReferralUrl(flow.referralCode))}
+                  >
+                    Nusxa olish
+                  </Button>
+                </div>
               </li>
             ))}
           </ul>
         )}
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Mahsulotlar uchun referral link olish</CardTitle>
-        </CardHeader>
-        {products.data?.items.length === 0 ? (
-          <EmptyState
-            title="Mahsulot yo'q"
-            description="Hozircha targ'ib qilish uchun mahsulot yo'q."
-          />
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {products.data?.items.map((product) => {
-              const existingFlow = flows.data?.flows.find((f) => f.productId === product.id);
-              return (
-                <li key={product.id} className="flex flex-col gap-2 rounded-input border border-border px-3 py-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-body text-sm text-text-primary">{product.title}</span>
-                    <Badge tone="neutral">{product.status}</Badge>
-                  </div>
-                  {existingFlow ? (
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        readOnly
-                        value={getReferralUrl(existingFlow.referralCode)}
-                        className="flex-1 rounded-input border border-border bg-bg px-2 py-1 font-body text-xs text-text-muted"
-                      />
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => navigator.clipboard.writeText(getReferralUrl(existingFlow.referralCode))}
-                      >
-                        Nusxa olish
-                      </Button>
-                    </div>
-                  ) : (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => createFlowMutation.mutateAsync(product.id)}
-                      disabled={createFlowMutation.isPending}
-                    >
-                      {createFlowMutation.isPending ? "Yaratilmoqda..." : "Flow yaratish"}
-                    </Button>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        )}
+        {flowsList.length > 0 ? (
+          <Link href="/creator/my-streams" className="mt-3 block font-body text-sm text-accent underline">
+            Barcha oqimlarni ko&apos;rish
+          </Link>
+        ) : null}
       </Card>
 
       <Card>
@@ -321,26 +272,6 @@ export default function DashboardPage() {
         </CardHeader>
         <SalesTable sales={sales.data ?? []} limit={5} />
       </Card>
-
-      {recommended.length > 0 ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Tavsiya etilgan kampaniyalar</CardTitle>
-          </CardHeader>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            {recommended.map((c) => (
-              <Link
-                key={c.id}
-                href={`/creator/campaigns/${c.id}`}
-                className="rounded-input border border-border p-3 hover:border-accent"
-              >
-                <p className="font-body text-sm font-medium text-text-primary">{c.name}</p>
-                <p className="mt-1 font-body text-xs text-text-muted">{c.category}</p>
-              </Link>
-            ))}
-          </div>
-        </Card>
-      ) : null}
     </div>
   );
 }

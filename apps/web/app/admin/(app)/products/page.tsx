@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Plus, Rocket } from "lucide-react";
+import { Plus } from "lucide-react";
 import { DataTableShell, Button, MobileDataCard, StatusBadge } from "@sofsavdo/ui";
 import { useAdminProducts } from "@/services/admin/catalog";
 import { productStatusMeta } from "@/lib/status";
@@ -26,24 +26,17 @@ export default function AdminProductsPage() {
 
   return (
     <DataTableShell
-      title="Products"
-      description="Sotiladigan asosiy narsalar — Offer yaratish uchun asos."
+      title="Mahsulotlar"
+      description="Sotiladigan mahsulotlaringiz."
       searchValue={search}
       onSearchChange={setSearch}
       searchPlaceholder="Mahsulot nomi bo'yicha qidirish"
       actions={
-        <div className="flex gap-2">
-          <Button asChild size="sm">
-            <Link href="/admin/products/launch">
-              <Rocket className="mr-1.5 size-4" /> Yangi mahsulot
-            </Link>
-          </Button>
-          <Button asChild size="sm" variant="outline">
-            <Link href="/admin/products/new">
-              <Plus className="mr-1.5 size-4" /> Faqat mahsulot (kengaytirilgan)
-            </Link>
-          </Button>
-        </div>
+        <Button asChild size="sm">
+          <Link href="/admin/products/launch">
+            <Plus className="mr-1.5 size-4" /> Yangi mahsulot
+          </Link>
+        </Button>
       }
       isLoading={query.isLoading}
       isError={query.isError}

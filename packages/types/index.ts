@@ -502,6 +502,7 @@ export interface PromoValidationResult {
 export interface CheckoutCustomerInput {
   fullName: string;
   phone: string;
+  secondPhone?: string;
   region?: string;
   city?: string;
   district?: string;
@@ -573,6 +574,7 @@ export interface Product {
   slug: string;
   type: ProductType;
   shortDescription?: string;
+  description?: string;
   images: string[];
   costPriceMinor?: number;
   sku?: string;
@@ -580,6 +582,11 @@ export interface Product {
   internalNotes?: string;
   status: ProductStatus;
   createdAt: string;
+  // Creator-facing commission on this Product itself — what Flow-based orders (the simplified
+  // architecture) actually price a Commission from, independent of any Campaign/CommissionRule.
+  commissionType?: "PERCENTAGE" | "FIXED_AMOUNT";
+  commissionRateBps?: number;
+  commissionAmountMinor?: number;
 }
 
 export interface AdminOfferVariant {
@@ -602,6 +609,9 @@ export interface Offer {
   priceMinor: number;
   compareAtPriceMinor?: number;
   currency: string;
+  // Resolved to public URLs server-side — the product's own photos, shown on the buyer-facing
+  // landing page's Hero/Gallery sections (Offer has no images of its own).
+  images: string[];
   variants: AdminOfferVariant[];
   bonuses: string[];
   deliveryInfo?: string;

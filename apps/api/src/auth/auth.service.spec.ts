@@ -9,6 +9,7 @@ import { TokenService } from "./token.service";
 import { RolesService } from "../roles/roles.service";
 import { ReferralsService } from "../referrals/referrals.service";
 import { AppLogger } from "../common/logging/app-logger.service";
+import { LaunchBonusService } from "../launch-bonus/launch-bonus.service";
 
 jest.mock("argon2");
 
@@ -24,6 +25,7 @@ describe("AuthService", () => {
   let referrals: { resolveReferrerForAttribution: jest.Mock; generateUniqueReferralCode: jest.Mock; attributeAtRegistration: jest.Mock };
   let events: { emitAsync: jest.Mock };
   let config: { get: jest.Mock };
+  let launchBonus: { createBonusForCreatorInTransaction: jest.Mock };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -41,6 +43,7 @@ describe("AuthService", () => {
       attributeAtRegistration: jest.fn(),
     };
     events = { emitAsync: jest.fn().mockResolvedValue([]) };
+    launchBonus = { createBonusForCreatorInTransaction: jest.fn().mockResolvedValue(undefined) };
     config = {
       get: jest.fn((key: string) =>
         key === "webAppUrl"
@@ -68,6 +71,7 @@ describe("AuthService", () => {
         { provide: ConfigService, useValue: config },
         { provide: AppLogger, useValue: { setContext: jest.fn(), log: jest.fn() } },
         { provide: EventEmitter2, useValue: events },
+        { provide: LaunchBonusService, useValue: launchBonus },
       ],
     }).compile();
     service = moduleRef.get(AuthService);

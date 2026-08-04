@@ -1,4 +1,5 @@
 import { Test } from "@nestjs/testing";
+import { ConfigService } from "@nestjs/config";
 import { LandingsService } from "./landings.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { OffersService } from "../offers/offers.service";
@@ -52,7 +53,7 @@ describe("LandingsService", () => {
     createdById: "user1",
     updatedById: "user1",
     variants: [{ id: "v1", name: "Standard", priceMinor: 10_000, isDefault: true, sortOrder: 0 }],
-    product: { id: "prod1", type: "DIGITAL_PRODUCT", sku: "SKU-1", costPriceMinor: 500, internalNotes: "SECRET cost notes" },
+    product: { id: "prod1", type: "DIGITAL_PRODUCT", sku: "SKU-1", costPriceMinor: 500, internalNotes: "SECRET cost notes", images: ["products/prod1/photo.jpg"] },
   };
 
   beforeEach(async () => {
@@ -71,6 +72,7 @@ describe("LandingsService", () => {
     };
     offers = { computeAvailability: jest.fn().mockReturnValue("LIVE") };
     const delivery = { listActiveRegionsForOffer: jest.fn().mockResolvedValue([]) };
+    const config = { get: jest.fn().mockReturnValue(undefined) };
 
     const moduleRef = await Test.createTestingModule({
       providers: [
@@ -78,6 +80,7 @@ describe("LandingsService", () => {
         { provide: PrismaService, useValue: prisma },
         { provide: OffersService, useValue: offers },
         { provide: DeliveryService, useValue: delivery },
+        { provide: ConfigService, useValue: config },
       ],
     }).compile();
     service = moduleRef.get(LandingsService);

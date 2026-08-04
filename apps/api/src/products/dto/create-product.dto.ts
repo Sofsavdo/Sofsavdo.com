@@ -11,9 +11,11 @@ import {
   Min,
   MinLength,
 } from "class-validator";
-import type { ProductType } from "@prisma/client";
+import type { ProductStatus, ProductType } from "@prisma/client";
 
 const PRODUCT_TYPES: ProductType[] = ["PHYSICAL_PRODUCT", "DIGITAL_PRODUCT", "COURSE", "SERVICE", "CONSULTATION"];
+const PRODUCT_STATUSES: ProductStatus[] = ["DRAFT", "ACTIVE", "ARCHIVED"];
+const COMMISSION_TYPES = ["PERCENTAGE", "FIXED_AMOUNT"] as const;
 
 export class CreateProductDto {
   @ApiProperty()
@@ -103,4 +105,35 @@ export class CreateProductDto {
   @IsOptional()
   @IsString()
   creatorProfileId?: string;
+
+  // Defaults to DRAFT (see ProductsService.create) when omitted — the one-screen admin launch
+  // flow (QuickProductLaunchForm) passes ACTIVE explicitly, matching that it also activates the
+  // Offer/Campaign it creates alongside the Product in the same submit.
+  @ApiPropertyOptional({ enum: PRODUCT_STATUSES })
+  @IsOptional()
+  @IsIn(PRODUCT_STATUSES)
+  status?: ProductStatus;
+
+  // What a Flow-based order (orders.service.ts's resolveAttribution FLOW branch) actually prices
+  // a Commission from — independent of the legacy Campaign/CommissionRule path, which keeps
+  // reading its own commission fields off Campaign for backward compatibility with links already
+  // shared under it.
+  @ApiPropertyOptional({ enum: COMMISSION_TYPES })
+  @IsOptional()
+  @IsIn(COMMISSION_TYPES)
+  commissionType?: "PERCENTAGE" | "FIXED_AMOUNT";
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  commissionRateBps?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  commissionAmountMinor?: number;
 }

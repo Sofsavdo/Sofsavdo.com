@@ -20,6 +20,7 @@ describe("OrdersService", () => {
     referralLink: { findUnique: jest.Mock };
     referralVisit: { findFirst: jest.Mock };
     attribution: { findUnique: jest.Mock };
+    flow: { findUnique: jest.Mock };
     refund: { create: jest.Mock };
     $transaction: jest.Mock;
   };
@@ -35,6 +36,7 @@ describe("OrdersService", () => {
     commission: { create: jest.Mock };
     offer: { findUnique: jest.Mock };
     product: { findUnique: jest.Mock; update: jest.Mock };
+    flow: { update: jest.Mock };
     payment: { updateMany: jest.Mock };
   };
   let offers: { computeAvailability: jest.Mock };
@@ -75,6 +77,7 @@ describe("OrdersService", () => {
       referralLink: { findUnique: jest.fn() },
       referralVisit: { findFirst: jest.fn() },
       attribution: { findUnique: jest.fn() },
+      flow: { findUnique: jest.fn().mockResolvedValue(null) },
       refund: { create: jest.fn() },
       $transaction: jest.fn(),
     };
@@ -90,6 +93,7 @@ describe("OrdersService", () => {
       commission: { create: jest.fn() },
       offer: { findUnique: jest.fn() },
       product: { findUnique: jest.fn(), update: jest.fn() },
+      flow: { update: jest.fn() },
       payment: { updateMany: jest.fn() },
     };
     prisma.$transaction.mockImplementation((cb: (tx: unknown) => unknown) => cb(tx));
@@ -229,6 +233,27 @@ describe("OrdersService", () => {
         expect.objectContaining({ data: expect.objectContaining({ creatorId: "creator1", campaignId: "campaign1", source: "REFERRAL_VISIT" }) }),
       );
       expect(tx.commission.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ creatorId: "creator1", amountMinor: 10_000_00 }) }));
+    });
+
+    it("attributes the sale to a Flow's creator, computes commission from the Product's own fields, and increments the Flow's stats", async () => {
+      prisma.flow.findUnique.mockResolvedValue({ id: "flow1", creatorProfileId: "creator2", productId: "product1", status: "ACTIVE" });
+      tx.product.findUnique.mockResolvedValue({ id: "product1", commissionType: "PERCENTAGE", commissionRateBps: 1500, commissionAmountMinor: null });
+
+      const dto: CreateCheckoutDto = { ...validDto, refCode: "flow-code-1" };
+      await service.createOrder("physical-offer", dto);
+
+      expect(tx.order.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ flowId: "flow1", referralCode: "flow-code-1", productId: "product1" }) }),
+      );
+      expect(tx.attribution.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ creatorId: "creator2", campaignId: null, source: "FLOW" }) }),
+      );
+      expect(tx.commission.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ creatorId: "creator2", commissionRuleId: null, amountMinor: 15_000_00 }) }),
+      );
+      expect(tx.flow.update).toHaveBeenCalledWith({ where: { id: "flow1" }, data: { orderCount: { increment: 1 }, commissionEarnedMinor: { increment: 15_000_00 } } });
+      // Flow resolves before the legacy ReferralLink lookup — no need to even query it.
+      expect(prisma.referralLink.findUnique).not.toHaveBeenCalled();
     });
 
     it("rejects with REFERRAL_CODE_INVALID for an unknown/mismatched refCode", async () => {

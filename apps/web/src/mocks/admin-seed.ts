@@ -130,6 +130,7 @@ export const OFFERS: Offer[] = [
   {
     id: "offer_serum",
     productId: "prod_serum",
+    images: [],
     name: "GlowUp Vitamin C Serum",
     slug: "glowup-serum",
     headline: "Terangizga 30 kunda yangi nafas",
@@ -155,6 +156,7 @@ export const OFFERS: Offer[] = [
   {
     id: "offer_marketplace",
     productId: "prod_marketplace",
+    images: [],
     name: "Marketplace'da Savdo — to'liq kurs",
     slug: "marketplace-kursi",
     headline: "Uzum va Yandex Market'da noldan birinchi savdongizgacha",
@@ -177,6 +179,7 @@ export const OFFERS: Offer[] = [
   {
     id: "offer_ai",
     productId: "prod_ai",
+    images: [],
     name: "AI va Vibe Coding — Premium tarif",
     slug: "ai-vibe-coding-premium",
     headline: "AI bilan dastur yozishni o'rganing",
@@ -195,6 +198,7 @@ export const OFFERS: Offer[] = [
   {
     id: "offer_mvp",
     productId: "prod_mvp",
+    images: [],
     name: "Startup MVP — 4 haftada",
     slug: "startup-mvp",
     headline: "G'oyangizni 4 haftada ishlaydigan mahsulotga aylantiring",
@@ -213,6 +217,7 @@ export const OFFERS: Offer[] = [
   {
     id: "offer_ecohome",
     productId: "prod_ecohome",
+    images: [],
     name: "EcoHome 12 buyumli to'plam",
     slug: "ecohome-set",
     headline: "Oshxonangizga ekologik toza yechim",
@@ -232,6 +237,7 @@ export const OFFERS: Offer[] = [
   {
     id: "offer_english",
     productId: "prod_english",
+    images: [],
     name: "Ingliz tili — Boshlang'ich daraja",
     slug: "ingliz-tili-boshlangich",
     headline: "0 dan boshlab ingliz tilini o'rganing",

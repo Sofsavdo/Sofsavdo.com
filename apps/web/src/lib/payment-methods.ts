@@ -2,15 +2,14 @@
 // Offer.paymentOptions/create-checkout.dto.ts already use (CLICK/PAYME/CARD/COD/PAY_LATER) — this
 // file only adds *display* structure on top, it does not change which methods are actually
 // selectable for a given offer (that stays offer.paymentOptions, read verbatim in
-// CheckoutPageClient). Click, Paylater, and Uzum Nasiya are brand names and must never be
-// translated; only the category label and description are Uzbek copy.
+// CheckoutPageClient). Click is a brand name and must never be translated.
 export type PaymentMethodCategory = "ONLINE" | "CASH_ON_DELIVERY" | "INSTALLMENT";
 
 export interface PaymentMethodMeta {
   /** The exact string value used in Offer.paymentOptions / the checkout paymentMethod field. */
   id: string;
   category: PaymentMethodCategory;
-  /** Brand or plain-language name, shown as-is — never translated for brand names (Click, Paylater, Uzum Nasiya). */
+  /** Brand or plain-language name, shown as-is — never translated for a brand name (Click). */
   displayName: string;
   /** Short Uzbek description shown under the name. */
   description: string;
@@ -19,62 +18,22 @@ export interface PaymentMethodMeta {
   logo?: string;
 }
 
-export const PAYMENT_METHOD_CATEGORY_META: Record<PaymentMethodCategory, { icon: string; label: string }> = {
-  ONLINE: { icon: "💳", label: "Online Payment" },
-  CASH_ON_DELIVERY: { icon: "💵", label: "Cash on Delivery" },
-  INSTALLMENT: { icon: "📅", label: "Installment Payment" },
-};
-
-// UZUM_NASIYA has a catalog entry (per the "future ready" requirement) even though no Offer
-// selects it today — the moment an offer's paymentOptions includes it, it renders correctly with
-// no further UI work.
-//
-// Descriptions for COD/PAY_LATER/UZUM_NASIYA deliberately say an operator contacts the customer
-// to complete the arrangement — their copy must never imply the platform processes payment
-// automatically. CLICK and COD (Phase F) are the two providers with a real adapter in
-// PaymentsModule's registry today; PAYME/CARD/UZUM_NASIYA still only create an order/request with
-// no adapter behind them at all (see OrdersService.resolvePaymentProvider).
+// CLICK and COD (Phase F) are the two providers with a real adapter in PaymentsModule's registry
+// today; PAYME/CARD still only create an order/request with no adapter behind them at all (see
+// OrdersService.resolvePaymentProvider) — QuickProductLaunchForm deliberately excludes both from
+// the payment options it sets on a new Offer, so they should never actually reach a buyer.
 export const PAYMENT_METHOD_CATALOG: Record<string, PaymentMethodMeta> = {
-  CLICK: { id: "CLICK", category: "ONLINE", displayName: "Click", description: "Click orqali hozir onlayn to'lang." },
+  CLICK: { id: "CLICK", category: "ONLINE", displayName: "Click", description: "Hozir onlayn to'lang" },
   PAYME: { id: "PAYME", category: "ONLINE", displayName: "Payme", description: "Onlayn to'lov" },
   CARD: { id: "CARD", category: "ONLINE", displayName: "Bank kartasi", description: "Onlayn to'lov" },
-  COD: {
-    id: "COD",
-    category: "CASH_ON_DELIVERY",
-    displayName: "Naqd to'lov",
-    description: "Operator buyurtmani tasdiqlash uchun bog'lanadi. To'lov yetkazib berilganda amalga oshiriladi.",
-  },
-  PAY_LATER: {
-    id: "PAY_LATER",
-    category: "INSTALLMENT",
-    displayName: "Paylater",
-    description: "Muddatli to'lov uchun ariza qoldiring. Operator rasmiylashtirish uchun bog'lanadi.",
-  },
-  UZUM_NASIYA: {
-    id: "UZUM_NASIYA",
-    category: "INSTALLMENT",
-    displayName: "Uzum Nasiya",
-    description: "Muddatli to'lov uchun ariza qoldiring. Operator rasmiylashtirish uchun bog'lanadi.",
-  },
+  COD: { id: "COD", category: "CASH_ON_DELIVERY", displayName: "Naqd pul", description: "Yetkazib berilganda naqd to'lang" },
+  // Single installment option, deliberately worded as one plain choice ("12 months") rather than
+  // a specific provider name — Uzum Nasiya was never wired to a real adapter and never appears on
+  // any real Offer, so it's not in this catalog at all; if that changes, it must still present as
+  // this same one tile, never a second, separate installment button next to this one.
+  PAY_LATER: { id: "PAY_LATER", category: "INSTALLMENT", displayName: "Bo'lib to'lash", description: "12 oyga bo'lib to'lang" },
 };
-
-const CATEGORY_ORDER: PaymentMethodCategory[] = ["ONLINE", "CASH_ON_DELIVERY", "INSTALLMENT"];
 
 export function resolvePaymentMethodMeta(id: string): PaymentMethodMeta {
   return PAYMENT_METHOD_CATALOG[id] ?? { id, category: "ONLINE", displayName: id, description: "" };
-}
-
-/** Groups a flat list of offer-supported payment method ids into ordered category buckets, preserving each method's within-offer order. */
-export function groupPaymentMethods(methodIds: string[]): Array<{ category: PaymentMethodCategory; methods: PaymentMethodMeta[] }> {
-  const buckets = new Map<PaymentMethodCategory, PaymentMethodMeta[]>();
-  for (const id of methodIds) {
-    const meta = resolvePaymentMethodMeta(id);
-    const bucket = buckets.get(meta.category) ?? [];
-    bucket.push(meta);
-    buckets.set(meta.category, bucket);
-  }
-  return CATEGORY_ORDER.filter((category) => buckets.has(category)).map((category) => ({
-    category,
-    methods: buckets.get(category)!,
-  }));
 }

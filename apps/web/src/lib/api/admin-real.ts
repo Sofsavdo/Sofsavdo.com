@@ -230,6 +230,10 @@ function mapBackendOffer(o: BackendOffer): Offer {
     priceMinor: o.priceMinor,
     compareAtPriceMinor: o.compareAtPriceMinor ?? undefined,
     currency: o.currency,
+    // This admin CRUD endpoint doesn't return product images (only the landing preview/public
+    // endpoint does, see public-real.ts) — never rendered through Hero/Gallery, so an empty array
+    // is harmless here.
+    images: [],
     variants: o.variants.map((v) => ({ id: v.id, name: v.name, priceMinor: v.priceMinor, isDefault: v.isDefault })),
     bonuses: o.bonuses,
     deliveryInfo: o.deliveryInfo ?? undefined,

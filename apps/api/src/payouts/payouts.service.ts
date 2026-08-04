@@ -128,11 +128,12 @@ export class PayoutsService {
       // Pass bonus amount to allow using unlocked bonus for payout
       await this.commissions.lockPayableCommissions(tx, creatorId, dto.amountMinor, created.id, bonusAmountMinor);
       
-      // If bonus was used, mark it as paid
+      // If bonus was used, mark it PAID (distinct from EXPIRED — this is the success path, not a
+      // missed deadline) so it can never be folded into a second payout.
       if (bonusAmountMinor > 0 && unlockedBonus) {
         await tx.launchBonus.update({
           where: { id: unlockedBonus.id },
-          data: { status: "EXPIRED" }, // Mark as expired/paid to prevent reuse
+          data: { status: "PAID" },
         });
       }
       

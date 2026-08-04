@@ -62,6 +62,7 @@ export type PayoutMethodInput = z.infer<typeof payoutMethodSchema>;
 export const checkoutSchema = z.object({
   fullName: z.string().min(3, "To'liq ismingizni kiriting"),
   phone: z.string().min(9, "Telefon raqamini to'liq kiriting"),
+  secondPhone: z.string().optional(),
   region: z.string().optional(),
   city: z.string().optional(),
   address: z.string().optional(),

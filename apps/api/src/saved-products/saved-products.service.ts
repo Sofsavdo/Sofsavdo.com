@@ -18,6 +18,10 @@ export class SavedProductsService {
 
   private toImageUrl(imagePath: string | null): string | null {
     if (!imagePath) return null;
+    // A real upload already returns a full absolute publicUrl (see offers.service.ts's identical
+    // helper for the full explanation) — only an old relative-path fixture needs the base URL
+    // prepended.
+    if (/^https?:\/\//.test(imagePath)) return imagePath;
     const publicBaseUrl = this.config.get<string>("storage.publicBaseUrl");
     if (!publicBaseUrl) return imagePath;
     return `${publicBaseUrl}/${imagePath}`;

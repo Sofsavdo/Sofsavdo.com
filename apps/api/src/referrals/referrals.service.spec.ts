@@ -5,7 +5,7 @@ import { PrismaService } from "../prisma/prisma.service";
 describe("ReferralsService", () => {
   let service: ReferralsService;
   let prisma: {
-    creatorProfile: { findUnique: jest.Mock };
+    creatorProfile: { findUnique: jest.Mock; findFirst: jest.Mock };
     creatorReferral: { findUnique: jest.Mock; create: jest.Mock; update: jest.Mock };
     creatorReferralRule: { findMany: jest.Mock; findUnique: jest.Mock; create: jest.Mock; update: jest.Mock };
     creatorReferralReward: { create: jest.Mock; findFirst: jest.Mock };
@@ -13,7 +13,7 @@ describe("ReferralsService", () => {
 
   beforeEach(async () => {
     prisma = {
-      creatorProfile: { findUnique: jest.fn() },
+      creatorProfile: { findUnique: jest.fn(), findFirst: jest.fn() },
       creatorReferral: { findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
       creatorReferralRule: { findMany: jest.fn(), findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
       creatorReferralReward: { create: jest.fn(), findFirst: jest.fn().mockResolvedValue(null) },
@@ -28,17 +28,17 @@ describe("ReferralsService", () => {
     it("returns null (no attribution) for an undefined code — never blocks registration", async () => {
       const result = await service.resolveReferrerForAttribution(undefined, prisma as never);
       expect(result).toBeNull();
-      expect(prisma.creatorProfile.findUnique).not.toHaveBeenCalled();
+      expect(prisma.creatorProfile.findFirst).not.toHaveBeenCalled();
     });
 
     it("returns null (no attribution, no throw) for an unknown/invalid code", async () => {
-      prisma.creatorProfile.findUnique.mockResolvedValue(null);
+      prisma.creatorProfile.findFirst.mockResolvedValue(null);
       const result = await service.resolveReferrerForAttribution("UNKNOWN1", prisma as never);
       expect(result).toBeNull();
     });
 
     it("resolves a valid code to the referrer's creatorId", async () => {
-      prisma.creatorProfile.findUnique.mockResolvedValue({ id: "creator-referrer-1" });
+      prisma.creatorProfile.findFirst.mockResolvedValue({ id: "creator-referrer-1" });
       const result = await service.resolveReferrerForAttribution("VALIDCOD", prisma as never);
       expect(result).toEqual({ referrerCreatorId: "creator-referrer-1", referralCodeUsed: "VALIDCOD" });
     });

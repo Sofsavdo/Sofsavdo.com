@@ -2,7 +2,6 @@ import { Module } from "@nestjs/common";
 import { JwtModule } from "@nestjs/jwt";
 import { PassportModule } from "@nestjs/passport";
 import { AuthService } from "./auth.service";
-import { AuthV2Service } from "./auth-v2.service";
 import { TokenService } from "./token.service";
 import { JwtStrategy } from "./jwt.strategy";
 import { AuthController } from "./auth.controller";
@@ -16,7 +15,7 @@ import { CommonModule } from "../common/common.module";
 @Module({
   imports: [PrismaModule, RolesModule, ReferralsModule, LaunchBonusModule, ConfigModule, CommonModule, JwtModule.register({}), PassportModule],
   controllers: [AuthController],
-  providers: [AuthService, AuthV2Service, TokenService, JwtStrategy],
+  providers: [AuthService, TokenService, JwtStrategy],
   exports: [AuthService, TokenService, JwtStrategy],
 })
 export class AuthModule {}

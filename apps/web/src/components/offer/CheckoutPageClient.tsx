@@ -7,7 +7,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery } from "@tanstack/react-query";
 import { formatMoneyMinor } from "@sofsavdo/types";
-import { Alert, Button, Card, CardHeader, CardTitle, Skeleton, TextAreaField, TextField } from "@sofsavdo/ui";
+import { Alert, Button, Card, CardHeader, CardTitle, Skeleton, TextField } from "@sofsavdo/ui";
 import { useOfferPublic, useCreateOrder, useValidatePromoCode, useTrackVisit } from "@/services/offer";
 import { checkoutSchema, type CheckoutInput } from "@/lib/schemas";
 import { PaymentMethodSelector } from "./PaymentMethodSelector";
@@ -166,6 +166,7 @@ export function CheckoutPageClient({ offerSlug }: { offerSlug: string }) {
       customer: {
         fullName: values.fullName,
         phone: values.phone,
+        secondPhone: values.secondPhone || undefined,
         address: values.address,
         email: values.email || undefined,
         comment: values.comment,
@@ -196,8 +197,14 @@ export function CheckoutPageClient({ offerSlug }: { offerSlug: string }) {
         </CardHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
-          <TextField label="To'liq ism" error={errors.fullName?.message} {...register("fullName")} />
+          <TextField label="Ism familiya" error={errors.fullName?.message} {...register("fullName")} />
           <TextField label="Telefon raqami" placeholder="+998 90 123 45 67" error={errors.phone?.message} {...register("phone")} />
+          <TextField
+            label="Qo'shimcha telefon (ixtiyoriy)"
+            placeholder="+998 90 123 45 67"
+            error={errors.secondPhone?.message}
+            {...register("secondPhone")}
+          />
 
           {isPhysical ? (
             <>
@@ -207,11 +214,9 @@ export function CheckoutPageClient({ offerSlug }: { offerSlug: string }) {
                   <RegionSelect regions={deliveryRegions} value={regionCode} onChange={setRegionCode} />
                 </div>
               ) : null}
-              <TextAreaField label="Manzil (ko'cha, uy, mahalla)" {...register("address")} />
+              <TextField label="Manzil (ko'cha, uy)" {...register("address")} />
             </>
           ) : null}
-
-          <TextAreaField label="Qisqacha izoh (ixtiyoriy)" {...register("comment")} />
 
           <div>
             <p className="mb-1.5 font-body text-sm font-medium text-text-primary">Promo kod</p>

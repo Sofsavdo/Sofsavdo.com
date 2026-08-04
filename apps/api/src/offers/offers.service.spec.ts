@@ -1,4 +1,5 @@
 import { Test } from "@nestjs/testing";
+import { ConfigService } from "@nestjs/config";
 import { OffersService, FEATURED_OFFERS_LIMIT, CATALOG_MAX_PAGE_SIZE } from "./offers.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { PaginationQueryDto } from "../common/pagination/pagination.dto";
@@ -40,7 +41,11 @@ describe("OffersService", () => {
       $transaction: jest.fn((fn: (tx: unknown) => unknown) => fn(prisma)),
     };
     const moduleRef = await Test.createTestingModule({
-      providers: [OffersService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        OffersService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: ConfigService, useValue: { get: jest.fn() } },
+      ],
     }).compile();
     service = moduleRef.get(OffersService);
   });

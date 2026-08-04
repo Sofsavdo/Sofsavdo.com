@@ -1,6 +1,6 @@
 /**
  * Oqimlar (Streams) Page
- * 
+ *
  * Shows all products and services available for creators to promote.
  * Creator can select a product/service to create their stream.
  */
@@ -10,17 +10,20 @@
 import Link from 'next/link';
 import { formatMoneyMinor } from '@sofsavdo/types';
 import { Alert, Badge, Button, Card, CardHeader, CardTitle, EmptyState, Skeleton } from '@sofsavdo/ui';
-import { useAvailableProductsForPromotion, useSelectProductForPromotion } from '@/services/campaigns';
+import { useAvailableProductsForPromotion } from '@/services/campaigns';
+import { useFlows, useCreateFlow } from '@/services/flows';
 import { useSession } from '@/services/session';
 import { canWorkAsCreator } from '@/lib/routing';
 
 export default function StreamsPage() {
   const { user, isLoading: sessionLoading } = useSession();
   const isApproved = user ? canWorkAsCreator(user.application.status) : false;
-  
+
   const productsQuery = useAvailableProductsForPromotion({ enabled: isApproved });
-  const selectProduct = useSelectProductForPromotion();
-  
+  const flowsQuery = useFlows();
+  const createFlow = useCreateFlow();
+  const flowByProductId = new Map((flowsQuery.data?.flows ?? []).map((flow) => [flow.productId, flow]));
+
   if (sessionLoading) {
     return (
       <div className="space-y-4">
@@ -40,7 +43,7 @@ export default function StreamsPage() {
       <div className="space-y-6">
         <div>
           <h1 className="font-heading text-2xl font-bold text-text-primary mb-2">Oqimlar</h1>
-          <p className="font-body text-sm text-text-secondary">Barcha mahsulotlar va xizmatlarni ko'ring va oqim yarating</p>
+          <p className="font-body text-sm text-text-secondary">Barcha mahsulotlar va xizmatlarni ko&apos;ring va oqim yarating</p>
         </div>
         
         <Card>
@@ -78,9 +81,9 @@ export default function StreamsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="font-heading text-2xl font-bold text-text-primary">Mahsulotlar</h1>
-        <p className="font-body text-sm text-text-secondary">Mahsulotlarni tanlang va referral havolani oling</p>
+        <p className="font-body text-sm text-text-secondary">Mahsulotni tanlang va bir bosishda o&apos;z oqimingizni oling</p>
       </div>
-      
+
       {products.length === 0 ? (
         <Card>
           <EmptyState
@@ -91,7 +94,7 @@ export default function StreamsPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {products.map((product: any) => {
-            const referralLink = product.offers?.[0]?.campaigns?.[0]?.referralLinks?.[0];
+            const flow = flowByProductId.get(product.id);
             return (
               <Card key={product.id} className="hover:border-accent transition-colors">
                 <div className="p-4 space-y-4">
@@ -104,31 +107,31 @@ export default function StreamsPage() {
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-text-muted">
-                        Rasm yo'q
+                        Rasm yo&apos;q
                       </div>
                     )}
                   </div>
-                  
+
                   <div>
                     <h3 className="font-heading text-sm font-medium text-text-primary line-clamp-2">{product.name}</h3>
                     <p className="font-body text-xs text-text-muted mt-1">{product.category}</p>
                   </div>
-                  
+
                   <div className="flex items-center justify-between">
                     <span className="font-numeric text-lg font-bold tabular-nums text-accent">
-                      {formatMoneyMinor(product.priceMinor || 0)}
+                      {formatMoneyMinor(product.offers?.[0]?.priceMinor ?? 0)}
                     </span>
                     <Badge tone="neutral">{product.type}</Badge>
                   </div>
-                  
-                  {referralLink ? (
+
+                  {flow ? (
                     <Button
                       asChild
                       variant="outline"
                       size="sm"
                       className="w-full"
                     >
-                      <Link href={`/creator/my-streams/${product.id}`}>
+                      <Link href={`/creator/my-streams/${flow.id}`}>
                         Batafsil
                       </Link>
                     </Button>
@@ -136,10 +139,10 @@ export default function StreamsPage() {
                     <Button
                       size="sm"
                       className="w-full"
-                      onClick={() => selectProduct.mutateAsync(product.id)}
-                      disabled={selectProduct.isPending}
+                      onClick={() => createFlow.mutateAsync(product.id)}
+                      disabled={createFlow.isPending}
                     >
-                      {selectProduct.isPending ? "Yaratilmoqda..." : "Referral link olish"}
+                      {createFlow.isPending ? "Yaratilmoqda..." : "Oqim olish"}
                     </Button>
                   )}
                 </div>

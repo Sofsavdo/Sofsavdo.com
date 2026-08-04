@@ -1,229 +1,161 @@
 /**
- * Mening Oqimlarim (My Streams) Detail Page
- * 
- * Shows creator's stream for a specific product with referral link ready to share.
+ * Mening Oqimim (Flow Detail) Page
+ *
+ * Shows one real Flow: its product, referral link, QR code, share buttons, and real stats.
  */
 
 'use client';
 
-import { useState, useEffect } from 'react';
-import { SimplifiedCard, SimplifiedCardHeader, SimplifiedCardTitle, SimplifiedCardContent } from '@/components/simplified/simplified-card';
-import { SimplifiedButton } from '@/components/simplified/simplified-button';
-import { SimplifiedLoading } from '@/components/simplified/simplified-loading';
-import { SimplifiedBadge } from '@/components/simplified/simplified-badge';
-import { creatorsV2Service, type CreatorStreamDto } from '@/services/v2/creators-v2.service';
+import { useState } from 'react';
+import { useParams } from 'next/navigation';
 import { QRCodeSVG } from 'qrcode.react';
+import { formatMoneyMinor } from '@sofsavdo/types';
+import { Badge, Button, Card, CardHeader, CardTitle, Skeleton } from '@sofsavdo/ui';
+import { useFlows, getReferralUrl } from '@/services/flows';
 
-export default function MyStreamDetailPage({ params }: { params: { id: string } }) {
-  const [stream, setStream] = useState<CreatorStreamDto | null>(null);
-  const [loading, setLoading] = useState(true);
+export default function MyStreamDetailPage() {
+  const params = useParams<{ id: string }>();
+  const flowsQuery = useFlows();
   const [copied, setCopied] = useState(false);
-  
-  useEffect(() => {
-    loadStream();
-  }, [params.id]);
-  
-  const loadStream = async () => {
-    setLoading(true);
-    try {
-      const data = await creatorsV2Service.getStreamDetail(params.id);
-      setStream(data);
-    } catch (error) {
-      console.error('Failed to load stream:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  const handleCopyLink = async () => {
-    if (!stream) return;
-    try {
-      await navigator.clipboard.writeText(stream.referralLink);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
-      console.error('Failed to copy:', error);
-    }
-  };
-  
-  const handleShareTelegram = () => {
-    if (!stream) return;
-    const text = `Bu mahsulotni ko'ring: ${stream.productName}\n\n${stream.referralLink}`;
-    window.open(`https://t.me/share/url?url=${encodeURIComponent(stream.referralLink)}&text=${encodeURIComponent(text)}`, '_blank');
-  };
-  
-  const handleShareWhatsApp = () => {
-    if (!stream) return;
-    const text = `Bu mahsulotni ko'ring: ${stream.productName}\n\n${stream.referralLink}`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-  };
-  
-  const formatPrice = (minor: number) => {
-    return (minor / 100).toLocaleString('uz-UZ') + " so'm";
-  };
-  
-  const calculateEarnings = (priceMinor: number, commissionPercent: number) => {
-    return (priceMinor * commissionPercent) / 100;
-  };
-  
-  if (loading) {
+
+  if (flowsQuery.isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <SimplifiedLoading size="lg" />
+      <div className="space-y-6">
+        <Skeleton className="h-8 w-56" />
+        <Skeleton className="h-96" />
       </div>
     );
   }
-  
-  if (!stream) {
+
+  const flow = flowsQuery.data?.flows.find((f) => f.id === params.id);
+
+  if (!flow) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <SimplifiedCard>
-          <SimplifiedCardContent>
-            <p className="text-center text-gray-600">Oqim topilmadi</p>
-          </SimplifiedCardContent>
-        </SimplifiedCard>
-      </div>
+      <Card>
+        <p className="p-6 text-center font-body text-sm text-text-muted">Oqim topilmadi</p>
+      </Card>
     );
   }
-  
+
+  const referralUrl = getReferralUrl(flow.referralCode);
+  const priceMinor = flow.product.offers[0]?.priceMinor ?? 0;
+  const commissionLabel =
+    flow.product.commissionType === 'PERCENTAGE'
+      ? `${((flow.product.commissionRateBps ?? 0) / 100).toFixed(1)}%`
+      : formatMoneyMinor(flow.product.commissionAmountMinor ?? 0);
+  const estimatedEarningMinor =
+    flow.product.commissionType === 'PERCENTAGE'
+      ? Math.round((priceMinor * (flow.product.commissionRateBps ?? 0)) / 10000)
+      : (flow.product.commissionAmountMinor ?? 0);
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(referralUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const shareText = `Bu mahsulotni ko'ring: ${flow.product.name}\n\n${referralUrl}`;
+
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Mening Oqimim</h1>
-        <p className="text-gray-600">Referal havolani oling va tarqating</p>
+    <div className="space-y-6">
+      <div>
+        <h1 className="font-heading text-2xl font-bold text-text-primary">Mening oqimim</h1>
+        <p className="font-body text-sm text-text-secondary">Havolani oling va tarqating</p>
       </div>
-      
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Product Info */}
-        <SimplifiedCard>
-          <SimplifiedCardContent className="p-4">
-            <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden mb-4">
-              <img
-                src={stream.productImage || '/placeholder.png'}
-                alt={stream.productName}
-                className="w-full h-full object-cover"
-              />
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Card>
+          <div className="p-4">
+            <div className="mb-4 aspect-square overflow-hidden rounded-lg bg-bg">
+              {flow.product.images.length > 0 ? (
+                <img src={flow.product.images[0]} alt={flow.product.name} className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-text-muted">Rasm yo&apos;q</div>
+              )}
             </div>
-            
-            <h2 className="text-xl font-bold text-gray-900 mb-2">{stream.productName}</h2>
-            
-            <div className="flex items-center gap-4 mb-4">
-              <span className="text-2xl font-bold text-blue-600">{formatPrice(stream.productPriceMinor)}</span>
-              <SimplifiedBadge variant="success">{stream.commissionPercent}% komissiya</SimplifiedBadge>
+            <h2 className="mb-2 font-heading text-xl font-bold text-text-primary">{flow.product.name}</h2>
+            <div className="mb-4 flex items-center gap-3">
+              <span className="font-numeric text-2xl font-bold tabular-nums text-accent">
+                {formatMoneyMinor(priceMinor)}
+              </span>
+              <Badge tone="success">{commissionLabel} komissiya</Badge>
             </div>
-          </SimplifiedCardContent>
-        </SimplifiedCard>
-        
-        {/* Referral Link */}
+
+            <div className="grid grid-cols-3 gap-2 rounded-lg border border-border bg-bg p-3">
+              <div className="text-center">
+                <p className="font-numeric text-lg font-semibold tabular-nums text-text-primary">{flow.clickCount}</p>
+                <p className="font-body text-xs text-text-muted">Bosish</p>
+              </div>
+              <div className="text-center">
+                <p className="font-numeric text-lg font-semibold tabular-nums text-text-primary">{flow.orderCount}</p>
+                <p className="font-body text-xs text-text-muted">Buyurtma</p>
+              </div>
+              <div className="text-center">
+                <p className="font-numeric text-lg font-semibold tabular-nums text-text-primary">
+                  {formatMoneyMinor(flow.commissionEarnedMinor)}
+                </p>
+                <p className="font-body text-xs text-text-muted">Komissiya</p>
+              </div>
+            </div>
+          </div>
+        </Card>
+
         <div className="space-y-4">
-          <SimplifiedCard>
-            <SimplifiedCardHeader>
-              <SimplifiedCardTitle>Referal havola</SimplifiedCardTitle>
-            </SimplifiedCardHeader>
-            <SimplifiedCardContent>
-              <div className="bg-gray-50 p-4 rounded-lg mb-4">
-                <p className="text-sm text-gray-600 mb-2">Sizning havolangiz:</p>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={stream.referralLink}
-                    readOnly
-                    className="flex-1 bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                  />
-                  <SimplifiedButton
-                    variant="outline"
-                    onClick={handleCopyLink}
-                  >
-                    {copied ? 'Nusxa olindi!' : 'Nusxa olish'}
-                  </SimplifiedButton>
-                </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Referral havola</CardTitle>
+            </CardHeader>
+            <div className="space-y-4 px-6 pb-6">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={referralUrl}
+                  className="flex-1 rounded-input border border-border bg-bg px-3 py-2 font-body text-sm"
+                />
+                <Button variant="outline" onClick={handleCopy}>
+                  {copied ? 'Nusxa olindi!' : 'Nusxa olish'}
+                </Button>
               </div>
 
-              {stream.promoCode && (
-                <div className="bg-purple-50 p-4 rounded-lg mb-4">
-                  <p className="text-sm text-purple-600 mb-2">Promo kod:</p>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={stream.promoCode}
-                      readOnly
-                      className="flex-1 bg-white border border-purple-300 rounded-lg px-3 py-2 text-sm font-mono font-bold"
-                    />
-                    <SimplifiedButton
-                      variant="outline"
-                      onClick={async () => {
-                        if (!stream.promoCode) return;
-                        try {
-                          await navigator.clipboard.writeText(stream.promoCode);
-                          setCopied(true);
-                          setTimeout(() => setCopied(false), 2000);
-                        } catch (error) {
-                          console.error('Failed to copy:', error);
-                        }
-                      }}
-                    >
-                      {copied ? 'Nusxa olindi!' : 'Nusxa olish'}
-                    </SimplifiedButton>
-                  </div>
-                </div>
-              )}
-              
-              {/* QR Code */}
-              <div className="bg-white p-4 rounded-lg mb-4 flex flex-col items-center">
-                <p className="text-sm text-gray-600 mb-3">QR Kod</p>
-                <div className="bg-white p-2 rounded-lg border border-gray-200">
-                  <QRCodeSVG value={stream.referralLink} size={150} />
-                </div>
-                <p className="text-xs text-gray-500 mt-2">Skayner qiling va havolani oching</p>
+              <div className="flex flex-col items-center gap-2 rounded-lg border border-border p-4">
+                <p className="font-body text-sm text-text-muted">QR kod</p>
+                <QRCodeSVG value={referralUrl} size={150} />
+                <p className="font-body text-xs text-text-muted">Skanerlang va havolani oching</p>
               </div>
-              
-              <div className="bg-blue-50 p-4 rounded-lg mb-4">
-                <p className="text-sm text-blue-900 font-medium mb-1">Qancha topishingiz mumkin:</p>
-                <p className="text-2xl font-bold text-blue-600">
-                  {formatPrice(calculateEarnings(stream.productPriceMinor, stream.commissionPercent))}
+
+              <div className="rounded-lg bg-accent/10 p-4">
+                <p className="font-body text-sm font-medium text-text-primary">Har bir sotuvdan taxminan:</p>
+                <p className="font-numeric text-2xl font-bold tabular-nums text-accent">
+                  {formatMoneyMinor(estimatedEarningMinor)}
                 </p>
-                <p className="text-xs text-blue-700 mt-1">har bir sotuvdan</p>
               </div>
-            </SimplifiedCardContent>
-          </SimplifiedCard>
-          
-          <SimplifiedCard>
-            <SimplifiedCardHeader>
-              <SimplifiedCardTitle>Ijtimoiy tarmoqlarda ulashish</SimplifiedCardTitle>
-            </SimplifiedCardHeader>
-            <SimplifiedCardContent>
-              <div className="flex gap-2">
-                <SimplifiedButton
-                  variant="outline"
-                  fullWidth
-                  onClick={handleShareTelegram}
-                >
-                  Telegram
-                </SimplifiedButton>
-                <SimplifiedButton
-                  variant="outline"
-                  fullWidth
-                  onClick={handleShareWhatsApp}
-                >
-                  WhatsApp
-                </SimplifiedButton>
-              </div>
-            </SimplifiedCardContent>
-          </SimplifiedCard>
-          
-          <SimplifiedCard>
-            <SimplifiedCardHeader>
-              <SimplifiedCardTitle>Qanday ishlaydi?</SimplifiedCardTitle>
-            </SimplifiedCardHeader>
-            <SimplifiedCardContent>
-              <ol className="list-decimal list-inside space-y-2 text-sm text-gray-600">
-                <li>Havolani nusxa oling yoki QR kodni skayner qiling</li>
-                <li>Ijtimoiy tarmoqlarda ulashing</li>
-                <li>Siz havola orqali kelgan har bir sotuvdan komissiya olasiz</li>
-                <li>Daromad "Daromad" bo'limida ko'rinadi</li>
-              </ol>
-            </SimplifiedCardContent>
-          </SimplifiedCard>
+            </div>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Ijtimoiy tarmoqlarda ulashish</CardTitle>
+            </CardHeader>
+            <div className="flex gap-2 px-6 pb-6">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() =>
+                  window.open(`https://t.me/share/url?url=${encodeURIComponent(referralUrl)}&text=${encodeURIComponent(shareText)}`, '_blank')
+                }
+              >
+                Telegram
+              </Button>
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank')}
+              >
+                WhatsApp
+              </Button>
+            </div>
+          </Card>
         </div>
       </div>
     </div>

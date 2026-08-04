@@ -150,8 +150,14 @@ export function CreatorShell({ children }: { children: ReactNode }) {
         <div className="mx-auto max-w-page">{children}</div>
       </main>
 
-      {/* Mobile bottom nav */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 flex border-t border-border bg-surface md:hidden">
+      {/* Mobile bottom nav — hidden while the drawer is open so its dim backdrop never leaves a
+          second nav visibly showing through underneath (looked like two menus at once). */}
+      <nav
+        className={cn(
+          "fixed inset-x-0 bottom-0 z-40 flex border-t border-border bg-surface md:hidden",
+          drawerOpen && "hidden",
+        )}
+      >
         {bottomItems.map((item) => {
           const active = pathname.startsWith(item.href);
           const Icon = item.icon;

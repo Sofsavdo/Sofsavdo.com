@@ -22,10 +22,6 @@ export default function MarketPage() {
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
-  useEffect(() => {
-    loadProducts();
-  }, []);
-
   const loadProducts = async () => {
     setLoading(true);
     try {
@@ -38,6 +34,10 @@ export default function MarketPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    loadProducts();
+  }, []);
   
   const formatPrice = (minor: number) => {
     return (minor / 100).toLocaleString('uz-UZ') + " so'm";
@@ -46,7 +46,7 @@ export default function MarketPage() {
   const categories = ['all', ...new Set(products.map(p => p.productType).filter(Boolean))];
 
   const filteredProducts = products.filter(product => {
-    const matchesSearch = product.offer.name.toLowerCase().includes(search.toLowerCase());
+    const matchesSearch = product.name.toLowerCase().includes(search.toLowerCase());
     const matchesCategory = selectedCategory === 'all' || product.productType === selectedCategory;
     return matchesSearch && matchesCategory;
   });
@@ -121,24 +121,24 @@ export default function MarketPage() {
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {filteredProducts.map((product) => (
-              <Link key={product.id} href={`/catalog?offer=${product.offer.slug}`}>
+              <Link key={product.id} href={`/o/${product.slug}`}>
                 <SimplifiedCard className="hover:shadow-lg transition-shadow cursor-pointer">
                   <SimplifiedCardContent className="p-3">
                     <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden mb-3">
                       <img
-                        src={product.offer.heroImage || '/placeholder.png'}
-                        alt={product.offer.name}
+                        src={product.imageUrl || '/placeholder.png'}
+                        alt={product.name}
                         className="w-full h-full object-cover"
                       />
                     </div>
 
                     <h3 className="font-semibold text-gray-900 text-sm mb-2 line-clamp-2 min-h-[2.5rem]">
-                      {product.offer.name}
+                      {product.name}
                     </h3>
 
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-lg font-bold text-blue-600">
-                        {formatPrice(product.offer.priceMinor)}
+                        {formatPrice(product.priceMinor)}
                       </span>
                     </div>
 

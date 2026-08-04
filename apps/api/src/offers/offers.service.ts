@@ -82,6 +82,12 @@ export class OffersService {
 
   private toImageUrl(imagePath: string | null): string | null {
     if (!imagePath) return null;
+    // A real upload (uploads.service.ts -> StoragePort.put) already returns a full absolute
+    // publicUrl, which is what's stored in Product.images verbatim — prepending the base URL to
+    // that (as this used to do unconditionally) produced a broken, double-prefixed link for every
+    // genuinely-uploaded product image. Only an old relative-path fixture (pre-dating the real
+    // upload flow) still needs the base URL prepended.
+    if (/^https?:\/\//.test(imagePath)) return imagePath;
     const publicBaseUrl = this.config.get<string>("storage.publicBaseUrl");
     if (!publicBaseUrl) return imagePath;
     return `${publicBaseUrl}/${imagePath}`;

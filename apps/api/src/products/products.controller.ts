@@ -7,14 +7,12 @@ import { ProductQueryDto } from "./dto/product-query.dto";
 import { RequirePermissions } from "../common/decorators/permissions.decorator";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import type { AuthenticatedUser } from "../common/guards/jwt-auth.guard";
-import { DomainException } from "../common/errors/domain-error";
-import { PrismaService } from "../prisma/prisma.service";
 
 @ApiTags("admin/products")
 @ApiBearerAuth("bearer")
 @Controller("admin/products")
 export class ProductsController {
-  constructor(private products: ProductsService, private prisma: PrismaService) {}
+  constructor(private products: ProductsService) {}
 
   @RequirePermissions("product.read")
   @Get()
@@ -22,24 +20,13 @@ export class ProductsController {
     return this.products.list(query);
   }
 
-  @RequirePermissions("product.read")
-  @Get(":id")
-  findOne(@Param("id") id: string) {
-    return this.products.findOneOrThrow(id);
-  }
-
-  @RequirePermissions("product.write")
-  @Post()
-  create(@Body() dto: CreateProductDto) {
-    return this.products.create(dto);
-  }
-
-  @RequirePermissions("product.write")
-  @Patch(":id")
-  update(@Param("id") id: string, @Body() dto: UpdateProductDto) {
-    return this.products.update(id, dto);
-  }
-
+  // Static-path GET routes must all be registered before the ":id" wildcard below — Nest's
+  // (Express) router matches by registration order, not specificity, so ":id" declared first
+  // would swallow every one of these as if "my-products"/"available-for-promotion"/etc. were the
+  // :id value, silently routing them through findOne()'s own permission check instead (confirmed
+  // live: this is exactly why GET /admin/products/creator-available-for-promotion 403'd for an
+  // approved creator with a real product.read requirement in the error — that requirement belongs
+  // to findOne, not this route, which has none).
   @Get("my-products")
   listMyProducts(@CurrentUser() user: AuthenticatedUser) {
     return this.products.listByCreator(user.creatorId!);
@@ -58,51 +45,26 @@ export class ProductsController {
 
   // Creator-specific endpoint for available products (no admin permission required)
   @Get("creator-available-for-promotion")
-  listAvailableForPromotionForCreator(@CurrentUser() user: AuthenticatedUser) {
+  listAvailableForPromotionForCreator() {
     return this.products.listAvailableForPromotion();
   }
 
-  @Post("select-for-promotion/:productId")
-  async selectForPromotion(@CurrentUser() user: AuthenticatedUser, @Param("productId") productId: string) {
-    const product = await this.prisma.product.findUnique({
-      where: { id: productId },
-      include: {
-        offers: {
-          where: { status: "ACTIVE" },
-          include: {
-            campaigns: true,
-          },
-        },
-      },
-    });
+  @RequirePermissions("product.read")
+  @Get(":id")
+  findOne(@Param("id") id: string) {
+    return this.products.findOneOrThrow(id);
+  }
 
-    if (!product) throw new DomainException("NOT_FOUND", "Mahsulot topilmadi.");
-    const offer = product.offers[0];
-    if (!offer) throw new DomainException("NOT_FOUND", "Mahsulot uchun offer topilmadi.");
+  @RequirePermissions("product.write")
+  @Post()
+  create(@Body() dto: CreateProductDto) {
+    return this.products.create(dto);
+  }
 
-    const campaign = offer.campaigns[0];
-    if (!campaign) throw new DomainException("NOT_FOUND", "Offer uchun campaign topilmadi.");
-
-    // Check if creator already has a referral link for this campaign
-    const existingLink = await this.prisma.referralLink.findFirst({
-      where: {
-        creatorId: user.creatorId!,
-        offerId: offer.id,
-      },
-    });
-
-    if (existingLink) return existingLink;
-
-    // Create referral link
-    return this.prisma.referralLink.create({
-      data: {
-        creatorId: user.creatorId!,
-        offerId: offer.id,
-        campaignId: campaign.id,
-        code: `${user.creatorId!.slice(0, 8)}-${offer.id.slice(0, 8)}`,
-        status: "ACTIVE",
-      },
-    });
+  @RequirePermissions("product.write")
+  @Patch(":id")
+  update(@Param("id") id: string, @Body() dto: UpdateProductDto) {
+    return this.products.update(id, dto);
   }
 
   @RequirePermissions("product.archive")

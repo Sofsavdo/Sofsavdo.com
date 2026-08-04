@@ -54,28 +54,26 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
       <Card>
         <CardHeader>
-          <CardTitle>Shu productga qurilgan Offerlar</CardTitle>
+          <CardTitle>Narx va sotuv holati</CardTitle>
         </CardHeader>
         {relatedOffers.length === 0 ? (
           <div className="flex flex-col gap-2">
             <Alert tone="warning">
-              Bu mahsulot hali hech qanday offerga ulanmagan — shu sababli u buyer katalogida ham, creator
-              kampaniyalari ro&apos;yxatida ham ko&apos;rinmaydi.
+              Bu mahsulot uchun hali narx belgilanmagan — shu sababli u buyerlarga ham, creatorlarga ham
+              ko&apos;rinmaydi.
             </Alert>
             <Link
               href={`/admin/products/launch?productId=${product.id}`}
               className="w-fit font-body text-sm text-accent underline"
             >
-              Tezkor rejimda offer va creator kampaniyasini yaratish (bir necha maydon, darhol jonli)
+              Narx va komissiya kiritish (bir necha maydon, darhol jonli)
             </Link>
           </div>
         ) : (
           <ul className="divide-y divide-border">
             {relatedOffers.map((o) => (
               <li key={o.id} className="flex items-center justify-between py-2.5">
-                <Link href={`/admin/offers/${o.id}`} className="font-body text-sm text-text-primary hover:text-accent">
-                  {o.name}
-                </Link>
+                <span className="font-body text-sm text-text-primary">{o.name}</span>
                 <div className="flex items-center gap-3">
                   <span className="font-numeric text-sm tabular-nums text-text-secondary">{formatMoneyMinor(o.priceMinor, o.currency)}</span>
                   <Badge tone={offerStatusMeta[o.status].tone}>{offerStatusMeta[o.status].label}</Badge>

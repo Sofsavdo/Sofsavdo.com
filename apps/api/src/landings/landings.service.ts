@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import type { LandingPage, LandingSection, LandingStatus, Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { OffersService } from "../offers/offers.service";
@@ -34,7 +35,7 @@ export interface LandingSectionResponse {
 }
 
 // Buyer-safe shape only — never includes internalDescription, createdById/updatedById,
-// archivedAt, or any Product field beyond `type` (no sku/costPriceMinor/internalNotes).
+// archivedAt, or any Product field beyond `type`/`images` (no sku/costPriceMinor/internalNotes).
 export interface PublicLandingResponse {
   offer: {
     id: string;
@@ -46,6 +47,9 @@ export interface PublicLandingResponse {
     priceMinor: number;
     compareAtPriceMinor: number | null;
     currency: string;
+    // Resolved to public URLs (see toImageUrl) — the Hero/Gallery sections render these directly,
+    // matching the same resolution ProductCard/FeaturedProducts already do for the catalog grid.
+    images: string[];
     variants: { id: string; name: string; priceMinor: number; isDefault: boolean }[];
     bonuses: Prisma.JsonValue;
     deliveryInfo: Prisma.JsonValue;
@@ -85,7 +89,21 @@ export class LandingsService {
     private prisma: PrismaService,
     private offers: OffersService,
     private delivery: DeliveryService,
+    private config: ConfigService,
   ) {}
+
+  // Same resolution OffersService.toImageUrl uses for the catalog/featured cards — kept as a
+  // small local copy rather than a shared export, matching this codebase's existing convention
+  // (each service that needs it has its own copy; see also the now-deleted products-view.service).
+  private toImageUrl(imagePath: string): string {
+    // A real upload already returns a full absolute publicUrl (see offers.service.ts's identical
+    // helper for the full explanation) — only an old relative-path fixture needs the base URL
+    // prepended.
+    if (/^https?:\/\//.test(imagePath)) return imagePath;
+    const publicBaseUrl = this.config.get<string>("storage.publicBaseUrl");
+    if (!publicBaseUrl) return imagePath;
+    return `${publicBaseUrl}/${imagePath}`;
+  }
 
   private toResponse(landing: LandingPage): LandingResponse {
     return {
@@ -329,6 +347,7 @@ export class LandingsService {
         priceMinor: offer.priceMinor,
         compareAtPriceMinor: offer.compareAtPriceMinor,
         currency: offer.currency,
+        images: offer.product.images.map((img) => this.toImageUrl(img)),
         variants: offer.variants.map((v) => ({ id: v.id, name: v.name, priceMinor: v.priceMinor, isDefault: v.isDefault })),
         bonuses: offer.bonuses,
         deliveryInfo: offer.deliveryInfo,

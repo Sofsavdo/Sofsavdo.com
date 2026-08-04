@@ -1043,7 +1043,7 @@ export async function apiAdminCreateOffer(input: CreateOfferInput): Promise<Offe
   if (s.offers.some((o) => o.slug === input.slug)) {
     throw new MockApiError("SLUG_TAKEN", "Bu slug band. Boshqasini tanlang.");
   }
-  const offer: Offer = { id: `offer_${Date.now()}`, status: "DRAFT", isIndexable: false, createdAt: new Date().toISOString(), ...input };
+  const offer: Offer = { id: `offer_${Date.now()}`, status: "DRAFT", isIndexable: false, images: [], createdAt: new Date().toISOString(), ...input };
   s.offers = [offer, ...s.offers];
   s.landingSections[offer.id] = [
     { id: `${offer.id}_sec_1`, offerId: offer.id, type: "HERO", sortOrder: 1, isActive: true, content: {} },

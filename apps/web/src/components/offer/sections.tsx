@@ -24,6 +24,10 @@ export function ReferralBanner({ referral }: { referral: ReferralContext }) {
   );
 }
 
+// The buyer's very first (and, for a short product page, only) view: image, then name, then
+// description, then price, then the buy button — in exactly that reading order on mobile, where
+// it's a single vertical stack; the desktop two-column layout keeps the same top-to-bottom order
+// within the text column so nothing reflows out of sequence at any width.
 export function Hero({
   offer,
   selectedVariant,
@@ -34,13 +38,34 @@ export function Hero({
   onBuyClick: () => void;
 }) {
   return (
-    <section className="mx-auto max-w-page px-pad-mobile py-10 md:px-pad-desktop md:py-16">
-      <div className="grid grid-cols-1 items-center gap-8 md:grid-cols-2">
-        <div className="flex aspect-square items-center justify-center rounded-media bg-gradient-to-br from-accent/10 to-bg">
-          <ImageIcon className="size-16 text-accent/30" strokeWidth={1.5} />
+    <section className="mx-auto max-w-page px-pad-mobile py-6 md:px-pad-desktop md:py-12">
+      <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-2 md:gap-10">
+        <div className="flex aspect-square items-center justify-center overflow-hidden rounded-media bg-gradient-to-br from-accent/10 to-bg">
+          {offer.images[0] ? (
+            // eslint-disable-next-line @next/next/no-img-element -- storage-driver-dependent host, see ProductCard's own comment
+            <img src={offer.images[0]} alt={offer.name} className="h-full w-full object-cover" />
+          ) : (
+            <ImageIcon className="size-16 text-accent/30" strokeWidth={1.5} />
+          )}
         </div>
-        <div>
-          <h1 className="break-words font-heading text-3xl font-bold text-text-primary md:text-4xl">{offer.headline}</h1>
+        <div className="flex flex-col gap-4">
+          <h1 className="break-words font-heading text-2xl font-bold text-text-primary md:text-4xl">{offer.headline}</h1>
+          {offer.subheadline ? (
+            <p className="whitespace-pre-wrap break-words font-body text-text-secondary">{offer.subheadline}</p>
+          ) : null}
+          <div className="flex flex-wrap items-baseline gap-3">
+            <span className="font-numeric text-3xl font-bold tabular-nums text-accent md:text-4xl">
+              {formatMoneyMinor(selectedVariant.priceMinor, offer.currency)}
+            </span>
+            {offer.compareAtPriceMinor ? (
+              <span className="font-numeric text-lg tabular-nums text-text-muted line-through">
+                {formatMoneyMinor(offer.compareAtPriceMinor, offer.currency)}
+              </span>
+            ) : null}
+          </div>
+          <Button size="lg" onClick={onBuyClick} className="w-full md:w-fit">
+            {offer.ctaLabel}
+          </Button>
         </div>
       </div>
     </section>
@@ -123,18 +148,16 @@ export function CreatorVideoSection({ caption }: { caption?: string }) {
 }
 
 export function Gallery({ images }: { images: string[] }) {
+  if (images.length === 0) return null;
   return (
     <section className="bg-surface px-pad-mobile py-6 md:px-pad-desktop">
       <div className="mx-auto max-w-page">
         <h2 className="font-heading text-xl font-bold text-text-primary">Mahsulot galereyasi</h2>
         <div className="mt-3 grid grid-cols-3 gap-3">
           {images.map((img) => (
-            <div
-              key={img}
-              className="flex aspect-square flex-col items-center justify-center gap-1.5 rounded-card bg-gradient-to-br from-border to-bg"
-            >
-              <ImageIcon className="size-6 text-text-muted" strokeWidth={1.5} />
-              <span className="max-w-[85%] truncate font-body text-xs text-text-muted">{img}</span>
+            <div key={img} className="aspect-square overflow-hidden rounded-card bg-bg">
+              {/* eslint-disable-next-line @next/next/no-img-element -- storage-driver-dependent host, see ProductCard's own comment */}
+              <img src={img} alt="" className="h-full w-full object-cover" />
             </div>
           ))}
         </div>
@@ -348,8 +371,10 @@ export function LandingSectionRenderer({
       return <NotForSection text={(c.text as string) ?? ""} />;
     case "CREATOR_VIDEO":
       return <CreatorVideoSection caption={c.caption as string | undefined} />;
-    case "PRODUCT_GALLERY":
-      return <Gallery images={(c.images as string[]) ?? []} />;
+    case "PRODUCT_GALLERY": {
+      const customImages = c.images as string[] | undefined;
+      return <Gallery images={customImages && customImages.length > 0 ? customImages : offer.images} />;
+    }
     case "PRICING":
       return <PricingSection offer={offer} />;
     case "OFFER_VARIANTS":

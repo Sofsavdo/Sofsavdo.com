@@ -1,200 +1,133 @@
 /**
- * Mening Oqimlarim (My Streams) Page
- * 
- * Shows creator's active streams with their referral links and stats.
+ * Mening Oqimlarim (My Flows) Page
+ *
+ * Shows the creator's real Flow links (one per product they've taken) with real
+ * click/order/commission stats.
  */
 
 'use client';
 
-import { useState, useEffect } from 'react';
-import { SimplifiedCard, SimplifiedCardHeader, SimplifiedCardTitle, SimplifiedCardContent } from '@/components/simplified/simplified-card';
-import { SimplifiedButton } from '@/components/simplified/simplified-button';
-import { SimplifiedLoading } from '@/components/simplified/simplified-loading';
-import { SimplifiedBadge } from '@/components/simplified/simplified-badge';
-import { Alert } from '@sofsavdo/ui';
 import Link from 'next/link';
-import { creatorsV2Service, type CreatorStreamDto } from '@/services/v2/creators-v2.service';
+import { formatMoneyMinor } from '@sofsavdo/types';
+import { Alert, Badge, Button, Card, CardHeader, CardTitle, EmptyState, Skeleton } from '@sofsavdo/ui';
+import { useFlows, getReferralUrl } from '@/services/flows';
 import { useSession } from '@/services/session';
 import { canWorkAsCreator } from '@/lib/routing';
 
 export default function MyStreamsPage() {
   const { user, isLoading: sessionLoading } = useSession();
-  const [streams, setStreams] = useState<CreatorStreamDto[]>([]);
-  const [loading, setLoading] = useState(true);
-  
-  // Check if creator is approved
   const isApproved = user ? canWorkAsCreator(user.application.status) : false;
-  
-  useEffect(() => {
-    loadStreams();
-  }, []);
-  
-  const loadStreams = async () => {
-    setLoading(true);
-    try {
-      const data = await creatorsV2Service.getMyStreams();
-      setStreams(data);
-    } catch (error) {
-      console.error('Failed to load streams:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  const formatPrice = (minor: number) => {
-    return (minor / 100).toLocaleString('uz-UZ') + " so'm";
-  };
-  
-  if (loading || sessionLoading) {
+
+  const flowsQuery = useFlows();
+
+  if (sessionLoading || (isApproved && flowsQuery.isLoading)) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <SimplifiedLoading size="lg" />
+      <div className="space-y-4">
+        <Skeleton className="h-8 w-56" />
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-64" />
+          ))}
+        </div>
       </div>
     );
   }
 
-  // Show activation message if not approved
   if (!isApproved) {
     return (
-      <div>
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Mening Oqimlarim</h1>
-          <p className="text-gray-600">Sizning faol oqimlaringiz va ularning statistikasi</p>
-        </div>
-        
-        <SimplifiedCard>
-          <SimplifiedCardContent>
-            <Alert tone="warning">
-              <p className="font-semibold mb-2">Hisobingiz hali aktivlashtirilmagan</p>
-              <p className="text-sm">
-                Oqimlarni ko'rish uchun arizangiz tasdiqlanishi kerak. Arizangiz hozirda ko&apos;rib chiqilmoqda.
-                Tasdiqlanishidan so&apos;ng oqimlarni ko'rishingiz mumkin bo&apos;ladi.
-              </p>
-              <p className="text-sm mt-2 text-gray-600">
-                Arizangiz 6 soat ichida ko&apos;rib chiqiladi.
-              </p>
-            </Alert>
-          </SimplifiedCardContent>
-        </SimplifiedCard>
+      <div className="space-y-6">
+        <h1 className="font-heading text-2xl font-bold text-text-primary">Mening oqimlarim</h1>
+        <Card>
+          <Alert tone="warning">
+            <p className="font-semibold mb-2">Hisobingiz hali aktivlashtirilmagan</p>
+            <p className="font-body text-sm">
+              Oqimlaringizni ko&apos;rish uchun arizangiz tasdiqlanishi kerak.
+            </p>
+          </Alert>
+        </Card>
       </div>
     );
   }
-  
+
+  const flows = flowsQuery.data?.flows ?? [];
+
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Mening Oqimlarim</h1>
-        <p className="text-gray-600">Sizning faol oqimlaringiz va ularning statistikasi</p>
+    <div className="space-y-6">
+      <div>
+        <h1 className="font-heading text-2xl font-bold text-text-primary">Mening oqimlarim</h1>
+        <p className="font-body text-sm text-text-secondary">Har bir oqim — bitta mahsulot, bitta shaxsiy havola</p>
       </div>
-      
-      {/* Stats Summary */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        <SimplifiedCard>
-          <SimplifiedCardContent>
-            <p className="text-sm text-gray-600">Jami oqimlar</p>
-            <p className="text-2xl font-bold text-gray-900">{streams.length}</p>
-          </SimplifiedCardContent>
-        </SimplifiedCard>
-        
-        <SimplifiedCard>
-          <SimplifiedCardContent>
-            <p className="text-sm text-gray-600">Jami bosishlar</p>
-            <p className="text-2xl font-bold text-blue-600">
-              {streams.reduce((sum, s) => sum + s.totalClicks, 0)}
-            </p>
-          </SimplifiedCardContent>
-        </SimplifiedCard>
-        
-        <SimplifiedCard>
-          <SimplifiedCardContent>
-            <p className="text-sm text-gray-600">Jami daromad</p>
-            <p className="text-2xl font-bold text-green-600">
-              {formatPrice(streams.reduce((sum, s) => sum + s.totalEarningsMinor, 0))}
-            </p>
-          </SimplifiedCardContent>
-        </SimplifiedCard>
-      </div>
-      
-      {/* Streams List */}
-      <div className="space-y-4">
-        {streams.length === 0 ? (
-          <SimplifiedCard>
-            <SimplifiedCardContent>
-              <div className="text-center py-12">
-                <p className="text-gray-600 mb-4">Hali oqimlar yo'q</p>
-                <Link href="/creator/streams">
-                  <SimplifiedButton variant="primary">
-                    Oqim yaratish
-                  </SimplifiedButton>
-                </Link>
-              </div>
-            </SimplifiedCardContent>
-          </SimplifiedCard>
-        ) : (
-          streams.map((stream) => (
-            <SimplifiedCard key={stream.id}>
-              <SimplifiedCardContent>
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <div className="w-24 h-24 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
-                    <img
-                      src={stream.productImage}
-                      alt={stream.productName}
-                      className="w-full h-full object-cover"
-                    />
+
+      {flows.length === 0 ? (
+        <Card>
+          <EmptyState
+            title="Oqim yo'q"
+            description="Hozircha sizda hech qanday oqim yo'q. Mahsulotlar bo'limidan birini tanlab oqim yarating."
+            action={
+              <Button asChild variant="outline">
+                <Link href="/creator/streams">Mahsulotlarga o&apos;tish</Link>
+              </Button>
+            }
+          />
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {flows.map((flow) => (
+            <Card key={flow.id} className="flex flex-col">
+              <CardHeader>
+                <div className="flex items-start justify-between gap-2">
+                  <CardTitle className="text-lg line-clamp-2">{flow.product.name}</CardTitle>
+                  <Badge tone={flow.status === 'ACTIVE' ? 'success' : 'neutral'}>
+                    {flow.status === 'ACTIVE' ? 'Faol' : "To'xtatilgan"}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <div className="flex flex-1 flex-col gap-3 px-6 pb-6">
+                {flow.product.images.length > 0 && (
+                  <div className="aspect-square w-full overflow-hidden rounded-lg border border-border">
+                    <img src={flow.product.images[0]} alt={flow.product.name} className="h-full w-full object-cover" />
                   </div>
-                  
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-gray-900 mb-2">{stream.productName}</h3>
-                    
-                    <div className="flex flex-wrap gap-4 mb-3">
-                      <div>
-                        <p className="text-xs text-gray-600">Narx</p>
-                        <p className="font-medium text-gray-900">{formatPrice(stream.productPriceMinor)}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-600">Komissiya</p>
-                        <SimplifiedBadge variant="success">{stream.commissionPercent}%</SimplifiedBadge>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-600">Bosishlar</p>
-                        <p className="font-medium text-gray-900">{stream.totalClicks}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-600">Sotuvlar</p>
-                        <p className="font-medium text-gray-900">{stream.totalSales}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-600">Daromad</p>
-                        <p className="font-medium text-green-600">{formatPrice(stream.totalEarningsMinor)}</p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex gap-2">
-                      <Link href={`/creator/my-streams/${stream.productId}`}>
-                        <SimplifiedButton variant="primary" size="sm">
-                          Batafsil
-                        </SimplifiedButton>
-                      </Link>
-                      <SimplifiedButton variant="outline" size="sm">
-                        Havolani nusxa olish
-                      </SimplifiedButton>
-                    </div>
+                )}
+
+                <div className="grid grid-cols-3 gap-2 rounded-lg border border-border bg-bg p-3">
+                  <div className="text-center">
+                    <p className="font-numeric text-lg font-semibold tabular-nums text-text-primary">{flow.clickCount}</p>
+                    <p className="font-body text-xs text-text-muted">Bosish</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="font-numeric text-lg font-semibold tabular-nums text-text-primary">{flow.orderCount}</p>
+                    <p className="font-body text-xs text-text-muted">Buyurtma</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="font-numeric text-lg font-semibold tabular-nums text-text-primary">
+                      {formatMoneyMinor(flow.commissionEarnedMinor)}
+                    </p>
+                    <p className="font-body text-xs text-text-muted">Komissiya</p>
                   </div>
                 </div>
-              </SimplifiedCardContent>
-            </SimplifiedCard>
-          ))
-        )}
-      </div>
-      
-      {/* Add New Stream Button */}
-      {streams.length > 0 && (
-        <div className="mt-6">
-          <Link href="/creator/streams">
-            <SimplifiedButton variant="outline" fullWidth>
-              + Yangi oqim qo'shish
-            </SimplifiedButton>
-          </Link>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={getReferralUrl(flow.referralCode)}
+                    className="flex-1 rounded-input border border-border bg-bg px-3 py-2 font-body text-sm text-text-muted"
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => navigator.clipboard.writeText(getReferralUrl(flow.referralCode))}
+                  >
+                    Nusxa
+                  </Button>
+                </div>
+
+                <Button asChild size="sm" className="w-full">
+                  <Link href={`/creator/my-streams/${flow.id}`}>Batafsil</Link>
+                </Button>
+              </div>
+            </Card>
+          ))}
         </div>
       )}
     </div>

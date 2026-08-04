@@ -163,6 +163,10 @@ export class ProductsService {
         currency: dto.currency ?? "UZS",
         internalNotes: dto.internalNotes,
         creatorProfileId: dto.creatorProfileId,
+        status: dto.status ?? "DRAFT",
+        commissionType: dto.commissionType,
+        commissionRateBps: dto.commissionRateBps,
+        commissionAmountMinor: dto.commissionAmountMinor,
       },
     });
   }
@@ -197,6 +201,9 @@ export class ProductsService {
         internalNotes: dto.internalNotes,
         status: dto.status,
         creatorProfileId: dto.creatorProfileId,
+        commissionType: dto.commissionType,
+        commissionRateBps: dto.commissionRateBps,
+        commissionAmountMinor: dto.commissionAmountMinor,
       },
     });
   }
