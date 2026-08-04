@@ -388,7 +388,10 @@ export function LandingSectionRenderer({
     case "DELIVERY":
       return <DeliverySection text={(c.text as string) ?? offer.deliveryInfo ?? ""} />;
     case "PAYMENT":
-      return <PaymentSection paymentOptions={offer.paymentOptions} />;
+      // Payment is deliberately not mentioned on the buyer-facing landing page right now (COD by
+      // default, no online-payment promise) — suppressed regardless of what an admin configured
+      // on older landing pages, rather than deleting their section data.
+      return null;
     case "FINAL_CTA":
       return <FinalCta ctaLabel={offer.ctaLabel} onBuyClick={onBuyClick} />;
     case "CUSTOM_RICH_TEXT":

@@ -8,9 +8,11 @@ import { BRAND } from "@sofsavdo/config/brand";
 import { CheckCircle2 } from "lucide-react";
 import { useOrderPublic } from "@/services/offer";
 
+// Deliberately order-fulfillment language, not payment language — checkout doesn't mention
+// payment right now (COD by default), so this page shouldn't either.
 const PAYMENT_RESULT_LABELS: Record<string, string> = {
-  PAYMENT_PENDING: "To'lov kutilmoqda",
-  PAID: "To'landi",
+  PAYMENT_PENDING: "Qabul qilindi",
+  PAID: "Tasdiqlandi",
   PROCESSING: "Tayyorlanmoqda",
   SHIPPED: "Jo'natildi",
   IN_TRANSIT: "Yo'lda",
@@ -76,12 +78,12 @@ export default function OrderSuccessPage({ params }: { params: Promise<{ orderId
             </div>
           ) : null}
           <div className="flex justify-between border-t border-border pt-2 font-medium text-text-primary">
-            <dt>Jami to&apos;lov</dt>
+            <dt>Jami</dt>
             <dd className="font-numeric text-lg tabular-nums">{formatMoneyMinor(order.totalMinor, order.currency)}</dd>
           </div>
           {paymentResultLabel ? (
             <div className="flex justify-between text-text-secondary">
-              <dt>To&apos;lov holati</dt>
+              <dt>Buyurtma holati</dt>
               <dd className="text-text-primary">{paymentResultLabel}</dd>
             </div>
           ) : null}

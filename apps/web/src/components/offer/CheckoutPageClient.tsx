@@ -10,7 +10,6 @@ import { formatMoneyMinor } from "@sofsavdo/types";
 import { Alert, Button, Card, CardHeader, CardTitle, Skeleton, TextField } from "@sofsavdo/ui";
 import { useOfferPublic, useCreateOrder, useValidatePromoCode, useTrackVisit } from "@/services/offer";
 import { checkoutSchema, type CheckoutInput } from "@/lib/schemas";
-import { PaymentMethodSelector } from "./PaymentMethodSelector";
 import { RegionSelect } from "./RegionSelect";
 import { UZ_DELIVERY_ZONES, UZ_VILOYATLAR } from "@/lib/uz-regions";
 import { ApiError } from "@/lib/api";
@@ -120,6 +119,23 @@ export function CheckoutPageClient({ offerSlug }: { offerSlug: string }) {
     if (regionCode || deliveryRegions.length === 0) return;
     setRegionCode(deliveryRegions[0]!.regionCode);
   }, [regionCode, deliveryRegions]);
+
+  // Payment is deliberately never shown or mentioned to the buyer right now — cash-on-delivery
+  // by default, matching the 100k.uz reference the checkout form was rebuilt from. The field still
+  // exists on the backend (Offer.paymentOptions/resolvePaymentProvider), so this picks whichever
+  // configured option is safest without an online-payment promise: COD first, the installment
+  // option next, and only falls back to an online method for the rare older offer that has
+  // neither — better than breaking checkout entirely for those.
+  useEffect(() => {
+    if (!offer) return;
+    const preferred = offer.paymentOptions.includes("COD")
+      ? "COD"
+      : offer.paymentOptions.includes("PAY_LATER")
+        ? "PAY_LATER"
+        : offer.paymentOptions[0];
+    if (preferred) setValue("paymentMethod", preferred);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [offer]);
 
 
   if (offerQuery.isLoading) {
@@ -246,8 +262,6 @@ export function CheckoutPageClient({ offerSlug }: { offerSlug: string }) {
               </p>
             ) : null}
           </div>
-
-          <PaymentMethodSelector methodIds={offer.paymentOptions} error={errors.paymentMethod?.message} {...register("paymentMethod")} />
 
           {/* LEGAL.md gap #1 — checkout previously had no ToS/Privacy links or consent at all;
               a customer could pay real money with zero acknowledgment of any policy. */}
