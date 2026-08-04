@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { RoleGuard } from "@/components/admin/RoleGuard";
 import { useLaunchBonusSettings, useUpdateLaunchBonusSettings, usePendingBioVerifications, useVerifyBioLink } from "@/services/admin/launch-bonus";
 import { Alert, Button, Card, CardHeader, CardTitle, TextField } from "@sofsavdo/ui";
@@ -12,6 +12,21 @@ export default function LaunchBonusSettingsPage() {
   const { mutate: updateSettings, isPending, isError, error } = useUpdateLaunchBonusSettings();
   const { data: pendingVerifications, isLoading: verificationsLoading } = usePendingBioVerifications();
   const { mutate: verifyBio } = useVerifyBioLink();
+
+  // This tab defaulted to "Sozlamalar" even when real creators were waiting on the "Bio
+  // Tekshirish" tab — the count only showed as a small "(2)" in the second tab's own label, easy
+  // to miss entirely if nothing draws the eye there. Jump straight to the queue on first load
+  // whenever it's non-empty; a manual click on either tab after that always wins.
+  const userPickedTab = useRef(false);
+  useEffect(() => {
+    if (userPickedTab.current) return;
+    if (pendingVerifications && pendingVerifications.length > 0) setActiveTab("verifications");
+  }, [pendingVerifications]);
+
+  function selectTab(tab: "settings" | "verifications") {
+    userPickedTab.current = true;
+    setActiveTab(tab);
+  }
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -62,7 +77,7 @@ export default function LaunchBonusSettingsPage() {
           <div className="border-b border-border">
             <div className="flex space-x-8">
               <button
-                onClick={() => setActiveTab("settings")}
+                onClick={() => selectTab("settings")}
                 className={`pb-4 px-1 border-b-2 font-body text-sm font-medium transition-colors ${
                   activeTab === "settings"
                     ? "border-accent text-accent"
@@ -72,14 +87,19 @@ export default function LaunchBonusSettingsPage() {
                 Sozlamalar
               </button>
               <button
-                onClick={() => setActiveTab("verifications")}
+                onClick={() => selectTab("verifications")}
                 className={`pb-4 px-1 border-b-2 font-body text-sm font-medium transition-colors ${
                   activeTab === "verifications"
                     ? "border-accent text-accent"
                     : "border-transparent text-text-muted hover:text-text-primary"
                 }`}
               >
-                Bio Tekshirish ({pendingVerifications?.length || 0})
+                Bio Tekshirish
+                {pendingVerifications && pendingVerifications.length > 0 ? (
+                  <span className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1.5 font-numeric text-[11px] font-semibold text-white">
+                    {pendingVerifications.length}
+                  </span>
+                ) : null}
               </button>
             </div>
           </div>

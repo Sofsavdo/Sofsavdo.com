@@ -86,23 +86,26 @@ export default function MyStreamDetailPage() {
         <p className="font-body text-sm text-text-secondary">Havolani oling va tarqating</p>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <Card>
           <div className="p-4">
             {flow.product.images.length > 0 ? (
-              <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+              <div className="mb-4 grid grid-cols-2 gap-3">
                 {flow.product.images.map((imageUrl, index) => (
-                  <div key={imageUrl} className="relative aspect-square overflow-hidden rounded-lg bg-bg">
+                  <div key={imageUrl} className="group relative aspect-square overflow-hidden rounded-lg bg-bg">
                     <img src={imageUrl} alt={flow.product.name} className="h-full w-full object-cover" />
                     <button
                       type="button"
                       onClick={() => handleDownload(index)}
                       disabled={downloadingIndex === index}
                       aria-label="Rasmni yuklab olish"
-                      className="absolute bottom-1.5 right-1.5 flex items-center gap-1 rounded-full bg-dark/70 px-2.5 py-1.5 font-body text-xs text-white hover:bg-dark/90"
+                      className="absolute bottom-2 right-2 flex size-8 items-center justify-center rounded-full bg-dark/70 text-white hover:bg-dark/90 disabled:opacity-60"
                     >
-                      <Download className="size-3.5" />
-                      {downloadingIndex === index ? "..." : "Yuklab olish"}
+                      {downloadingIndex === index ? (
+                        <span className="size-3 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                      ) : (
+                        <Download className="size-4" />
+                      )}
                     </button>
                   </div>
                 ))}
