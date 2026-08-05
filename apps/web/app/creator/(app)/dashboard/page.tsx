@@ -90,7 +90,7 @@ export default function DashboardPage() {
 
       <ActivityTicker />
 
-      <LaunchBonusProgress />
+      <LaunchBonusProgress compact />
 
       {/* Phase Q — a proactive nudge, not a surprise: the creator sees exactly why a payout
           request would be blocked (PayoutsService.requestPayout) before they even try, with a
@@ -237,16 +237,17 @@ export default function DashboardPage() {
                     {flow.status === "ACTIVE" ? "Faol" : "To'xtatilgan"}
                   </Badge>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                   <input
                     type="text"
                     readOnly
                     value={getReferralUrl(flow.referralCode)}
-                    className="flex-1 rounded-input border border-border bg-bg px-2 py-1 font-body text-xs text-text-muted"
+                    className="min-w-0 flex-1 rounded-input border border-border bg-bg px-2 py-1 font-body text-xs text-text-muted"
                   />
                   <Button
                     size="sm"
                     variant="outline"
+                    className="shrink-0"
                     onClick={() => navigator.clipboard.writeText(getReferralUrl(flow.referralCode))}
                   >
                     Nusxa olish

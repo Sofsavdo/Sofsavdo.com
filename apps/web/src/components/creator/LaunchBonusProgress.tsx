@@ -1,10 +1,16 @@
 "use client";
 
+import Link from "next/link";
 import { useMyLaunchBonus, useSubmitBioLink } from "@/services/creator/launch-bonus";
 import { Alert, Badge, Button, Card, CardHeader, CardTitle, Skeleton } from "@sofsavdo/ui";
 import { formatMoneyMinor } from "@sofsavdo/types";
 
-export function LaunchBonusProgress() {
+// `compact` — used on the dashboard, where this card previously showed its full requirement
+// breakdown (4 rows + bio-link CTA) as the very first thing after the header, tall enough on
+// mobile to fill the entire first screen and make the rest of the dashboard look empty until
+// scrolled past. Compact mode keeps just the headline amount/status/progress and links out to
+// the dedicated /creator/launch-bonus page for the breakdown; that page always renders full.
+export function LaunchBonusProgress({ compact = false }: { compact?: boolean } = {}) {
   const { data: bonus, isLoading } = useMyLaunchBonus();
   const submitBioLink = useSubmitBioLink();
 
@@ -105,68 +111,76 @@ export function LaunchBonusProgress() {
           )}
         </div>
 
-        {status === "LOCKED" && (
-          <div className="space-y-3">
-            <p className="font-body text-sm font-medium text-text-primary">Bajarish shartlari:</p>
-            {requirements.map((req) => (
-              <div key={req.label} className="flex items-center justify-between rounded-input border border-border px-3 py-2">
-                <div className="flex items-center gap-2">
-                  <div className={`w-2 h-2 rounded-full ${req.met ? "bg-green-500" : "bg-gray-300"}`} />
-                  <span className="font-body text-sm text-text-secondary">{req.label}</span>
-                </div>
-                <div className="text-right">
-                  <span className={`font-body text-sm font-medium ${req.met ? "text-green-600" : "text-text-muted"}`}>
-                    {typeof req.current === "number" ? req.current : req.current}
-                  </span>
-                  <span className="font-body text-sm text-text-muted mx-1">/</span>
-                  <span className="font-body text-sm text-text-muted">{req.target}</span>
-                </div>
+        {compact ? (
+          <Link href="/creator/launch-bonus" className="font-body text-sm text-accent underline">
+            Batafsil ko&apos;rish
+          </Link>
+        ) : (
+          <>
+            {status === "LOCKED" && (
+              <div className="space-y-3">
+                <p className="font-body text-sm font-medium text-text-primary">Bajarish shartlari:</p>
+                {requirements.map((req) => (
+                  <div key={req.label} className="flex items-center justify-between rounded-input border border-border px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full ${req.met ? "bg-green-500" : "bg-gray-300"}`} />
+                      <span className="font-body text-sm text-text-secondary">{req.label}</span>
+                    </div>
+                    <div className="text-right">
+                      <span className={`font-body text-sm font-medium ${req.met ? "text-green-600" : "text-text-muted"}`}>
+                        {typeof req.current === "number" ? req.current : req.current}
+                      </span>
+                      <span className="font-body text-sm text-text-muted mx-1">/</span>
+                      <span className="font-body text-sm text-text-muted">{req.target}</span>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        )}
-
-        {status === "LOCKED" && !bioLinkVerified && bioLinkRequired && (
-          <div className="flex flex-col gap-2">
-            {bioLinkSubmittedAt ? (
-              <Alert tone="info">
-                So&apos;rovingiz yuborildi — admin ijtimoiy tarmog&apos;ingizni tekshirib chiqmoqda.
-              </Alert>
-            ) : (
-              <>
-                <Alert tone="warning">
-                  Ijtimoiy tarmoq bio&apos;ingizga sofsavdo.com havolasini qo&apos;shing, keyin pastdagi
-                  tugmani bosing — admin tekshirib tasdiqlaydi.
-                </Alert>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-fit"
-                  onClick={() => submitBioLink.mutate()}
-                  disabled={submitBioLink.isPending}
-                >
-                  {submitBioLink.isPending ? "Yuborilmoqda..." : "Bioga qo'ydim, tekshiring"}
-                </Button>
-                {submitBioLink.isError ? (
-                  <Alert tone="error">
-                    Yuborishda xatolik yuz berdi. Internetni tekshirib, qayta urinib ko&apos;ring.
-                  </Alert>
-                ) : null}
-              </>
             )}
-          </div>
-        )}
 
-        {status === "UNLOCKED" && (
-          <Alert tone="success">
-            Barcha shartlar bajarildi! Bonusni pul yechish orqali chiqarib olishingiz mumkin.
-          </Alert>
-        )}
+            {status === "LOCKED" && !bioLinkVerified && bioLinkRequired && (
+              <div className="flex flex-col gap-2">
+                {bioLinkSubmittedAt ? (
+                  <Alert tone="info">
+                    So&apos;rovingiz yuborildi — admin ijtimoiy tarmog&apos;ingizni tekshirib chiqmoqda.
+                  </Alert>
+                ) : (
+                  <>
+                    <Alert tone="warning">
+                      Ijtimoiy tarmoq bio&apos;ingizga sofsavdo.com havolasini qo&apos;shing, keyin pastdagi
+                      tugmani bosing — admin tekshirib tasdiqlaydi.
+                    </Alert>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-fit"
+                      onClick={() => submitBioLink.mutate()}
+                      disabled={submitBioLink.isPending}
+                    >
+                      {submitBioLink.isPending ? "Yuborilmoqda..." : "Bioga qo'ydim, tekshiring"}
+                    </Button>
+                    {submitBioLink.isError ? (
+                      <Alert tone="error">
+                        Yuborishda xatolik yuz berdi. Internetni tekshirib, qayta urinib ko&apos;ring.
+                      </Alert>
+                    ) : null}
+                  </>
+                )}
+              </div>
+            )}
 
-        {status === "EXPIRED" && (
-          <Alert tone="error">
-            Bonus muddati tugagan. Keyingi kampaniyalarda qatnashib yangi bonus olish imkoniyatini qo'lga kiritishingiz mumkin.
-          </Alert>
+            {status === "UNLOCKED" && (
+              <Alert tone="success">
+                Barcha shartlar bajarildi! Bonusni pul yechish orqali chiqarib olishingiz mumkin.
+              </Alert>
+            )}
+
+            {status === "EXPIRED" && (
+              <Alert tone="error">
+                Bonus muddati tugagan. Keyingi kampaniyalarda qatnashib yangi bonus olish imkoniyatini qo'lga kiritishingiz mumkin.
+              </Alert>
+            )}
+          </>
         )}
       </div>
     </Card>

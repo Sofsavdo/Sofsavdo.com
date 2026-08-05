@@ -153,14 +153,14 @@ export default function MyStreamDetailPage() {
               <CardTitle>Referral havola</CardTitle>
             </CardHeader>
             <div className="space-y-4 px-6 pb-6">
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row">
                 <input
                   type="text"
                   readOnly
                   value={referralUrl}
-                  className="flex-1 rounded-input border border-border bg-bg px-3 py-2 font-body text-sm"
+                  className="min-w-0 flex-1 rounded-input border border-border bg-bg px-3 py-2 font-body text-sm"
                 />
-                <Button variant="outline" onClick={handleCopy}>
+                <Button variant="outline" onClick={handleCopy} className="shrink-0">
                   {copied ? 'Nusxa olindi!' : 'Nusxa olish'}
                 </Button>
               </div>
