@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import type { Competition, CompetitionParticipantStatus, CompetitionStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
@@ -8,6 +8,7 @@ import { DomainException } from "../common/errors/domain-error";
 import { PaginationQueryDto, paginate, type PaginatedResult } from "../common/pagination/pagination.dto";
 import { NOTIFICATION_EVENTS } from "../notifications/events";
 import { rankCreatorsByCommission, rankCreatorsByOrderCount, rankCreatorsByReferralCount, type RankedCreator } from "../creator-leaderboard/rank-creators-by-commission.util";
+import { INSTAGRAM_VIEWS_PORT, type InstagramViewsPort } from "./instagram-views.port";
 import type { CreateCompetitionDto } from "./dto/create-competition.dto";
 import type { UpdateCompetitionDto } from "./dto/update-competition.dto";
 
@@ -64,6 +65,7 @@ export interface CompetitionParticipantAdminResponse {
   reviewedAt: Date | null;
   viewCount: number;
   viewCountUpdatedAt: Date | null;
+  viewCountSource: string | null;
   joinedAt: Date;
 }
 
@@ -91,6 +93,7 @@ export class CompetitionsService {
     private cache: AnalyticsCacheService,
     private audit: AuditService,
     private events: EventEmitter2,
+    @Inject(INSTAGRAM_VIEWS_PORT) private instagramViews: InstagramViewsPort,
   ) {}
 
   // Mirrors OffersService/CampaignsService's own computeAvailability exactly — stored `status`
@@ -359,6 +362,7 @@ export class CompetitionsService {
       reviewedAt: p.reviewedAt,
       viewCount: p.viewCount,
       viewCountUpdatedAt: p.viewCountUpdatedAt,
+      viewCountSource: p.viewCountSource,
       joinedAt: p.joinedAt,
     }));
   }
@@ -408,6 +412,7 @@ export class CompetitionsService {
       reviewedAt: updated.reviewedAt,
       viewCount: updated.viewCount,
       viewCountUpdatedAt: updated.viewCountUpdatedAt,
+      viewCountSource: updated.viewCountSource,
       joinedAt: updated.joinedAt,
     };
   }
@@ -451,6 +456,55 @@ export class CompetitionsService {
       reviewedAt: updated.reviewedAt,
       viewCount: updated.viewCount,
       viewCountUpdatedAt: updated.viewCountUpdatedAt,
+      viewCountSource: updated.viewCountSource,
+      joinedAt: updated.joinedAt,
+    };
+  }
+
+  // Admin-triggered, one participant at a time — never a background poller. Best-effort (see
+  // InstagramViewsScraperAdapter's own comment): a failed fetch throws so the admin sees why and
+  // can fall back to updateViewCount's manual entry, never silently leaves the count stale without
+  // saying so.
+  async refreshViewCount(participantId: string, actorUserId: string | null): Promise<CompetitionParticipantAdminResponse> {
+    const participant = await this.findParticipantOrThrow(participantId);
+    if (participant.status !== "APPROVED") {
+      throw new DomainException("INVALID_STATE", "Faqat tasdiqlangan ishtirokchining ko'rishlar sonini yangilash mumkin.", { from: participant.status });
+    }
+    if (!participant.videoUrl) {
+      throw new DomainException("VALIDATION_ERROR", "Bu ishtirokchida video havola yo'q.");
+    }
+
+    const result = await this.instagramViews.fetchViewCount(participant.videoUrl);
+    if (!result.ok || result.viewCount === undefined) {
+      throw new DomainException("INSTAGRAM_FETCH_FAILED", result.errorMessage ?? "Ko'rishlar sonini olib bo'lmadi.");
+    }
+
+    const updated = await this.prisma.competitionParticipant.update({
+      where: { id: participantId },
+      data: { viewCount: result.viewCount, viewCountUpdatedAt: new Date(), viewCountSource: "AUTO" },
+      include: { creator: { select: { displayName: true } } },
+    });
+
+    await this.audit.record({
+      actorId: actorUserId,
+      action: "COMPETITION_VIEW_COUNT_REFRESHED",
+      entityType: "CompetitionParticipant",
+      entityId: participantId,
+      before: { viewCount: participant.viewCount },
+      after: { viewCount: result.viewCount, source: "AUTO" },
+    });
+
+    return {
+      id: updated.id,
+      creatorId: updated.creatorId,
+      creatorName: updated.creator.displayName,
+      status: updated.status,
+      videoUrl: updated.videoUrl,
+      reviewNote: updated.reviewNote,
+      reviewedAt: updated.reviewedAt,
+      viewCount: updated.viewCount,
+      viewCountUpdatedAt: updated.viewCountUpdatedAt,
+      viewCountSource: updated.viewCountSource,
       joinedAt: updated.joinedAt,
     };
   }
@@ -486,6 +540,7 @@ export class CompetitionsService {
       reviewedAt: updated.reviewedAt,
       viewCount: updated.viewCount,
       viewCountUpdatedAt: updated.viewCountUpdatedAt,
+      viewCountSource: updated.viewCountSource,
       joinedAt: updated.joinedAt,
     };
   }

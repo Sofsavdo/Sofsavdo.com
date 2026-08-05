@@ -83,4 +83,10 @@ export class CompetitionsController {
   updateViewCount(@Param("participantId") participantId: string, @Body() dto: UpdateViewCountDto, @CurrentUser() user: AuthenticatedUser) {
     return this.competitions.updateViewCount(participantId, dto.viewCount, user.userId);
   }
+
+  @RequirePermissions("competition.write")
+  @Post("participants/:participantId/refresh-views")
+  refreshViewCount(@Param("participantId") participantId: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.competitions.refreshViewCount(participantId, user.userId);
+  }
 }

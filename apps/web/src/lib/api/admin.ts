@@ -390,6 +390,7 @@ export const approveCompetitionParticipant = (participantId: string) => realAdmi
 export const rejectCompetitionParticipant = (participantId: string, reason: string) => realAdmin.rejectCompetitionParticipant(participantId, reason);
 export const updateCompetitionParticipantViewCount = (participantId: string, viewCount: number) =>
   realAdmin.updateCompetitionParticipantViewCount(participantId, viewCount);
+export const refreshCompetitionParticipantViewCount = (participantId: string) => realAdmin.refreshCompetitionParticipantViewCount(participantId);
 
 // ---- AI Product Creation Engine (Phase I) — real backend only, no mock counterpart. ----
 export type { ProductAiDraft, GenerateProductDraftInput } from "./admin-real";

@@ -1,19 +1,39 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Alert, Badge, Button, Card, CardHeader, CardTitle, Skeleton, TextField } from "@sofsavdo/ui";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, RefreshCw } from "lucide-react";
 import {
   useApproveCompetitionParticipant,
   useCompetitionParticipants,
+  useRefreshCompetitionParticipantViewCount,
   useRejectCompetitionParticipant,
   useUpdateCompetitionParticipantViewCount,
 } from "@/services/admin/competitions";
-import type { CompetitionParticipantAdmin } from "@/lib/api/admin";
+import type { ApiError, CompetitionParticipantAdmin } from "@/lib/api/admin";
+
+function timeAgo(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const minutes = Math.floor(diffMs / 60_000);
+  if (minutes < 1) return "hozirgina";
+  if (minutes < 60) return `${minutes} daqiqa oldin`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} soat oldin`;
+  return `${Math.floor(hours / 24)} kun oldin`;
+}
 
 function ViewCountEditor({ competitionId, participant }: { competitionId: string; participant: CompetitionParticipantAdmin }) {
   const [value, setValue] = useState(String(participant.viewCount));
   const update = useUpdateCompetitionParticipantViewCount(competitionId);
+  const refresh = useRefreshCompetitionParticipantViewCount(competitionId);
+
+  // Keep the input in sync after a successful refresh — otherwise the fetched number sits in
+  // `participant.viewCount` (the new prop) while this field still shows what the admin typed
+  // before clicking "Yangilash".
+  useEffect(() => {
+    setValue(String(participant.viewCount));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [participant.viewCount]);
 
   function onSave() {
     const parsed = Number(value);
@@ -22,18 +42,35 @@ function ViewCountEditor({ competitionId, participant }: { competitionId: string
   }
 
   return (
-    <div className="flex items-center gap-2">
-      <TextField
-        label="Ko'rishlar"
-        type="number"
-        min={0}
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        className="w-28"
-      />
-      <Button size="sm" variant="outline" onClick={onSave} disabled={update.isPending || value === String(participant.viewCount)}>
-        {update.isPending ? "..." : "Saqlash"}
-      </Button>
+    <div className="flex flex-col items-end gap-1">
+      <div className="flex items-center gap-2">
+        <TextField
+          label="Ko'rishlar"
+          type="number"
+          min={0}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          className="w-28"
+        />
+        <Button size="sm" variant="outline" onClick={onSave} disabled={update.isPending || value === String(participant.viewCount)}>
+          {update.isPending ? "..." : "Saqlash"}
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => refresh.mutate(participant.id)}
+          disabled={refresh.isPending}
+          aria-label="Instagram'dan yangilash"
+        >
+          <RefreshCw className={refresh.isPending ? "size-3.5 animate-spin" : "size-3.5"} />
+        </Button>
+      </div>
+      {participant.viewCountUpdatedAt ? (
+        <span className="font-body text-xs text-text-muted">
+          {participant.viewCountSource === "AUTO" ? "Instagram'dan" : "Qo'lda"} yangilangan — {timeAgo(participant.viewCountUpdatedAt)}
+        </span>
+      ) : null}
+      {refresh.isError ? <span className="font-body text-xs text-error">{(refresh.error as ApiError).message}</span> : null}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { CompetitionsService } from "./competitions.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { AnalyticsCacheService } from "../analytics/lib/analytics-cache.service";
 import { AuditService } from "../common/audit/audit.service";
+import { INSTAGRAM_VIEWS_PORT } from "./instagram-views.port";
 import { DomainException } from "../common/errors/domain-error";
 
 describe("CompetitionsService", () => {
@@ -16,6 +17,7 @@ describe("CompetitionsService", () => {
   let cache: { buildKey: jest.Mock; get: jest.Mock; set: jest.Mock };
   let audit: { record: jest.Mock };
   let events: { emitAsync: jest.Mock };
+  let instagramViews: { fetchViewCount: jest.Mock };
 
   const base = {
     id: "comp1",
@@ -45,6 +47,7 @@ describe("CompetitionsService", () => {
     cache = { buildKey: jest.fn().mockReturnValue("comp-key"), get: jest.fn().mockResolvedValue(null), set: jest.fn().mockResolvedValue(undefined) };
     audit = { record: jest.fn().mockResolvedValue(undefined) };
     events = { emitAsync: jest.fn().mockResolvedValue(undefined) };
+    instagramViews = { fetchViewCount: jest.fn() };
 
     const moduleRef = await Test.createTestingModule({
       providers: [
@@ -53,6 +56,7 @@ describe("CompetitionsService", () => {
         { provide: AnalyticsCacheService, useValue: cache },
         { provide: AuditService, useValue: audit },
         { provide: EventEmitter2, useValue: events },
+        { provide: INSTAGRAM_VIEWS_PORT, useValue: instagramViews },
       ],
     }).compile();
     service = moduleRef.get(CompetitionsService);
@@ -294,6 +298,40 @@ describe("CompetitionsService", () => {
     it("rejects updating viewCount for a non-APPROVED participant", async () => {
       prisma.competitionParticipant.findUnique.mockResolvedValue({ id: "p1", status: "PENDING", competition: {} });
       await expect(service.updateViewCount("p1", 5000, "admin1")).rejects.toMatchObject({ code: "INVALID_STATE" });
+    });
+  });
+
+  describe("refreshViewCount", () => {
+    it("fetches and saves the view count with source AUTO on success", async () => {
+      prisma.competitionParticipant.findUnique.mockResolvedValue({ id: "p1", status: "APPROVED", videoUrl: "https://instagram.com/reel/x", viewCount: 100, competition: {} });
+      instagramViews.fetchViewCount.mockResolvedValue({ ok: true, viewCount: 9999 });
+      prisma.competitionParticipant.update.mockResolvedValue({
+        id: "p1", creatorId: "creator1", status: "APPROVED", videoUrl: "https://instagram.com/reel/x", reviewNote: null, reviewedAt: null,
+        viewCount: 9999, viewCountUpdatedAt: new Date(), viewCountSource: "AUTO", joinedAt: new Date(), creator: { displayName: "Creator" },
+      });
+
+      const result = await service.refreshViewCount("p1", "admin1");
+
+      expect(instagramViews.fetchViewCount).toHaveBeenCalledWith("https://instagram.com/reel/x");
+      expect(prisma.competitionParticipant.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ viewCount: 9999, viewCountSource: "AUTO" }) }),
+      );
+      expect(result.viewCount).toBe(9999);
+      expect(result.viewCountSource).toBe("AUTO");
+    });
+
+    it("throws INSTAGRAM_FETCH_FAILED without touching the stored count when the fetch fails", async () => {
+      prisma.competitionParticipant.findUnique.mockResolvedValue({ id: "p1", status: "APPROVED", videoUrl: "https://instagram.com/reel/x", viewCount: 100, competition: {} });
+      instagramViews.fetchViewCount.mockResolvedValue({ ok: false, errorMessage: "blocked" });
+
+      await expect(service.refreshViewCount("p1", "admin1")).rejects.toMatchObject({ code: "INSTAGRAM_FETCH_FAILED" });
+      expect(prisma.competitionParticipant.update).not.toHaveBeenCalled();
+    });
+
+    it("rejects refreshing a non-APPROVED participant", async () => {
+      prisma.competitionParticipant.findUnique.mockResolvedValue({ id: "p1", status: "PENDING", videoUrl: "https://instagram.com/reel/x", competition: {} });
+      await expect(service.refreshViewCount("p1", "admin1")).rejects.toMatchObject({ code: "INVALID_STATE" });
+      expect(instagramViews.fetchViewCount).not.toHaveBeenCalled();
     });
   });
 });

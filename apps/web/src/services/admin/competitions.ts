@@ -91,3 +91,11 @@ export function useUpdateCompetitionParticipantViewCount(competitionId: string) 
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-competition-participants", competitionId] }),
   });
 }
+
+export function useRefreshCompetitionParticipantViewCount(competitionId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (participantId: string) => api.refreshCompetitionParticipantViewCount(participantId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-competition-participants", competitionId] }),
+  });
+}

@@ -110,7 +110,8 @@ export type ErrorCode =
   | "STORAGE_ERROR"
   | "INVALID_STATE"
   | "INTERNAL_ERROR"
-  | "TELEGRAM_NOT_CONFIGURED";
+  | "TELEGRAM_NOT_CONFIGURED"
+  | "INSTAGRAM_FETCH_FAILED";
 
 const STATUS_BY_CODE: Partial<Record<ErrorCode, number>> = {
   VALIDATION_ERROR: 400,
@@ -208,6 +209,9 @@ const STATUS_BY_CODE: Partial<Record<ErrorCode, number>> = {
   INVALID_SETTING_VALUE: 400,
   AI_NOT_CONFIGURED: 503,
   TELEGRAM_NOT_CONFIGURED: 503,
+  // A best-effort external fetch failing (blocked, page changed, network) — 502, same "the
+  // server-side dependency failed" precedent as AI_GENERATION_FAILED, not a client mistake.
+  INSTAGRAM_FETCH_FAILED: 502,
   AI_GENERATION_FAILED: 502,
   INVALID_COMPETITION_TRANSITION: 409,
   INVALID_AMOUNT: 400,

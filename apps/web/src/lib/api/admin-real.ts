@@ -558,6 +558,7 @@ export interface CompetitionParticipantAdmin {
   reviewedAt: string | null;
   viewCount: number;
   viewCountUpdatedAt: string | null;
+  viewCountSource: string | null;
   joinedAt: string;
 }
 
@@ -575,6 +576,12 @@ export async function rejectCompetitionParticipant(participantId: string, reason
 
 export async function updateCompetitionParticipantViewCount(participantId: string, viewCount: number): Promise<CompetitionParticipantAdmin> {
   return apiRequest<CompetitionParticipantAdmin>(`/admin/competitions/participants/${participantId}/view-count`, { method: "PATCH", body: { viewCount } });
+}
+
+// Best-effort — see InstagramViewsScraperAdapter's own comment. Can fail (Instagram blocked the
+// fetch, changed its page, etc.); the caller should fall back to updateCompetitionParticipantViewCount.
+export async function refreshCompetitionParticipantViewCount(participantId: string): Promise<CompetitionParticipantAdmin> {
+  return apiRequest<CompetitionParticipantAdmin>(`/admin/competitions/participants/${participantId}/refresh-views`, { method: "POST" });
 }
 
 // ---- Admin executive dashboard (Phase M) — real backend only, replacing a previously 100%-
