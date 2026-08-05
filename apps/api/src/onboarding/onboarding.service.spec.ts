@@ -89,16 +89,22 @@ describe("OnboardingService", () => {
     });
 
     describe("submit", () => {
-      it("transitions DRAFT -> SUBMITTED, fires the referral hook and emits the notification event", async () => {
+      it("transitions DRAFT -> SUBMITTED -> APPROVED in one call (admin review temporarily disabled), firing both the submit and approve side effects", async () => {
         prisma.creatorApplication.findFirst.mockResolvedValue(baseApp({ status: "DRAFT" }));
-        prisma.creatorApplication.update.mockResolvedValue(baseApp({ status: "SUBMITTED", submittedAt: new Date() }));
+        prisma.creatorApplication.update
+          .mockResolvedValueOnce(baseApp({ status: "SUBMITTED", submittedAt: new Date() }))
+          .mockResolvedValueOnce(baseApp({ status: "APPROVED", submittedAt: new Date(), reviewedAt: new Date(), reviewedById: null }));
 
         const result = await service.submit("creator1");
 
-        expect(result.status).toBe("SUBMITTED");
-        expect(prisma.creatorApplication.update).toHaveBeenCalledWith({
+        expect(result.status).toBe("APPROVED");
+        expect(prisma.creatorApplication.update).toHaveBeenNthCalledWith(1, {
           where: { id: "app1" },
           data: { status: "SUBMITTED", submittedAt: expect.any(Date) },
+        });
+        expect(prisma.creatorApplication.update).toHaveBeenNthCalledWith(2, {
+          where: { id: "app1" },
+          data: expect.objectContaining({ status: "APPROVED", reviewedById: null }),
         });
         expect(referrals.onOnboardingSubmitted).toHaveBeenCalledWith("creator1");
         expect(events.emitAsync).toHaveBeenCalledWith(NOTIFICATION_EVENTS.ONBOARDING_SUBMITTED, {
@@ -106,6 +112,16 @@ describe("OnboardingService", () => {
           creatorId: "creator1",
           creatorName: "Test Creator",
         });
+        // Same side effects the manual admin approve() path runs — auto-approval must not skip any of these.
+        expect(referrals.onCreatorApproved).toHaveBeenCalledWith("creator1");
+        expect(events.emitAsync).toHaveBeenCalledWith(NOTIFICATION_EVENTS.ONBOARDING_APPROVED, {
+          applicationId: "app1",
+          creatorId: "creator1",
+          creatorName: "Test Creator",
+        });
+        expect(audit.record).toHaveBeenCalledWith(
+          expect.objectContaining({ actorId: null, action: "ONBOARDING_APPROVED", before: { status: "SUBMITTED" } }),
+        );
       });
 
       it.each(["SUBMITTED", "UNDER_REVIEW", "CHANGES_REQUESTED", "APPROVED", "REJECTED"])(
@@ -118,12 +134,15 @@ describe("OnboardingService", () => {
     });
 
     describe("resubmit", () => {
-      it.each(["CHANGES_REQUESTED", "REJECTED"])("transitions %s -> SUBMITTED", async (status) => {
+      it.each(["CHANGES_REQUESTED", "REJECTED"])("transitions %s -> SUBMITTED -> APPROVED (admin review temporarily disabled)", async (status) => {
         prisma.creatorApplication.findFirst.mockResolvedValue(baseApp({ status }));
-        prisma.creatorApplication.update.mockResolvedValue(baseApp({ status: "SUBMITTED", submittedAt: new Date() }));
+        prisma.creatorApplication.update
+          .mockResolvedValueOnce(baseApp({ status: "SUBMITTED", submittedAt: new Date() }))
+          .mockResolvedValueOnce(baseApp({ status: "APPROVED", submittedAt: new Date() }));
         const result = await service.resubmit("creator1");
-        expect(result.status).toBe("SUBMITTED");
+        expect(result.status).toBe("APPROVED");
         expect(events.emitAsync).toHaveBeenCalledWith(NOTIFICATION_EVENTS.ONBOARDING_SUBMITTED, expect.any(Object));
+        expect(events.emitAsync).toHaveBeenCalledWith(NOTIFICATION_EVENTS.ONBOARDING_APPROVED, expect.any(Object));
       });
 
       it.each(["DRAFT", "SUBMITTED", "UNDER_REVIEW", "APPROVED"])("throws INVALID_ONBOARDING_TRANSITION from %s", async (status) => {

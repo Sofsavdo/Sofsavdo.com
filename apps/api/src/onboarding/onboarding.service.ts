@@ -134,7 +134,7 @@ export class OnboardingService {
       throw new DomainException("INVALID_ONBOARDING_TRANSITION", transitionErrorMessage, { from: existing.status });
     }
     const creator = await this.prisma.creatorProfile.findUniqueOrThrow({ where: { id: creatorId } });
-    const updated = await this.prisma.creatorApplication.update({
+    const submitted = await this.prisma.creatorApplication.update({
       where: { id: existing.id },
       data: { status: "SUBMITTED", submittedAt: new Date() },
     });
@@ -142,11 +142,21 @@ export class OnboardingService {
     // emitAsync, not emit — see auth.service.ts's identical comment: closes the race between this
     // call returning and NotificationEventsListener's own async DB writes completing.
     await this.events.emitAsync(NOTIFICATION_EVENTS.ONBOARDING_SUBMITTED, {
-      applicationId: updated.id,
+      applicationId: submitted.id,
       creatorId,
       creatorName: creator.displayName,
     });
-    return this.toCreatorResponse(updated);
+
+    // Admin review is temporarily disabled (explicit request: a creator should be able to start
+    // taking flows and earning immediately on submission, no admin action required right now) —
+    // every submit/resubmit auto-approves in the same breath. Reuses applyApproval, the exact
+    // same side effects (SocialAccount sync from formData, referral creatorApprovedAt milestone,
+    // ONBOARDING_APPROVED notification) the manual admin approve() endpoint already runs, so
+    // nothing about "what happens on approval" drifts between the two paths. To restore manual
+    // review later, delete this call — submitOrResubmit above already leaves the application
+    // correctly parked at SUBMITTED for an admin to pick up.
+    const approved = await this.applyApproval(submitted.id, creatorId, creator.displayName, submitted.formData, "SUBMITTED", null);
+    return this.toCreatorResponse(approved);
   }
 
   async submit(creatorId: string): Promise<OnboardingCreatorResponse> {
@@ -258,17 +268,49 @@ export class OnboardingService {
     });
   }
 
+  // Shared by the manual admin approve() below and submitOrResubmit's auto-approval — the exact
+  // same side effects either way (status flip, SocialAccount sync, referral milestone,
+  // notification), so "what happens when an application gets approved" can never drift between
+  // the two paths. `actorId: null` marks a system/auto approval (no human reviewer) rather than
+  // faking one — reviewedById is a nullable FK for exactly this reason.
+  private async applyApproval(
+    applicationId: string,
+    creatorId: string,
+    creatorDisplayName: string,
+    formData: Prisma.JsonValue,
+    fromStatus: CreatorApplicationStatus,
+    actorId: string | null,
+  ): Promise<CreatorApplication> {
+    const now = new Date();
+    const updated = await this.prisma.creatorApplication.update({
+      where: { id: applicationId },
+      data: {
+        status: "APPROVED",
+        reviewedAt: now,
+        reviewedById: actorId,
+        ...(actorId ? {} : { reviewNote: "Avtomatik tasdiqlangan — hozircha admin ko'rib chiqishi talab qilinmaydi." }),
+      },
+    });
+    await this.syncSocialAccountsFromFormData(creatorId, formData);
+    await this.audit.record({
+      actorId,
+      action: "ONBOARDING_APPROVED",
+      entityType: "CreatorApplication",
+      entityId: applicationId,
+      before: { status: fromStatus },
+      after: { status: "APPROVED" },
+    });
+    await this.referrals.onCreatorApproved(creatorId);
+    await this.events.emitAsync(NOTIFICATION_EVENTS.ONBOARDING_APPROVED, { applicationId, creatorId, creatorName: creatorDisplayName });
+    return updated;
+  }
+
   async approve(id: string, actorId: string): Promise<OnboardingAdminResponse> {
     const existing = await this.findOneWithCreatorOrThrow(id);
     if (!DECIDE_FROM.includes(existing.status)) {
       throw new DomainException("INVALID_ONBOARDING_TRANSITION", "Faqat ko'rib chiqilayotgan arizani tasdiqlash mumkin.", { from: existing.status });
     }
-    const now = new Date();
-    await this.prisma.creatorApplication.update({ where: { id }, data: { status: "APPROVED", reviewedAt: now, reviewedById: actorId } });
-    await this.syncSocialAccountsFromFormData(existing.creatorId, existing.formData);
-    await this.audit.record({ actorId, action: "ONBOARDING_APPROVED", entityType: "CreatorApplication", entityId: id, before: { status: existing.status }, after: { status: "APPROVED" } });
-    await this.referrals.onCreatorApproved(existing.creatorId);
-    await this.events.emitAsync(NOTIFICATION_EVENTS.ONBOARDING_APPROVED, { applicationId: id, creatorId: existing.creatorId, creatorName: existing.creator.displayName });
+    await this.applyApproval(id, existing.creatorId, existing.creator.displayName, existing.formData, existing.status, actorId);
     return this.findOneOrThrow(id);
   }
 
