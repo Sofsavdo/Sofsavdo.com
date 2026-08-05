@@ -4,6 +4,7 @@ import {
   Package,
   ShoppingBag,
   Users,
+  UserPlus,
   Wallet,
   Settings,
   Trophy,
@@ -36,6 +37,11 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
       { href: "/admin/orders", label: "Buyurtmalar", icon: ShoppingBag },
       { href: "/admin/creators", label: "Creatorlar", icon: Users },
       { href: "/admin/creator-applications", label: "Creator Arizalari", icon: Users },
+      // Fully built (list + detail + disqualify, backed by GET /admin/creator-referrals) but never
+      // linked anywhere in the admin nav — a creator-referred-a-creator "who brought whom" chain,
+      // already excluding organic/no-referral signups by construction (every row here has a real
+      // referrer). Was effectively undiscoverable until now.
+      { href: "/admin/creator-referrals", label: "Referral zanjiri", icon: UserPlus, requiredPermission: "referral.read" },
       { href: "/admin/launch-bonus", label: "Bonus", icon: Gift, requiredPermission: "launch_bonus.read" },
       { href: "/admin/competitions", label: "Musobaqalar", icon: Trophy },
       { href: "/admin/commissions", label: "Daromad", icon: Wallet, requiredPermission: "commission.read" },
