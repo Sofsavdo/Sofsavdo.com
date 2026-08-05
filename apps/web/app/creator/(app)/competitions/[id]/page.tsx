@@ -1,11 +1,46 @@
 "use client";
 
-import { use } from "react";
+import { use, useState } from "react";
 import Link from "next/link";
 import { formatMoneyMinor } from "@sofsavdo/types";
-import { Badge, Button, Card, EmptyState, Skeleton, cn } from "@sofsavdo/ui";
+import { Alert, Badge, Button, Card, EmptyState, Skeleton, TextField, cn } from "@sofsavdo/ui";
 import { Trophy, UserPlus } from "lucide-react";
-import { useCompetitionLeaderboard, useMyCompetitions, useJoinCompetition } from "@/services/competitions";
+import { useCompetitionLeaderboard, useMyCompetitions, useJoinCompetition, useSubmitCompetitionVideo } from "@/services/competitions";
+
+function VideoSubmissionForm({ competitionId, rejectionNote }: { competitionId: string; rejectionNote?: string | null }) {
+  const [videoUrl, setVideoUrl] = useState("");
+  const submit = useSubmitCompetitionVideo();
+
+  return (
+    <Card>
+      <div className="flex flex-col gap-3">
+        {rejectionNote ? (
+          <Alert tone="error">
+            Oldingi videongiz rad etildi. Sabab: {rejectionNote}
+          </Alert>
+        ) : null}
+        <p className="font-body text-sm text-text-secondary">
+          Sofsavdo haqida video tayyorlab, Instagram&apos;ingizga joylang, so&apos;ng havolasini shu yerga yuboring.
+        </p>
+        <TextField
+          label="Instagram video (reels) havolasi"
+          type="url"
+          placeholder="https://instagram.com/reel/..."
+          value={videoUrl}
+          onChange={(e) => setVideoUrl(e.target.value)}
+        />
+        <Button
+          onClick={() => submit.mutate({ competitionId, videoUrl })}
+          disabled={submit.isPending || videoUrl.trim().length === 0}
+          className="w-fit"
+        >
+          {submit.isPending ? "Yuborilmoqda..." : "Yuborish"}
+        </Button>
+        {submit.isError ? <Alert tone="error">Yuborishda xatolik yuz berdi. Havolani tekshirib qayta urinib ko&apos;ring.</Alert> : null}
+      </div>
+    </Card>
+  );
+}
 
 export default function CompetitionDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -23,11 +58,14 @@ export default function CompetitionDetailPage({ params }: { params: Promise<{ id
   }
 
   const competition = (competitions.data ?? []).find((c) => c.id === id);
+  const isVideoCompetition = competition?.metric === "INSTAGRAM_VIEWS";
+  const metricLabel = isVideoCompetition ? "ko'rish" : "ta sotuv";
   const data = leaderboard.data;
   const top = data?.top ?? [];
   const me = data?.me ?? null;
   const meInTop = me ? top.some((r) => r.creatorId === me.creatorId) : false;
-  const hasJoined = me !== null;
+  const myParticipant = competition?.myParticipant ?? null;
+  const hasJoined = myParticipant?.status === "APPROVED";
 
   async function handleJoin() {
     try {
@@ -59,7 +97,7 @@ export default function CompetitionDetailPage({ params }: { params: Promise<{ id
             </p>
           ) : null}
         </div>
-        {!hasJoined && competition?.availability === "LIVE" ? (
+        {!isVideoCompetition && !hasJoined && competition?.availability === "LIVE" ? (
           <Button onClick={handleJoin} disabled={joinCompetition.isPending} className="shrink-0">
             <UserPlus className="mr-2 size-4" />
             {joinCompetition.isPending ? "Qo'shilmoqda..." : "Qo'shilish"}
@@ -69,12 +107,20 @@ export default function CompetitionDetailPage({ params }: { params: Promise<{ id
         ) : null}
       </div>
 
+      {isVideoCompetition && myParticipant?.status === "PENDING" ? (
+        <Alert tone="info">Videongiz yuborildi — admin ko&apos;rib chiqmoqda. Tasdiqlangach reytingda ko&apos;rinasiz.</Alert>
+      ) : null}
+
+      {isVideoCompetition && (!myParticipant || myParticipant.status === "REJECTED") && competition?.availability === "LIVE" ? (
+        <VideoSubmissionForm competitionId={id} rejectionNote={myParticipant?.status === "REJECTED" ? myParticipant.reviewNote : null} />
+      ) : null}
+
       {top.length === 0 && !hasJoined ? (
         <EmptyState title="Reyting hali bo'sh" description="Bu musobaqada hali hech kim qatnashmagan — birinchi bo'ling!" />
       ) : top.length === 0 && hasJoined ? (
         <Card>
           <p className="font-body text-sm text-text-secondary">
-            Siz musobaqaga qo'shildingiz. Sotuvlaringiz reytingda ko'rinadi.
+            Siz musobaqaga qo'shildingiz. {isVideoCompetition ? "Ko'rishlar soni" : "Sotuvlaringiz"} reytingda ko'rinadi.
           </p>
         </Card>
       ) : (
@@ -110,12 +156,16 @@ export default function CompetitionDetailPage({ params }: { params: Promise<{ id
                         </Badge>
                       ) : null}
                     </p>
-                    <p className="font-body text-xs text-text-muted">{entry.ordersCount} ta sotuv</p>
+                    <p className="font-body text-xs text-text-muted">
+                      {entry.ordersCount.toLocaleString("uz-UZ")} {metricLabel}
+                    </p>
                   </div>
                 </div>
-                <span className="font-numeric text-sm font-semibold tabular-nums text-text-primary">
-                  {formatMoneyMinor(entry.commissionMinor)}
-                </span>
+                {!isVideoCompetition ? (
+                  <span className="font-numeric text-sm font-semibold tabular-nums text-text-primary">
+                    {formatMoneyMinor(entry.commissionMinor)}
+                  </span>
+                ) : null}
               </div>
             ))}
           </div>
@@ -131,10 +181,14 @@ export default function CompetitionDetailPage({ params }: { params: Promise<{ id
               </span>
               <div>
                 <p className="font-body text-sm font-medium text-text-primary">{me.displayName}</p>
-                <p className="font-body text-xs text-text-muted">{me.ordersCount} ta sotuv</p>
+                <p className="font-body text-xs text-text-muted">
+                  {me.ordersCount.toLocaleString("uz-UZ")} {metricLabel}
+                </p>
               </div>
             </div>
-            <span className="font-numeric text-sm font-semibold tabular-nums text-text-primary">{formatMoneyMinor(me.commissionMinor)}</span>
+            {!isVideoCompetition ? (
+              <span className="font-numeric text-sm font-semibold tabular-nums text-text-primary">{formatMoneyMinor(me.commissionMinor)}</span>
+            ) : null}
           </div>
         </Card>
       ) : null}

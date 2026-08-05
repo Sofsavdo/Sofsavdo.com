@@ -28,6 +28,18 @@ export function useJoinCompetition() {
     mutationFn: (competitionId: string) => api.joinCompetition(competitionId),
     onSuccess: (_, competitionId) => {
       qc.invalidateQueries({ queryKey: ["competition-leaderboard", competitionId] });
+      qc.invalidateQueries({ queryKey: ["creator-competitions"] });
+    },
+  });
+}
+
+export function useSubmitCompetitionVideo() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ competitionId, videoUrl }: { competitionId: string; videoUrl: string }) => api.submitCompetitionVideo(competitionId, videoUrl),
+    onSuccess: (_, { competitionId }) => {
+      qc.invalidateQueries({ queryKey: ["competition-leaderboard", competitionId] });
+      qc.invalidateQueries({ queryKey: ["creator-competitions"] });
     },
   });
 }

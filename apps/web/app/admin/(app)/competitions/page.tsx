@@ -7,6 +7,12 @@ import { Button, DataTableShell, MobileDataCard, StatusBadge } from "@sofsavdo/u
 import { useAdminCompetitions } from "@/services/admin/competitions";
 import { competitionStatusMeta } from "@/lib/status";
 
+const METRIC_LABELS: Record<string, string> = {
+  ORDER_COUNT: "Buyurtma soni",
+  REFERRAL_COUNT: "Do'stlar soni",
+  INSTAGRAM_VIEWS: "Instagram ko'rishlar",
+};
+
 export default function AdminCompetitionsPage() {
   const query = useAdminCompetitions();
   const [search, setSearch] = useState("");
@@ -43,7 +49,7 @@ export default function AdminCompetitionsPage() {
             title={c.name}
             meta={<StatusBadge tone={competitionStatusMeta[c.status].tone} label={competitionStatusMeta[c.status].label} />}
             fields={[
-              { label: "Metrika", value: c.metric === "ORDER_COUNT" ? "Buyurtma soni" : "Do'stlar soni" },
+              { label: "Metrika", value: METRIC_LABELS[c.metric] ?? c.metric },
               { label: "Boshlanish", value: new Date(c.startAt).toLocaleDateString("uz-UZ") },
               { label: "Tugash", value: new Date(c.endAt).toLocaleDateString("uz-UZ") },
             ]}
@@ -68,7 +74,7 @@ export default function AdminCompetitionsPage() {
                     {c.name}
                   </Link>
                 </td>
-                <td className="whitespace-nowrap px-4 py-2.5 text-text-secondary">{c.metric === "ORDER_COUNT" ? "Buyurtma soni" : "Do'stlar soni"}</td>
+                <td className="whitespace-nowrap px-4 py-2.5 text-text-secondary">{METRIC_LABELS[c.metric] ?? c.metric}</td>
                 <td className="whitespace-nowrap px-4 py-2.5 text-text-secondary">{new Date(c.startAt).toLocaleDateString("uz-UZ")}</td>
                 <td className="whitespace-nowrap px-4 py-2.5 text-text-secondary">{new Date(c.endAt).toLocaleDateString("uz-UZ")}</td>
                 <td className="whitespace-nowrap px-4 py-2.5">

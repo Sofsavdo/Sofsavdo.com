@@ -493,7 +493,7 @@ export interface CompetitionAdmin {
   endAt: string;
   status: CompetitionStatus;
   availability: CompetitionAvailability;
-  metric: "ORDER_COUNT" | "REFERRAL_COUNT";
+  metric: "ORDER_COUNT" | "REFERRAL_COUNT" | "INSTAGRAM_VIEWS";
   firstPrize: string;
   secondPrize: string;
   thirdPrize: string;
@@ -508,7 +508,7 @@ export interface CreateCompetitionInput {
   description?: string;
   startAt: string;
   endAt: string;
-  metric: "ORDER_COUNT" | "REFERRAL_COUNT";
+  metric: "ORDER_COUNT" | "REFERRAL_COUNT" | "INSTAGRAM_VIEWS";
   firstPrize: string;
   secondPrize: string;
   thirdPrize: string;
@@ -541,6 +541,40 @@ export async function completeCompetition(id: string): Promise<CompetitionAdmin>
 
 export async function archiveCompetition(id: string): Promise<CompetitionAdmin> {
   return apiRequest<CompetitionAdmin>(`/admin/competitions/${id}/archive`, { method: "POST" });
+}
+
+// ---- Competition participants (video-submission review, metric === "INSTAGRAM_VIEWS") — field
+// names match CompetitionParticipantAdminResponse 1:1.
+
+export type CompetitionParticipantStatus = "PENDING" | "APPROVED" | "REJECTED";
+
+export interface CompetitionParticipantAdmin {
+  id: string;
+  creatorId: string;
+  creatorName: string;
+  status: CompetitionParticipantStatus;
+  videoUrl: string | null;
+  reviewNote: string | null;
+  reviewedAt: string | null;
+  viewCount: number;
+  viewCountUpdatedAt: string | null;
+  joinedAt: string;
+}
+
+export async function getCompetitionParticipants(competitionId: string): Promise<CompetitionParticipantAdmin[]> {
+  return apiRequest<CompetitionParticipantAdmin[]>(`/admin/competitions/${competitionId}/participants`);
+}
+
+export async function approveCompetitionParticipant(participantId: string): Promise<CompetitionParticipantAdmin> {
+  return apiRequest<CompetitionParticipantAdmin>(`/admin/competitions/participants/${participantId}/approve`, { method: "POST" });
+}
+
+export async function rejectCompetitionParticipant(participantId: string, reason: string): Promise<CompetitionParticipantAdmin> {
+  return apiRequest<CompetitionParticipantAdmin>(`/admin/competitions/participants/${participantId}/reject`, { method: "POST", body: { reason } });
+}
+
+export async function updateCompetitionParticipantViewCount(participantId: string, viewCount: number): Promise<CompetitionParticipantAdmin> {
+  return apiRequest<CompetitionParticipantAdmin>(`/admin/competitions/participants/${participantId}/view-count`, { method: "PATCH", body: { viewCount } });
 }
 
 // ---- Admin executive dashboard (Phase M) — real backend only, replacing a previously 100%-

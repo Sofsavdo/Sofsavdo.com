@@ -1,9 +1,12 @@
 import { Injectable } from "@nestjs/common";
-import type { Competition, CompetitionStatus } from "@prisma/client";
+import { EventEmitter2 } from "@nestjs/event-emitter";
+import type { Competition, CompetitionParticipantStatus, CompetitionStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { AnalyticsCacheService } from "../analytics/lib/analytics-cache.service";
+import { AuditService } from "../common/audit/audit.service";
 import { DomainException } from "../common/errors/domain-error";
 import { PaginationQueryDto, paginate, type PaginatedResult } from "../common/pagination/pagination.dto";
+import { NOTIFICATION_EVENTS } from "../notifications/events";
 import { rankCreatorsByCommission, rankCreatorsByOrderCount, rankCreatorsByReferralCount, type RankedCreator } from "../creator-leaderboard/rank-creators-by-commission.util";
 import type { CreateCompetitionDto } from "./dto/create-competition.dto";
 import type { UpdateCompetitionDto } from "./dto/update-competition.dto";
@@ -42,8 +45,26 @@ export interface CreatorCompetitionResponse {
   startAt: Date;
   endAt: Date;
   availability: CompetitionAvailability;
+  metric: string;
   prizeDescription: string | null;
-  hasJoined: boolean;
+  // Replaces the old plain `hasJoined: boolean` — an INSTAGRAM_VIEWS competition needs to
+  // distinguish "not entered" from "video submitted, awaiting review" from "rejected, can
+  // resubmit" from "approved, showing in the leaderboard". Every other metric only ever produces
+  // APPROVED (see join()'s unconditional-approve default) or null, so this is backward compatible.
+  myParticipant: { status: CompetitionParticipantStatus; videoUrl: string | null; reviewNote: string | null } | null;
+}
+
+export interface CompetitionParticipantAdminResponse {
+  id: string;
+  creatorId: string;
+  creatorName: string;
+  status: CompetitionParticipantStatus;
+  videoUrl: string | null;
+  reviewNote: string | null;
+  reviewedAt: Date | null;
+  viewCount: number;
+  viewCountUpdatedAt: Date | null;
+  joinedAt: Date;
 }
 
 export interface CompetitionLeaderboardEntry extends RankedCreator {
@@ -68,6 +89,8 @@ export class CompetitionsService {
   constructor(
     private prisma: PrismaService,
     private cache: AnalyticsCacheService,
+    private audit: AuditService,
+    private events: EventEmitter2,
   ) {}
 
   // Mirrors OffersService/CampaignsService's own computeAvailability exactly — stored `status`
@@ -212,15 +235,15 @@ export class CompetitionsService {
     const rows = await this.prisma.competition.findMany({ where: { status: "ACTIVE" }, orderBy: { startAt: "asc" } });
     const filtered = rows.map((r) => this.toResponse(r)).filter((r) => r.availability === "LIVE" || r.availability === "SCHEDULED");
 
-    // Check join status for each competition if creatorId is provided
+    // Check join/participant status for each competition if creatorId is provided
     const result = await Promise.all(
       filtered.map(async (r) => {
-        let hasJoined = false;
+        let myParticipant: CreatorCompetitionResponse["myParticipant"] = null;
         if (creatorId) {
           const participant = await this.prisma.competitionParticipant.findUnique({
             where: { competitionId_creatorId: { competitionId: r.id, creatorId } },
           });
-          hasJoined = !!participant;
+          myParticipant = participant ? { status: participant.status, videoUrl: participant.videoUrl, reviewNote: participant.reviewNote } : null;
         }
 
         // Build prize description from individual prizes
@@ -234,8 +257,9 @@ export class CompetitionsService {
           startAt: r.startAt,
           endAt: r.endAt,
           availability: r.availability,
+          metric: r.metric,
           prizeDescription,
-          hasJoined,
+          myParticipant,
         };
       }),
     );
@@ -243,15 +267,22 @@ export class CompetitionsService {
     return result;
   }
 
-  async join(competitionId: string, creatorId: string): Promise<{ joined: boolean }> {
-    const competition = await this.prisma.competition.findUnique({ where: { id: competitionId } });
-    if (!competition) throw new DomainException("NOT_FOUND", "Musobaqa topilmadi.");
+  private assertLiveAndJoinable(competition: Competition): void {
     if (competition.status !== "ACTIVE") {
       throw new DomainException("VALIDATION_ERROR", "Faqat faol musobaqalarga qo'shilish mumkin.");
     }
     if (this.computeAvailability(competition) !== "LIVE") {
       throw new DomainException("VALIDATION_ERROR", "Musobaqa hali boshlanmagan yoki tugagan.");
     }
+  }
+
+  async join(competitionId: string, creatorId: string): Promise<{ joined: boolean }> {
+    const competition = await this.prisma.competition.findUnique({ where: { id: competitionId } });
+    if (!competition) throw new DomainException("NOT_FOUND", "Musobaqa topilmadi.");
+    if (competition.metric === "INSTAGRAM_VIEWS") {
+      throw new DomainException("VALIDATION_ERROR", "Bu musobaqa uchun video havola bilan ariza topshirish kerak.");
+    }
+    this.assertLiveAndJoinable(competition);
 
     // Check if already joined
     const existing = await this.prisma.competitionParticipant.findUnique({
@@ -259,12 +290,204 @@ export class CompetitionsService {
     });
     if (existing) return { joined: false };
 
-    // Join the competition
+    // Join the competition — status defaults to APPROVED (see schema), unconditional for every
+    // metric except INSTAGRAM_VIEWS, which never reaches here (see the guard above).
     await this.prisma.competitionParticipant.create({
       data: { competitionId, creatorId },
     });
 
     return { joined: true };
+  }
+
+  // ---- Video-submission entries (metric === "INSTAGRAM_VIEWS") ----
+
+  async submitVideoEntry(competitionId: string, creatorId: string, videoUrl: string): Promise<CreatorCompetitionResponse["myParticipant"]> {
+    const competition = await this.prisma.competition.findUnique({ where: { id: competitionId } });
+    if (!competition) throw new DomainException("NOT_FOUND", "Musobaqa topilmadi.");
+    if (competition.metric !== "INSTAGRAM_VIEWS") {
+      throw new DomainException("VALIDATION_ERROR", "Bu musobaqa video havola talab qilmaydi — oddiy qo'shilish orqali ishtirok eting.");
+    }
+    this.assertLiveAndJoinable(competition);
+
+    const existing = await this.prisma.competitionParticipant.findUnique({
+      where: { competitionId_creatorId: { competitionId, creatorId } },
+    });
+    if (existing && existing.status !== "REJECTED") {
+      throw new DomainException("ALREADY_APPLIED", "Siz bu musobaqaga allaqachon video yubordingiz.");
+    }
+
+    const creator = await this.prisma.creatorProfile.findUniqueOrThrow({ where: { id: creatorId }, select: { displayName: true } });
+
+    // A REJECTED participant resubmitting reuses the same row (the competitionId+creatorId unique
+    // constraint forbids a second one) — clears the prior reviewNote/reviewedAt so the creator's
+    // own status view doesn't show a stale rejection reason next to a brand-new PENDING submission.
+    const participant = existing
+      ? await this.prisma.competitionParticipant.update({
+          where: { id: existing.id },
+          data: { videoUrl, status: "PENDING", reviewNote: null, reviewedAt: null, reviewedById: null },
+        })
+      : await this.prisma.competitionParticipant.create({
+          data: { competitionId, creatorId, videoUrl, status: "PENDING" },
+        });
+
+    await this.events.emitAsync(NOTIFICATION_EVENTS.COMPETITION_SUBMISSION_NEW, {
+      participantId: participant.id,
+      competitionId,
+      competitionName: competition.name,
+      creatorId,
+      creatorName: creator.displayName,
+    });
+
+    return { status: participant.status, videoUrl: participant.videoUrl, reviewNote: participant.reviewNote };
+  }
+
+  // ---- Admin: participant review (INSTAGRAM_VIEWS competitions) ----
+
+  async listParticipants(competitionId: string): Promise<CompetitionParticipantAdminResponse[]> {
+    const rows = await this.prisma.competitionParticipant.findMany({
+      where: { competitionId },
+      include: { creator: { select: { displayName: true } } },
+      orderBy: [{ status: "asc" }, { viewCount: "desc" }],
+    });
+    return rows.map((p) => ({
+      id: p.id,
+      creatorId: p.creatorId,
+      creatorName: p.creator.displayName,
+      status: p.status,
+      videoUrl: p.videoUrl,
+      reviewNote: p.reviewNote,
+      reviewedAt: p.reviewedAt,
+      viewCount: p.viewCount,
+      viewCountUpdatedAt: p.viewCountUpdatedAt,
+      joinedAt: p.joinedAt,
+    }));
+  }
+
+  private async findParticipantOrThrow(participantId: string) {
+    const participant = await this.prisma.competitionParticipant.findUnique({
+      where: { id: participantId },
+      include: { competition: true },
+    });
+    if (!participant) throw new DomainException("NOT_FOUND", "Ariza topilmadi.");
+    return participant;
+  }
+
+  async approveParticipant(participantId: string, actorUserId: string | null): Promise<CompetitionParticipantAdminResponse> {
+    const participant = await this.findParticipantOrThrow(participantId);
+    if (participant.status !== "PENDING") {
+      throw new DomainException("INVALID_STATE", "Faqat ko'rib chiqilayotgan arizani tasdiqlash mumkin.", { from: participant.status });
+    }
+
+    const updated = await this.prisma.competitionParticipant.update({
+      where: { id: participantId },
+      data: { status: "APPROVED", reviewedAt: new Date(), reviewedById: actorUserId },
+      include: { creator: { select: { displayName: true } } },
+    });
+
+    await this.audit.record({
+      actorId: actorUserId,
+      action: "COMPETITION_SUBMISSION_APPROVED",
+      entityType: "CompetitionParticipant",
+      entityId: participantId,
+      before: { status: "PENDING" },
+      after: { status: "APPROVED" },
+    });
+    await this.events.emitAsync(NOTIFICATION_EVENTS.COMPETITION_SUBMISSION_APPROVED, {
+      competitionId: participant.competitionId,
+      competitionName: participant.competition.name,
+      creatorId: participant.creatorId,
+    });
+
+    return {
+      id: updated.id,
+      creatorId: updated.creatorId,
+      creatorName: updated.creator.displayName,
+      status: updated.status,
+      videoUrl: updated.videoUrl,
+      reviewNote: updated.reviewNote,
+      reviewedAt: updated.reviewedAt,
+      viewCount: updated.viewCount,
+      viewCountUpdatedAt: updated.viewCountUpdatedAt,
+      joinedAt: updated.joinedAt,
+    };
+  }
+
+  async rejectParticipant(participantId: string, reason: string, actorUserId: string | null): Promise<CompetitionParticipantAdminResponse> {
+    const participant = await this.findParticipantOrThrow(participantId);
+    if (participant.status !== "PENDING") {
+      throw new DomainException("INVALID_STATE", "Faqat ko'rib chiqilayotgan arizani rad etish mumkin.", { from: participant.status });
+    }
+
+    const reviewedAt = new Date();
+    const updated = await this.prisma.competitionParticipant.update({
+      where: { id: participantId },
+      data: { status: "REJECTED", reviewNote: reason, reviewedAt, reviewedById: actorUserId },
+      include: { creator: { select: { displayName: true } } },
+    });
+
+    await this.audit.record({
+      actorId: actorUserId,
+      action: "COMPETITION_SUBMISSION_REJECTED",
+      entityType: "CompetitionParticipant",
+      entityId: participantId,
+      before: { status: "PENDING" },
+      after: { status: "REJECTED", reason },
+    });
+    await this.events.emitAsync(NOTIFICATION_EVENTS.COMPETITION_SUBMISSION_REJECTED, {
+      competitionId: participant.competitionId,
+      competitionName: participant.competition.name,
+      creatorId: participant.creatorId,
+      reason,
+      decidedAt: reviewedAt.toISOString(),
+    });
+
+    return {
+      id: updated.id,
+      creatorId: updated.creatorId,
+      creatorName: updated.creator.displayName,
+      status: updated.status,
+      videoUrl: updated.videoUrl,
+      reviewNote: updated.reviewNote,
+      reviewedAt: updated.reviewedAt,
+      viewCount: updated.viewCount,
+      viewCountUpdatedAt: updated.viewCountUpdatedAt,
+      joinedAt: updated.joinedAt,
+    };
+  }
+
+  async updateViewCount(participantId: string, viewCount: number, actorUserId: string | null): Promise<CompetitionParticipantAdminResponse> {
+    const participant = await this.findParticipantOrThrow(participantId);
+    if (participant.status !== "APPROVED") {
+      throw new DomainException("INVALID_STATE", "Faqat tasdiqlangan ishtirokchining ko'rishlar sonini yangilash mumkin.", { from: participant.status });
+    }
+
+    const updated = await this.prisma.competitionParticipant.update({
+      where: { id: participantId },
+      data: { viewCount, viewCountUpdatedAt: new Date(), viewCountSource: "MANUAL" },
+      include: { creator: { select: { displayName: true } } },
+    });
+
+    await this.audit.record({
+      actorId: actorUserId,
+      action: "COMPETITION_VIEW_COUNT_UPDATED",
+      entityType: "CompetitionParticipant",
+      entityId: participantId,
+      before: { viewCount: participant.viewCount },
+      after: { viewCount },
+    });
+
+    return {
+      id: updated.id,
+      creatorId: updated.creatorId,
+      creatorName: updated.creator.displayName,
+      status: updated.status,
+      videoUrl: updated.videoUrl,
+      reviewNote: updated.reviewNote,
+      reviewedAt: updated.reviewedAt,
+      viewCount: updated.viewCount,
+      viewCountUpdatedAt: updated.viewCountUpdatedAt,
+      joinedAt: updated.joinedAt,
+    };
   }
 
   async getLeaderboard(competitionId: string, creatorId: string): Promise<CompetitionLeaderboardResponse> {
@@ -280,6 +503,8 @@ export class CompetitionsService {
         ranked = await this.rankCreatorsByOrderCountWithJoinDate(this.prisma, competitionId, competition.startAt, competition.endAt);
       } else if (competition.metric === "REFERRAL_COUNT") {
         ranked = await this.rankCreatorsByReferralCountWithJoinDate(this.prisma, competitionId, competition.startAt, competition.endAt);
+      } else if (competition.metric === "INSTAGRAM_VIEWS") {
+        ranked = await this.rankParticipantsByViewCount(competitionId);
       } else {
         // Default to commission ranking for backward compatibility
         ranked = await rankCreatorsByCommission(this.prisma, { from: competition.startAt, to: competition.endAt });
@@ -383,5 +608,23 @@ export class CompetitionsService {
 
     // Sort by referral count descending
     return results.sort((a: any, b: any) => b.ordersCount - a.ordersCount);
+  }
+
+  // INSTAGRAM_VIEWS ranking — only APPROVED participants count (a PENDING or REJECTED submission
+  // has no business showing up on a public leaderboard). Reuses RankedCreator.ordersCount to carry
+  // the view count, the same "generic field, per-metric meaning" convention the two methods above
+  // already established for referralCount — the frontend already relabels this field per metric.
+  private async rankParticipantsByViewCount(competitionId: string): Promise<RankedCreator[]> {
+    const participants = await this.prisma.competitionParticipant.findMany({
+      where: { competitionId, status: "APPROVED" },
+      include: { creator: { select: { displayName: true } } },
+      orderBy: { viewCount: "desc" },
+    });
+    return participants.map((p) => ({
+      creatorId: p.creatorId,
+      displayName: p.creator.displayName,
+      commissionMinor: 0,
+      ordersCount: p.viewCount,
+    }));
   }
 }

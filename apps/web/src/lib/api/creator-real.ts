@@ -888,6 +888,7 @@ export async function getLeaderboard(): Promise<LeaderboardResponse> {
 // CompetitionResponse/CompetitionLeaderboardResponse 1:1.
 
 export type CompetitionAvailability = "SCHEDULED" | "LIVE" | "EXPIRED" | "INACTIVE";
+export type CompetitionParticipantStatus = "PENDING" | "APPROVED" | "REJECTED";
 
 export interface CreatorCompetition {
   id: string;
@@ -896,15 +897,21 @@ export interface CreatorCompetition {
   startAt: string;
   endAt: string;
   availability: CompetitionAvailability;
+  metric: "ORDER_COUNT" | "REFERRAL_COUNT" | "INSTAGRAM_VIEWS";
   prizeDescription: string | null;
-  hasJoined: boolean;
+  // null: never entered. Every metric except INSTAGRAM_VIEWS only ever produces APPROVED (join()
+  // auto-approves) — PENDING/REJECTED only happen on a video-submission competition.
+  myParticipant: { status: CompetitionParticipantStatus; videoUrl: string | null; reviewNote: string | null } | null;
 }
 
 export async function getMyCompetitions(): Promise<CreatorCompetition[]> {
   return apiRequest<CreatorCompetition[]>("/creator/competitions");
 }
 
-// ... (rest of the code remains the same)
+export async function submitCompetitionVideo(competitionId: string, videoUrl: string): Promise<CreatorCompetition["myParticipant"]> {
+  return apiRequest<CreatorCompetition["myParticipant"]>(`/creator/competitions/${competitionId}/submit-video`, { method: "POST", body: { videoUrl } });
+}
+
 export interface CompetitionLeaderboardEntry {
   rank: number;
   creatorId: string;

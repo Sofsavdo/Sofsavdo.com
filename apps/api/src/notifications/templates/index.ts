@@ -28,6 +28,9 @@ export const TEMPLATES = {
   "onboarding.rejected": t.onboardingRejected,
   "onboarding.changes_requested": t.onboardingChangesRequested,
   "onboarding.new": t.onboardingNewAdmin,
+  "competition_submission.new": t.competitionSubmissionNewAdmin,
+  "competition_submission.approved": t.competitionSubmissionApproved,
+  "competition_submission.rejected": t.competitionSubmissionRejected,
 } as const;
 
 export type NotificationTypeKey = keyof typeof TEMPLATES;

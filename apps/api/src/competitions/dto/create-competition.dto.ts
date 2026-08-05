@@ -21,9 +21,14 @@ export class CreateCompetitionDto {
   @IsDateString()
   endAt!: string;
 
-  @ApiProperty({ enum: ["ORDER_COUNT", "REFERRAL_COUNT"], description: "Metrika turi: buyurtma soni yoki taklif qilingan do'stlar soni" })
-  @IsEnum(["ORDER_COUNT", "REFERRAL_COUNT"])
-  metric!: "ORDER_COUNT" | "REFERRAL_COUNT";
+  @ApiProperty({
+    enum: ["ORDER_COUNT", "REFERRAL_COUNT", "INSTAGRAM_VIEWS"],
+    description:
+      "Metrika turi: buyurtma soni, taklif qilingan do'stlar soni, yoki Instagram video ko'rishlar soni. " +
+      "INSTAGRAM_VIEWS — creator ariza (video havola) topshiradi, admin tasdiqlaydi/rad etadi, keyin ko'rishlar soni qo'lda kiritiladi.",
+  })
+  @IsEnum(["ORDER_COUNT", "REFERRAL_COUNT", "INSTAGRAM_VIEWS"])
+  metric!: "ORDER_COUNT" | "REFERRAL_COUNT" | "INSTAGRAM_VIEWS";
 
   @ApiProperty({ description: "1-o'rin sovrini" })
   @IsString()

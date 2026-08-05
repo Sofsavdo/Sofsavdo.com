@@ -56,15 +56,17 @@ export default function CompetitionsPage() {
                 <p className="font-body text-xs text-text-muted">
                   {new Date(c.startAt).toLocaleDateString("uz-UZ")} — {new Date(c.endAt).toLocaleDateString("uz-UZ")}
                 </p>
-                {c.availability === "LIVE" && !c.hasJoined ? (
+                {c.availability === "LIVE" && (!c.myParticipant || c.myParticipant.status === "REJECTED") ? (
                   <Link href={`/creator/competitions/${c.id}`}>
                     <Button size="sm" className="shrink-0">
                       <UserPlus className="mr-2 size-4" />
-                      Qo'shilish
+                      {c.metric === "INSTAGRAM_VIEWS" ? "Video yuborish" : "Qo'shilish"}
                     </Button>
                   </Link>
-                ) : c.hasJoined ? (
-                  <Badge tone="success" className="shrink-0">Qo'shilgan</Badge>
+                ) : c.myParticipant?.status === "PENDING" ? (
+                  <Badge tone="warning" className="shrink-0">Ko&apos;rib chiqilmoqda</Badge>
+                ) : c.myParticipant?.status === "APPROVED" ? (
+                  <Badge tone="success" className="shrink-0">Qo&apos;shilgan</Badge>
                 ) : null}
               </div>
             </Card>

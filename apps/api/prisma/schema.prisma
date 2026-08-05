@@ -944,6 +944,15 @@ model Competition {
   @@index([startAt, endAt])
 }
 
+// Only meaningful for metric === "INSTAGRAM_VIEWS" competitions (a video-submission contest, see
+// CompetitionsService.submitVideoEntry) — every other metric's join() creates a participant
+// straight at APPROVED (the field's own default), preserving today's unconditional-join behavior.
+enum CompetitionParticipantStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 // Competition participants - tracks when a creator joins a competition
 // This allows competition-specific scoring (orders/referrals counted from join date)
 model CompetitionParticipant {
@@ -955,9 +964,25 @@ model CompetitionParticipant {
   joinedAt      DateTime @default(now())
   createdAt     DateTime @default(now())
 
+  // Video-submission fields (INSTAGRAM_VIEWS competitions only) —
+  status             CompetitionParticipantStatus @default(APPROVED)
+  videoUrl           String?
+  reviewNote         String?
+  reviewedAt         DateTime?
+  reviewedById       String?
+  // Admin-entered, not live-fetched — see CompetitionsService.updateViewCount's own comment for
+  // why: Instagram's Graph API only exposes insights for a Business/Creator account the owner has
+  // explicitly OAuth-connected (with Meta App Review sign-off for `instagram_manage_insights`),
+  // which isn't a same-week integration. viewCountSource keeps this swappable later without a
+  // schema change — a real adapter would just start writing "API" instead of "MANUAL" here.
+  viewCount          Int       @default(0)
+  viewCountUpdatedAt DateTime?
+  viewCountSource    String?
+
   @@unique([competitionId, creatorId])
   @@index([competitionId])
   @@index([creatorId])
+  @@index([status])
 }
 
 // ────────────────────────────────────────────────────────────────────────────

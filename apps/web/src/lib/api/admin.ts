@@ -384,6 +384,13 @@ export const publishCompetition = (id: string) => realAdmin.publishCompetition(i
 export const completeCompetition = (id: string) => realAdmin.completeCompetition(id);
 export const archiveCompetition = (id: string) => realAdmin.archiveCompetition(id);
 
+export type { CompetitionParticipantAdmin, CompetitionParticipantStatus } from "./admin-real";
+export const getCompetitionParticipants = (competitionId: string) => realAdmin.getCompetitionParticipants(competitionId);
+export const approveCompetitionParticipant = (participantId: string) => realAdmin.approveCompetitionParticipant(participantId);
+export const rejectCompetitionParticipant = (participantId: string, reason: string) => realAdmin.rejectCompetitionParticipant(participantId, reason);
+export const updateCompetitionParticipantViewCount = (participantId: string, viewCount: number) =>
+  realAdmin.updateCompetitionParticipantViewCount(participantId, viewCount);
+
 // ---- AI Product Creation Engine (Phase I) — real backend only, no mock counterpart. ----
 export type { ProductAiDraft, GenerateProductDraftInput } from "./admin-real";
 export const generateProductDraft = (input: realAdmin.GenerateProductDraftInput) => realAdmin.generateProductDraft(input);

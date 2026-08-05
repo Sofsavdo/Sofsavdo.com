@@ -54,7 +54,7 @@ export const competitionSchema = z.object({
   description: z.string().optional(),
   startAt: z.string().min(1, "Boshlanish sanasini tanlang"),
   endAt: z.string().min(1, "Tugash sanasini tanlang"),
-  metric: z.enum(["ORDER_COUNT", "REFERRAL_COUNT"], "Metrikani tanlang"),
+  metric: z.enum(["ORDER_COUNT", "REFERRAL_COUNT", "INSTAGRAM_VIEWS"], "Metrikani tanlang"),
   firstPrize: z.string().min(1, "1-o'rin sovrinini kiriting"),
   secondPrize: z.string().min(1, "2-o'rin sovrinini kiriting"),
   thirdPrize: z.string().min(1, "3-o'rin sovrinini kiriting"),

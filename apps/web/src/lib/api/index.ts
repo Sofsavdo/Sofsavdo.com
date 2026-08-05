@@ -184,13 +184,17 @@ export const getLeaderboard = (): Promise<creatorRealApi.LeaderboardResponse> =>
 
 // ---- Competitions (Phase L) — real backend only, no mock counterpart: mock mode resolves to no
 // active competitions / an empty leaderboard rather than a mock reimplementation.
-export type { CreatorCompetition, CompetitionLeaderboardEntry, CompetitionLeaderboardResponse } from "./creator-real";
+export type { CreatorCompetition, CompetitionParticipantStatus, CompetitionLeaderboardEntry, CompetitionLeaderboardResponse } from "./creator-real";
 export const getMyCompetitions = (): Promise<creatorRealApi.CreatorCompetition[]> =>
   USE_REAL_API ? creatorRealApi.getMyCompetitions() : Promise.resolve([]);
 export const getCompetitionLeaderboard = (competitionId: string): Promise<creatorRealApi.CompetitionLeaderboardResponse> =>
   USE_REAL_API ? creatorRealApi.getCompetitionLeaderboard(competitionId) : Promise.resolve({ competitionId, top: [], me: null });
 export const joinCompetition = (competitionId: string): Promise<{ joined: boolean }> =>
   USE_REAL_API ? creatorRealApi.joinCompetition(competitionId) : Promise.reject(new Error("Competition join is only available in real-API mode."));
+export const submitCompetitionVideo = (competitionId: string, videoUrl: string): Promise<creatorRealApi.CreatorCompetition["myParticipant"]> =>
+  USE_REAL_API
+    ? creatorRealApi.submitCompetitionVideo(competitionId, videoUrl)
+    : Promise.reject(new Error("Competition video submission is only available in real-API mode."));
 
 // ---- Creator Fund (Phase N) — real backend only, no mock counterpart: mock mode resolves to a
 // zeroed/empty fund rather than a mock reimplementation of the guarded contribute-and-lock flow.

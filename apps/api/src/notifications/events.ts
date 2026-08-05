@@ -21,6 +21,11 @@ export const NOTIFICATION_EVENTS = {
   // Launch Bonus System events
   BONUS_UNLOCKED: "bonus.unlocked",
   BONUS_EXPIRED: "bonus.expired",
+  // Video-submission Competition entries (metric === "INSTAGRAM_VIEWS") — distinct from
+  // CAMPAIGN_APPLICATION_* above, which is a different domain entirely (CampaignApplication).
+  COMPETITION_SUBMISSION_NEW: "competition_submission.new",
+  COMPETITION_SUBMISSION_APPROVED: "competition_submission.approved",
+  COMPETITION_SUBMISSION_REJECTED: "competition_submission.rejected",
 } as const;
 
 export interface CampaignApplicationSubmittedEvent {
@@ -88,4 +93,32 @@ export interface BonusUnlockedEvent {
 
 export interface BonusExpiredEvent {
   creatorProfileId: string;
+}
+
+export interface CompetitionSubmissionNewEvent {
+  participantId: string;
+  competitionId: string;
+  competitionName: string;
+  creatorId: string;
+  creatorName: string;
+}
+
+export interface CompetitionSubmissionApprovedEvent {
+  competitionId: string;
+  competitionName: string;
+  creatorId: string;
+}
+
+export interface CompetitionSubmissionRejectedEvent {
+  competitionId: string;
+  competitionName: string;
+  creatorId: string;
+  reason: string;
+  // ISO timestamp of this specific reject decision (CompetitionParticipant.reviewedAt) — used in
+  // the dedup key instead of participantId alone, since a rejected participant resubmits into the
+  // *same* row (the competitionId+creatorId unique constraint forbids a second row). Keying only
+  // on participantId would silently swallow the notification for a second rejection after
+  // resubmission; keying on the decision's own timestamp lets a genuine retry of the same decision
+  // dedupe while a later, different decision does not.
+  decidedAt: string;
 }

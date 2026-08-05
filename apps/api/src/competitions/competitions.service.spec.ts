@@ -1,13 +1,21 @@
 import { Test } from "@nestjs/testing";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import { CompetitionsService } from "./competitions.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { AnalyticsCacheService } from "../analytics/lib/analytics-cache.service";
+import { AuditService } from "../common/audit/audit.service";
 import { DomainException } from "../common/errors/domain-error";
 
 describe("CompetitionsService", () => {
   let service: CompetitionsService;
-  let prisma: { competition: { findUnique: jest.Mock; findMany: jest.Mock; count: jest.Mock; create: jest.Mock; update: jest.Mock } };
+  let prisma: {
+    competition: { findUnique: jest.Mock; findMany: jest.Mock; count: jest.Mock; create: jest.Mock; update: jest.Mock };
+    competitionParticipant: { findUnique: jest.Mock; findMany: jest.Mock; create: jest.Mock; update: jest.Mock };
+    creatorProfile: { findUniqueOrThrow: jest.Mock };
+  };
   let cache: { buildKey: jest.Mock; get: jest.Mock; set: jest.Mock };
+  let audit: { record: jest.Mock };
+  let events: { emitAsync: jest.Mock };
 
   const base = {
     id: "comp1",
@@ -31,11 +39,21 @@ describe("CompetitionsService", () => {
   beforeEach(async () => {
     prisma = {
       competition: { findUnique: jest.fn(), findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0), create: jest.fn(), update: jest.fn() },
+      competitionParticipant: { findUnique: jest.fn(), findMany: jest.fn().mockResolvedValue([]), create: jest.fn(), update: jest.fn() },
+      creatorProfile: { findUniqueOrThrow: jest.fn().mockResolvedValue({ displayName: "Creator" }) },
     };
     cache = { buildKey: jest.fn().mockReturnValue("comp-key"), get: jest.fn().mockResolvedValue(null), set: jest.fn().mockResolvedValue(undefined) };
+    audit = { record: jest.fn().mockResolvedValue(undefined) };
+    events = { emitAsync: jest.fn().mockResolvedValue(undefined) };
 
     const moduleRef = await Test.createTestingModule({
-      providers: [CompetitionsService, { provide: PrismaService, useValue: prisma }, { provide: AnalyticsCacheService, useValue: cache }],
+      providers: [
+        CompetitionsService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: AnalyticsCacheService, useValue: cache },
+        { provide: AuditService, useValue: audit },
+        { provide: EventEmitter2, useValue: events },
+      ],
     }).compile();
     service = moduleRef.get(CompetitionsService);
   });
@@ -150,6 +168,132 @@ describe("CompetitionsService", () => {
       cache.get.mockResolvedValue([{ creatorId: "creator1", displayName: "Me", commissionMinor: 1000, ordersCount: 1 }]);
       const result = await service.getLeaderboard("comp1", "creator1");
       expect(result.me).toMatchObject({ rank: 1, creatorId: "creator1" });
+    });
+
+    it("for INSTAGRAM_VIEWS, ranks only APPROVED participants by viewCount, ignoring PENDING/REJECTED", async () => {
+      prisma.competition.findUnique.mockResolvedValue({ ...base, metric: "INSTAGRAM_VIEWS" });
+      prisma.competitionParticipant.findMany.mockResolvedValue([
+        { creatorId: "c1", viewCount: 500, creator: { displayName: "Top Creator" } },
+        { creatorId: "c2", viewCount: 100, creator: { displayName: "Second" } },
+      ]);
+      const result = await service.getLeaderboard("comp1", "c2");
+      expect(prisma.competitionParticipant.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { competitionId: "comp1", status: "APPROVED" } }),
+      );
+      expect(result.top.map((r) => r.creatorId)).toEqual(["c1", "c2"]);
+      expect(result.top[0]).toMatchObject({ ordersCount: 500, rank: 1 });
+    });
+  });
+
+  describe("join", () => {
+    it("rejects joining an INSTAGRAM_VIEWS competition directly (must submit a video instead)", async () => {
+      prisma.competition.findUnique.mockResolvedValue({ ...base, status: "ACTIVE", metric: "INSTAGRAM_VIEWS" });
+      await expect(service.join("comp1", "creator1")).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+      expect(prisma.competitionParticipant.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("submitVideoEntry", () => {
+    const liveInstagramComp = { ...base, status: "ACTIVE" as const, metric: "INSTAGRAM_VIEWS", startAt: new Date(Date.now() - 1000), endAt: new Date(Date.now() + 1_000_000) };
+
+    it("rejects submitting a video to a non-INSTAGRAM_VIEWS competition", async () => {
+      prisma.competition.findUnique.mockResolvedValue({ ...base, status: "ACTIVE" });
+      await expect(service.submitVideoEntry("comp1", "creator1", "https://instagram.com/reel/x")).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+    });
+
+    it("creates a PENDING participant and notifies admins on a fresh submission", async () => {
+      prisma.competition.findUnique.mockResolvedValue(liveInstagramComp);
+      prisma.competitionParticipant.findUnique.mockResolvedValue(null);
+      prisma.competitionParticipant.create.mockResolvedValue({ id: "p1", status: "PENDING", videoUrl: "https://instagram.com/reel/x" });
+
+      const result = await service.submitVideoEntry("comp1", "creator1", "https://instagram.com/reel/x");
+
+      expect(prisma.competitionParticipant.create).toHaveBeenCalledWith({
+        data: { competitionId: "comp1", creatorId: "creator1", videoUrl: "https://instagram.com/reel/x", status: "PENDING" },
+      });
+      expect(events.emitAsync).toHaveBeenCalledWith("competition_submission.new", expect.objectContaining({ participantId: "p1", creatorId: "creator1" }));
+      expect(result).toEqual({ status: "PENDING", videoUrl: "https://instagram.com/reel/x", reviewNote: undefined });
+    });
+
+    it("rejects a second submission while one is PENDING or APPROVED", async () => {
+      prisma.competition.findUnique.mockResolvedValue(liveInstagramComp);
+      prisma.competitionParticipant.findUnique.mockResolvedValue({ id: "p1", status: "PENDING" });
+      await expect(service.submitVideoEntry("comp1", "creator1", "https://instagram.com/reel/y")).rejects.toMatchObject({ code: "ALREADY_APPLIED" });
+      expect(prisma.competitionParticipant.update).not.toHaveBeenCalled();
+    });
+
+    it("lets a REJECTED participant resubmit by updating the same row, clearing the old review", async () => {
+      prisma.competition.findUnique.mockResolvedValue(liveInstagramComp);
+      prisma.competitionParticipant.findUnique.mockResolvedValue({ id: "p1", status: "REJECTED", reviewNote: "blurry video" });
+      prisma.competitionParticipant.update.mockResolvedValue({ id: "p1", status: "PENDING", videoUrl: "https://instagram.com/reel/fixed", reviewNote: null });
+
+      await service.submitVideoEntry("comp1", "creator1", "https://instagram.com/reel/fixed");
+
+      expect(prisma.competitionParticipant.update).toHaveBeenCalledWith({
+        where: { id: "p1" },
+        data: { videoUrl: "https://instagram.com/reel/fixed", status: "PENDING", reviewNote: null, reviewedAt: null, reviewedById: null },
+      });
+      expect(prisma.competitionParticipant.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("approveParticipant", () => {
+    it("approves a PENDING participant, records an audit entry, and notifies the creator", async () => {
+      prisma.competitionParticipant.findUnique.mockResolvedValue({ id: "p1", status: "PENDING", competitionId: "comp1", creatorId: "creator1", competition: { name: "Video musobaqasi" } });
+      prisma.competitionParticipant.update.mockResolvedValue({
+        id: "p1", creatorId: "creator1", status: "APPROVED", videoUrl: "url", reviewNote: null, reviewedAt: new Date(), viewCount: 0, viewCountUpdatedAt: null, joinedAt: new Date(),
+        creator: { displayName: "Creator" },
+      });
+
+      const result = await service.approveParticipant("p1", "admin1");
+
+      expect(prisma.competitionParticipant.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "p1" }, data: expect.objectContaining({ status: "APPROVED" }) }));
+      expect(audit.record).toHaveBeenCalledWith(expect.objectContaining({ action: "COMPETITION_SUBMISSION_APPROVED", entityId: "p1" }));
+      expect(events.emitAsync).toHaveBeenCalledWith("competition_submission.approved", expect.objectContaining({ creatorId: "creator1" }));
+      expect(result.status).toBe("APPROVED");
+    });
+
+    it("rejects approving a participant that isn't PENDING", async () => {
+      prisma.competitionParticipant.findUnique.mockResolvedValue({ id: "p1", status: "APPROVED", competition: {} });
+      await expect(service.approveParticipant("p1", "admin1")).rejects.toMatchObject({ code: "INVALID_STATE" });
+    });
+  });
+
+  describe("rejectParticipant", () => {
+    it("rejects a PENDING participant with a reason, records audit, and notifies the creator", async () => {
+      prisma.competitionParticipant.findUnique.mockResolvedValue({ id: "p1", status: "PENDING", competitionId: "comp1", creatorId: "creator1", competition: { name: "Video musobaqasi" } });
+      prisma.competitionParticipant.update.mockResolvedValue({
+        id: "p1", creatorId: "creator1", status: "REJECTED", videoUrl: "url", reviewNote: "blurry", reviewedAt: new Date(), viewCount: 0, viewCountUpdatedAt: null, joinedAt: new Date(),
+        creator: { displayName: "Creator" },
+      });
+
+      const result = await service.rejectParticipant("p1", "video juda xira", "admin1");
+
+      expect(prisma.competitionParticipant.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "REJECTED", reviewNote: "video juda xira" }) }));
+      expect(events.emitAsync).toHaveBeenCalledWith("competition_submission.rejected", expect.objectContaining({ reason: "video juda xira", decidedAt: expect.any(String) }));
+      expect(result.status).toBe("REJECTED");
+    });
+  });
+
+  describe("updateViewCount", () => {
+    it("updates viewCount only for an APPROVED participant", async () => {
+      prisma.competitionParticipant.findUnique.mockResolvedValue({ id: "p1", status: "APPROVED", viewCount: 100, competition: {} });
+      prisma.competitionParticipant.update.mockResolvedValue({
+        id: "p1", creatorId: "creator1", status: "APPROVED", videoUrl: "url", reviewNote: null, reviewedAt: new Date(), viewCount: 5000, viewCountUpdatedAt: new Date(), joinedAt: new Date(),
+        creator: { displayName: "Creator" },
+      });
+
+      const result = await service.updateViewCount("p1", 5000, "admin1");
+
+      expect(prisma.competitionParticipant.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ viewCount: 5000, viewCountSource: "MANUAL" }) }),
+      );
+      expect(result.viewCount).toBe(5000);
+    });
+
+    it("rejects updating viewCount for a non-APPROVED participant", async () => {
+      prisma.competitionParticipant.findUnique.mockResolvedValue({ id: "p1", status: "PENDING", competition: {} });
+      await expect(service.updateViewCount("p1", 5000, "admin1")).rejects.toMatchObject({ code: "INVALID_STATE" });
     });
   });
 });

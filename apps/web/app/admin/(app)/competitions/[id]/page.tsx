@@ -6,6 +6,7 @@ import { Alert, Button, Skeleton, StatusBadge } from "@sofsavdo/ui";
 import { Archive, CheckCircle2, Send } from "lucide-react";
 import { useAdminCompetition, useArchiveCompetition, useCompleteCompetition, usePublishCompetition } from "@/services/admin/competitions";
 import { CompetitionForm } from "@/components/admin/CompetitionForm";
+import { CompetitionParticipantsPanel } from "@/components/admin/CompetitionParticipantsPanel";
 import { competitionStatusMeta, competitionAvailabilityMeta } from "@/lib/status";
 import type { CompetitionStatus } from "@/lib/api/admin";
 
@@ -75,6 +76,8 @@ export default function CompetitionDetailPage({ params }: { params: Promise<{ id
       </div>
 
       <CompetitionForm existing={competition} />
+
+      {competition.metric === "INSTAGRAM_VIEWS" ? <CompetitionParticipantsPanel competitionId={competition.id} /> : null}
     </div>
   );
 }

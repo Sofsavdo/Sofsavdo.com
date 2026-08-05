@@ -1,6 +1,7 @@
-import { Controller, Get, Param, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { CompetitionsService } from "./competitions.service";
+import { SubmitVideoEntryDto } from "./dto/submit-video-entry.dto";
 import { RequireCreatorGuard } from "../common/guards/require-creator.guard";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import type { AuthenticatedUser } from "../common/guards/jwt-auth.guard";
@@ -27,5 +28,10 @@ export class CreatorCompetitionsController {
   @Post(":id/join")
   join(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.competitions.join(id, user.creatorId!);
+  }
+
+  @Post(":id/submit-video")
+  submitVideo(@Param("id") id: string, @Body() dto: SubmitVideoEntryDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.competitions.submitVideoEntry(id, user.creatorId!, dto.videoUrl);
   }
 }

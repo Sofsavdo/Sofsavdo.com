@@ -21,6 +21,7 @@ export function CompetitionForm({ existing }: { existing?: CompetitionAdmin }) {
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm<CompetitionInput>({
     resolver: zodResolver(competitionSchema),
@@ -43,6 +44,7 @@ export function CompetitionForm({ existing }: { existing?: CompetitionAdmin }) {
 
   const mutation = existing ? updateCompetition : createCompetition;
   const isArchived = existing?.status === "ARCHIVED";
+  const watchedMetric = watch("metric");
 
   async function onSubmit(values: CompetitionInput) {
     try {
@@ -90,7 +92,16 @@ export function CompetitionForm({ existing }: { existing?: CompetitionAdmin }) {
         >
           <option value="ORDER_COUNT">Buyurtma soni</option>
           <option value="REFERRAL_COUNT">Taklif qilingan do'stlar soni</option>
+          <option value="INSTAGRAM_VIEWS">Instagram video ko'rishlar soni</option>
         </SelectField>
+
+        {watchedMetric === "INSTAGRAM_VIEWS" ? (
+          <Alert tone="info">
+            Creatorlar video havola bilan ariza topshiradi, siz tasdiqlaysiz/rad etasiz, so&apos;ng
+            har bir tasdiqlangan ishtirokchining ko&apos;rishlar sonini "Ishtirokchilar" bo&apos;limida
+            qo&apos;lda yangilab turasiz — reyting shu songa qarab tuziladi.
+          </Alert>
+        ) : null}
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <TextField label="Boshlanish" type="datetime-local" error={errors.startAt?.message} disabled={isArchived} {...register("startAt")} />

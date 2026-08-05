@@ -6,6 +6,9 @@ import {
   type CampaignApplicationApprovedEvent,
   type CampaignApplicationRejectedEvent,
   type CampaignApplicationSubmittedEvent,
+  type CompetitionSubmissionApprovedEvent,
+  type CompetitionSubmissionNewEvent,
+  type CompetitionSubmissionRejectedEvent,
   type OnboardingApprovedEvent,
   type OnboardingChangesRequestedEvent,
   type OnboardingRejectedEvent,
@@ -109,5 +112,34 @@ export class NotificationEventsListener {
   @OnEvent(NOTIFICATION_EVENTS.PASSWORD_RESET_REQUESTED)
   async onPasswordResetRequested(event: PasswordResetRequestedEvent): Promise<void> {
     await this.notifications.dispatchPasswordReset(event.userId, event.resetUrl);
+  }
+
+  @OnEvent(NOTIFICATION_EVENTS.COMPETITION_SUBMISSION_NEW)
+  async onCompetitionSubmissionNew(event: CompetitionSubmissionNewEvent): Promise<void> {
+    await this.notifications.dispatchToAdmins(
+      "competition_submission.new",
+      { creatorName: event.creatorName, competitionName: event.competitionName, participantId: event.participantId },
+      `competition_submission.new:${event.participantId}`,
+    );
+  }
+
+  @OnEvent(NOTIFICATION_EVENTS.COMPETITION_SUBMISSION_APPROVED)
+  async onCompetitionSubmissionApproved(event: CompetitionSubmissionApprovedEvent): Promise<void> {
+    await this.notifications.dispatchToCreator(
+      event.creatorId,
+      "competition_submission.approved",
+      { competitionName: event.competitionName },
+      `competition_submission.approved:${event.competitionId}:${event.creatorId}`,
+    );
+  }
+
+  @OnEvent(NOTIFICATION_EVENTS.COMPETITION_SUBMISSION_REJECTED)
+  async onCompetitionSubmissionRejected(event: CompetitionSubmissionRejectedEvent): Promise<void> {
+    await this.notifications.dispatchToCreator(
+      event.creatorId,
+      "competition_submission.rejected",
+      { competitionName: event.competitionName, reason: event.reason },
+      `competition_submission.rejected:${event.competitionId}:${event.creatorId}:${event.decidedAt}`,
+    );
   }
 }

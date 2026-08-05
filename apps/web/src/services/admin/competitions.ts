@@ -63,3 +63,31 @@ export function useArchiveCompetition(id: string) {
     },
   });
 }
+
+export function useCompetitionParticipants(competitionId: string) {
+  return useQuery({ queryKey: ["admin-competition-participants", competitionId], queryFn: () => api.getCompetitionParticipants(competitionId), enabled: !!competitionId });
+}
+
+export function useApproveCompetitionParticipant(competitionId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (participantId: string) => api.approveCompetitionParticipant(participantId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-competition-participants", competitionId] }),
+  });
+}
+
+export function useRejectCompetitionParticipant(competitionId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ participantId, reason }: { participantId: string; reason: string }) => api.rejectCompetitionParticipant(participantId, reason),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-competition-participants", competitionId] }),
+  });
+}
+
+export function useUpdateCompetitionParticipantViewCount(competitionId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ participantId, viewCount }: { participantId: string; viewCount: number }) => api.updateCompetitionParticipantViewCount(participantId, viewCount),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-competition-participants", competitionId] }),
+  });
+}

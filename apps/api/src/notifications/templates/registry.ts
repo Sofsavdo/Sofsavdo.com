@@ -313,6 +313,48 @@ export const onboardingNewAdmin: NotificationTemplate<AdminOnboardingVars> = {
   },
 };
 
+// ---- Video-submission Competition entries (metric === "INSTAGRAM_VIEWS") ----
+
+interface AdminCompetitionSubmissionVars {
+  creatorName: string;
+  competitionName: string;
+  participantId: string;
+}
+
+export const competitionSubmissionNewAdmin: NotificationTemplate<AdminCompetitionSubmissionVars> = {
+  category: "ADMIN_ALERTS",
+  inApp: (v) => ({ title: "Yangi musobaqa arizasi", body: `${v.creatorName} — "${v.competitionName}" uchun video havola yubordi.` }),
+  telegram: (v) => `🎬 <b>Yangi musobaqa arizasi</b>\n${v.creatorName} — "${v.competitionName}" uchun video havola yubordi.`,
+  email: (v) => {
+    const body = `<p><strong>${v.creatorName}</strong> "${v.competitionName}" musobaqasi uchun video havola yubordi (ID: ${v.participantId}). Admin panelda ko'rib chiqing.</p>`;
+    return { subject: "Yangi musobaqa arizasi", ...emailShell("Yangi musobaqa arizasi", body, `${v.creatorName} — "${v.competitionName}" uchun video havola yubordi.`) };
+  },
+};
+
+interface CompetitionSubmissionVars {
+  competitionName: string;
+}
+
+export const competitionSubmissionApproved: NotificationTemplate<CompetitionSubmissionVars> = {
+  category: "CAMPAIGN_APPLICATION",
+  inApp: (v) => ({ title: "Video tasdiqlandi", body: `"${v.competitionName}" musobaqasidagi videongiz tasdiqlandi — endi reytingda ko'rinasiz.` }),
+  telegram: (v) => `✅ <b>Video tasdiqlandi</b>\n"${v.competitionName}" musobaqasidagi videongiz tasdiqlandi — endi reytingda ko'rinasiz.`,
+  email: (v) => {
+    const body = `<p>Tabriklaymiz — "${v.competitionName}" musobaqasidagi videongiz tasdiqlandi va reytingda ko'rina boshladi.</p>`;
+    return { subject: "Videongiz tasdiqlandi", ...emailShell("Video tasdiqlandi", body, `"${v.competitionName}" musobaqasidagi videongiz tasdiqlandi.`) };
+  },
+};
+
+export const competitionSubmissionRejected: NotificationTemplate<CompetitionSubmissionVars & { reason: string }> = {
+  category: "CAMPAIGN_APPLICATION",
+  inApp: (v) => ({ title: "Video rad etildi", body: `"${v.competitionName}" musobaqasidagi videongiz rad etildi. Sabab: ${v.reason}` }),
+  telegram: (v) => `❌ <b>Video rad etildi</b>\n"${v.competitionName}" musobaqasidagi videongiz rad etildi.\nSabab: ${v.reason}\n\nTuzatib, qaytadan yuborishingiz mumkin.`,
+  email: (v) => {
+    const body = `<p>"${v.competitionName}" musobaqasidagi videongiz rad etildi.</p><p><strong>Sabab:</strong> ${v.reason}</p><p>Tuzatib, qaytadan yuborishingiz mumkin.</p>`;
+    return { subject: "Videongiz rad etildi", ...emailShell("Video rad etildi", body, `"${v.competitionName}" musobaqasidagi videongiz rad etildi. Sabab: ${v.reason}`) };
+  },
+};
+
 // Password reset is always sent (security-critical, explicitly user-initiated), never gated by
 // NotificationPreference — see NotificationsService.dispatchPasswordReset.
 export const passwordResetRequested: NotificationTemplate<{ resetUrl: string }> = {
