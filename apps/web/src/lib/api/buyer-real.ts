@@ -43,10 +43,12 @@ export async function login(email: string, password: string): Promise<BuyerUser>
 }
 
 // Same fresh-page-load bootstrap pattern as admin-real.ts/creator-real.ts: no in-memory token yet,
-// apiRequest's 401-then-refresh recovers it from the HttpOnly cookie automatically.
+// apiRequest's 401-then-refresh recovers it from the HttpOnly cookie automatically. Must NOT pass
+// skipRefreshOnAuthError here — see creator-real.ts's getSession for the full explanation of the
+// bug this caused (every full page reload logged the buyer out even with a valid refresh cookie).
 export async function getSession(): Promise<BuyerUser | null> {
   try {
-    const sessionUser = await apiRequest<BackendSessionUser>("/auth/me", { skipRefreshOnAuthError: true });
+    const sessionUser = await apiRequest<BackendSessionUser>("/auth/me");
     return toBuyerUser(sessionUser);
   } catch (err) {
     if (err instanceof ApiError && err.statusCode === 401) return null;

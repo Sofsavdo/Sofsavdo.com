@@ -166,6 +166,17 @@ export class LaunchBonusService {
     return { bioLinkSubmittedAt: updated.bioLinkSubmittedAt! };
   }
 
+  // commissionEarnedMinor/referralsCount/ordersCount used to be read straight off the LaunchBonus
+  // row — a cache that was ONLY ever refreshed by LaunchBonusScheduler's once-a-day midnight cron
+  // (see checkAndUpdateBonuses below). A creator who made a sale at, say, 9am saw zero visible
+  // progress toward their bonus threshold for up to 15 hours, which read as "the bonus system is
+  // broken" (real report: a paid order didn't move the needle on a 3,500,000 so'm commission
+  // requirement at all). Compute live on every read instead — cheap (three aggregate queries,
+  // already run daily anyway) and always correct, regardless of when the cron last ran. While
+  // already here with live numbers, also apply the same LOCKED -> UNLOCKED/EXPIRED transition the
+  // cron does, so crossing the threshold unlocks the bonus the next time anyone looks at it rather
+  // than waiting for midnight — the commission itself was never gated by the 14-day payout hold
+  // (see getCreatorStats' own comment: PENDING counts immediately), only this progress display was.
   async getCreatorBonusProgress(creatorProfileId: string): Promise<LaunchBonusProgress | null> {
     const bonus = await this.prisma.launchBonus.findUnique({
       where: { creatorProfileId },
@@ -174,14 +185,32 @@ export class LaunchBonusService {
 
     if (!bonus) return null;
 
+    const stats = await this.getCreatorStats(creatorProfileId);
+    let status = bonus.status;
+
+    if (status === "LOCKED") {
+      const allMet = this.checkRequirementsMet(stats, bonus.settings, bonus);
+      if (allMet) {
+        status = "UNLOCKED";
+        await this.prisma.launchBonus.update({ where: { id: bonus.id }, data: { status: "UNLOCKED", unlockedAt: new Date() } });
+        this.logger.log(`Bonus unlocked for creator ${creatorProfileId} (detected on read)`);
+        await this.events.emitAsync(NOTIFICATION_EVENTS.BONUS_UNLOCKED, { creatorProfileId, bonusAmountMinor: bonus.bonusAmountMinor });
+      } else if (new Date() > bonus.deadline) {
+        status = "EXPIRED";
+        await this.prisma.launchBonus.update({ where: { id: bonus.id }, data: { status: "EXPIRED" } });
+        this.logger.log(`Bonus expired for creator ${creatorProfileId} (detected on read)`);
+        await this.events.emitAsync(NOTIFICATION_EVENTS.BONUS_EXPIRED, { creatorProfileId });
+      }
+    }
+
     return {
       id: bonus.id,
       bonusAmountMinor: bonus.bonusAmountMinor,
-      status: bonus.status,
+      status,
       deadline: bonus.deadline,
-      commissionEarnedMinor: bonus.commissionEarnedMinor,
-      referralsCount: bonus.referralsCount,
-      ordersCount: bonus.ordersCount,
+      commissionEarnedMinor: stats.commissionEarned,
+      referralsCount: stats.referralsCount,
+      ordersCount: stats.successfulOrders,
       bioLinkVerified: bonus.bioLinkVerified,
       bioLinkSubmittedAt: bonus.bioLinkSubmittedAt,
       minCommissionMinor: bonus.settings.minCommissionMinor,

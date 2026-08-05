@@ -138,7 +138,11 @@ export function Hero({
           {offer.subheadline ? (
             <p className="whitespace-pre-wrap break-words font-body text-text-secondary">{offer.subheadline}</p>
           ) : null}
-          {offer.description ? (
+          {/* QuickProductLaunchForm (the only place that ever sets Offer.subheadline) writes the
+              same admin-entered text into both subheadline and Product.description — showing both
+              paragraphs duplicated the identical sentence on the buyer-facing page. Only render
+              description when it's actually different content. */}
+          {offer.description && offer.description.trim() !== offer.subheadline?.trim() ? (
             <p className="whitespace-pre-wrap break-words font-body text-sm text-text-secondary">{offer.description}</p>
           ) : null}
           <div className="flex flex-wrap items-baseline gap-3">

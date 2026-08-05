@@ -109,10 +109,13 @@ export async function register(
 }
 
 // Same fresh-page-load bootstrap pattern as admin-real.ts's adminGetSession: no in-memory token
-// yet, apiRequest's 401-then-refresh recovers it from the HttpOnly cookie automatically.
+// yet, apiRequest's 401-then-refresh recovers it from the HttpOnly cookie automatically. Must NOT
+// pass skipRefreshOnAuthError here — that flag is for the refresh call itself (avoiding recursion),
+// not this bootstrap read; passing it here disabled the exact recovery this comment describes,
+// which meant every full page reload logged the creator out even with a valid refresh cookie.
 export async function getSession(): Promise<CreatorUser | null> {
   try {
-    const sessionUser = await apiRequest<BackendSessionUser>("/auth/me", { skipRefreshOnAuthError: true });
+    const sessionUser = await apiRequest<BackendSessionUser>("/auth/me");
     return await buildCreatorUser(sessionUser);
   } catch (err) {
     if (err instanceof ApiError && (err.statusCode === 401 || err.statusCode === 403)) return null;
