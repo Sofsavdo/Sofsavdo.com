@@ -4,6 +4,9 @@ import { NotificationEventsListener } from "./notification-events.listener";
 import { NotificationSweepService } from "./notification-sweep.service";
 import { CreatorNotificationsController } from "./creator-notifications.controller";
 import { AdminNotificationsController } from "./admin-notifications.controller";
+import { TelegramLinkController } from "./telegram-link.controller";
+import { TelegramWebhookController } from "./telegram-webhook.controller";
+import { TelegramLinkService } from "./telegram-link.service";
 import { TELEGRAM_PORT } from "./telegram.port";
 import { TelegramBotAdapter } from "./telegram-bot.adapter";
 import { EMAIL_PORT } from "./email.port";
@@ -15,11 +18,12 @@ import { SmtpEmailAdapter } from "./smtp.adapter";
 // sweep reads their tables directly via PrismaService (read-only) exactly like
 // CommissionsService.reconcileRefundedOrders reads Order without importing OrdersModule.
 @Module({
-  controllers: [CreatorNotificationsController, AdminNotificationsController],
+  controllers: [CreatorNotificationsController, AdminNotificationsController, TelegramLinkController, TelegramWebhookController],
   providers: [
     NotificationsService,
     NotificationEventsListener,
     NotificationSweepService,
+    TelegramLinkService,
     { provide: TELEGRAM_PORT, useClass: TelegramBotAdapter },
     { provide: EMAIL_PORT, useClass: SmtpEmailAdapter },
   ],

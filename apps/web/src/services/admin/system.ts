@@ -46,6 +46,22 @@ export function useUpdateRealSettings() {
   });
 }
 
+export function useTelegramLinkStatus() {
+  return useQuery({ queryKey: ["telegram-link-status"], queryFn: api.getTelegramLinkStatus });
+}
+
+export function useCreateTelegramLinkToken() {
+  return useMutation({ mutationFn: api.createTelegramLinkToken });
+}
+
+export function useUnlinkTelegram() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: api.unlinkTelegram,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["telegram-link-status"] }),
+  });
+}
+
 export function useRealAuditLogList(query: import("@/lib/api/admin").RealAuditQuery = {}) {
   return useQuery({ queryKey: ["admin-audit-log-real", query], queryFn: () => api.getRealAuditLogList(query) });
 }

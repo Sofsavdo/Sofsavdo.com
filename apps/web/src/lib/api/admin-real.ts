@@ -1993,6 +1993,30 @@ export async function updateRealSettings(values: Record<string, string | number 
 
 export type { SettingCategory };
 
+// -- Telegram account linking (any authenticated user, not admin-role-gated) --
+
+export interface TelegramLinkStatus {
+  linked: boolean;
+}
+
+export interface TelegramLinkToken {
+  deepLink: string;
+  botUsername: string;
+  expiresAt: string;
+}
+
+export async function getTelegramLinkStatus(): Promise<TelegramLinkStatus> {
+  return apiRequest<TelegramLinkStatus>("/notifications/telegram/link");
+}
+
+export async function createTelegramLinkToken(): Promise<TelegramLinkToken> {
+  return apiRequest<TelegramLinkToken>("/notifications/telegram/link-token", { method: "POST" });
+}
+
+export async function unlinkTelegram(): Promise<TelegramLinkStatus> {
+  return apiRequest<TelegramLinkStatus>("/notifications/telegram/link", { method: "DELETE" });
+}
+
 // -- Audit log (general browser) --
 
 export interface RealAuditQuery {

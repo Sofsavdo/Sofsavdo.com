@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { RoleGuard } from "@/components/admin/RoleGuard";
-import { Alert, Button, Card, CardHeader, CardTitle, Skeleton, TextField } from "@sofsavdo/ui";
-import { useRealSettings, useUpdateRealSettings } from "@/services/admin/system";
+import { Alert, Badge, Button, Card, CardHeader, CardTitle, CopyButton, Skeleton, TextField } from "@sofsavdo/ui";
+import { useCreateTelegramLinkToken, useRealSettings, useTelegramLinkStatus, useUnlinkTelegram, useUpdateRealSettings } from "@/services/admin/system";
 import { ApiError } from "@/lib/api/admin";
 import type { RealSettingItem, SettingCategory } from "@sofsavdo/types";
 
@@ -38,6 +38,66 @@ function SettingField({ item, value, onChange }: { item: RealSettingItem; value:
   );
 }
 
+function TelegramLinkCard() {
+  const status = useTelegramLinkStatus();
+  const createToken = useCreateTelegramLinkToken();
+  const unlink = useUnlinkTelegram();
+  const [deepLink, setDeepLink] = useState<string | null>(null);
+
+  async function onLink() {
+    const result = await createToken.mutateAsync();
+    setDeepLink(result.deepLink);
+    window.open(result.deepLink, "_blank", "noopener,noreferrer");
+  }
+
+  async function onUnlink() {
+    await unlink.mutateAsync();
+    setDeepLink(null);
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Telegram bildirishnomalar</CardTitle>
+      </CardHeader>
+      <div className="flex flex-col gap-3">
+        <p className="font-body text-sm text-text-secondary">
+          Telegramni ulasangiz, yangi creator arizalari va boshqa muhim bildirishnomalarni shu yerda darhol olasiz.
+        </p>
+
+        {status.isLoading ? (
+          <Skeleton className="h-8 w-32" />
+        ) : status.data?.linked ? (
+          <div className="flex items-center gap-3">
+            <Badge tone="success">Ulangan</Badge>
+            <Button variant="outline" onClick={onUnlink} disabled={unlink.isPending}>
+              {unlink.isPending ? "Uzilmoqda..." : "Uzish"}
+            </Button>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <Badge tone="neutral">Ulanmagan</Badge>
+              <Button onClick={onLink} disabled={createToken.isPending}>
+                {createToken.isPending ? "Havola tayyorlanmoqda..." : "Telegramni ulash"}
+              </Button>
+            </div>
+            {deepLink ? (
+              <div className="flex items-center gap-2">
+                <span className="font-body text-xs text-text-secondary">Ochilmasa, havolani qo'lda oching:</span>
+                <CopyButton value={deepLink} label="Havolani nusxalash" />
+              </div>
+            ) : null}
+          </div>
+        )}
+
+        {createToken.isError ? <Alert tone="error">{(createToken.error as ApiError).message}</Alert> : null}
+        {unlink.isError ? <Alert tone="error">{(unlink.error as ApiError).message}</Alert> : null}
+      </div>
+    </Card>
+  );
+}
+
 function SettingsPageContent() {
   const query = useRealSettings();
   const update = useUpdateRealSettings();
@@ -65,6 +125,8 @@ function SettingsPageContent() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <h1 className="font-heading text-2xl font-bold text-text-primary">Tizim sozlamalari</h1>
+
+      <TelegramLinkCard />
 
       {grouped.map(([category, items]) => (
         <Card key={category}>

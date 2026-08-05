@@ -341,6 +341,11 @@ export const rejectRealRefund = (id: string, reason: string) => realAdmin.reject
 export const getRealSettings = () => realAdmin.getRealSettings();
 export const updateRealSettings = (values: Record<string, string | number | boolean>) => realAdmin.updateRealSettings(values);
 
+export type { TelegramLinkStatus, TelegramLinkToken } from "./admin-real";
+export const getTelegramLinkStatus = () => realAdmin.getTelegramLinkStatus();
+export const createTelegramLinkToken = () => realAdmin.createTelegramLinkToken();
+export const unlinkTelegram = () => realAdmin.unlinkTelegram();
+
 export type { RealAuditQuery } from "./admin-real";
 export const getRealAuditLogList = (query?: realAdmin.RealAuditQuery) => realAdmin.getRealAuditLogList(query);
 export const getRealAuditLogDetail = (id: string) => realAdmin.getRealAuditLogDetail(id);

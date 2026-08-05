@@ -99,6 +99,15 @@ export interface AppConfig {
       // per-send (captured as a FAILED Notification row), never silently no-ops, same convention
       // as PaymentPort/StoragePort's real-adapter-only philosophy.
       botToken: string;
+      // The bot's own @username, needed to build the https://t.me/<username>?start=<token> deep
+      // link — TelegramLinkController fails loudly (TELEGRAM_NOT_CONFIGURED) if empty rather than
+      // handing back a broken link.
+      botUsername: string;
+      // Verifies inbound webhook calls actually came from Telegram (sent back as the
+      // X-Telegram-Bot-Api-Secret-Token header, set via the bot's setWebhook call) — see
+      // TelegramWebhookController. Empty means unverified (dev only); see that controller's
+      // comment for why an unset secret is a low, not zero, risk.
+      webhookSecret: string;
     };
     email: {
       smtpHost: string;
@@ -205,6 +214,8 @@ export default (): AppConfig => ({
   notifications: {
     telegram: {
       botToken: process.env.TELEGRAM_BOT_TOKEN ?? "",
+      botUsername: process.env.TELEGRAM_BOT_USERNAME ?? "",
+      webhookSecret: process.env.TELEGRAM_WEBHOOK_SECRET ?? "",
     },
     email: {
       smtpHost: process.env.SMTP_HOST ?? "",

@@ -78,8 +78,25 @@ model User {
   competitionsCreated          Competition[]            @relation("CompetitionCreatedBy")
   competitionsUpdated          Competition[]            @relation("CompetitionUpdatedBy")
   verifiedBonuses              LaunchBonus[]            @relation("BonusVerifier")
+  telegramLinkTokens           TelegramLinkToken[]
 
   @@index([status])
+}
+
+// One-time, short-lived token exchanged for a User.telegramChatId via the bot's /start deep link
+// (TelegramLinkService). Stateless-JWT (the AuthService password-reset convention) doesn't fit
+// here: Telegram's /start payload must match ^[A-Za-z0-9_-]{1,64}$ and a signed JWT is both too
+// long and contains `.` separators, so this needs a real opaque token looked up server-side.
+model TelegramLinkToken {
+  id         String    @id @default(cuid())
+  token      String    @unique
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
 }
 
 model RefreshToken {
