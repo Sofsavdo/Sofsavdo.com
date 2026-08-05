@@ -41,7 +41,15 @@ export function AdminLoginPageClient() {
             <CardTitle>Admin panelga kirish</CardTitle>
           </CardHeader>
           <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
-            <TextField label="Email" type="email" error={errors.email?.message} {...register("email")} />
+            <TextField
+              label="Email"
+              type="email"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              error={errors.email?.message}
+              {...register("email")}
+            />
             <TextField label="Parol" type="password" error={errors.password?.message} {...register("password")} />
             {loginError ? <Alert tone="error">{loginError}</Alert> : null}
             <Button type="submit" disabled={loginPending} className="mt-2">

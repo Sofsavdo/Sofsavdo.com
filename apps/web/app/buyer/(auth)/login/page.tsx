@@ -40,7 +40,16 @@ export default function BuyerLoginPage() {
       </CardHeader>
 
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
-        <TextField label="Email" type="email" autoComplete="email" error={errors.email?.message} {...register("email")} />
+        <TextField
+          label="Email"
+          type="email"
+          autoComplete="email"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          error={errors.email?.message}
+          {...register("email")}
+        />
         <TextField
           label="Parol"
           type="password"

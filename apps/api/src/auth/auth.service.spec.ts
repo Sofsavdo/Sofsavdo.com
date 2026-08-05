@@ -146,7 +146,7 @@ describe("AuthService", () => {
 
   describe("forgotPassword", () => {
     it("emits password_reset.requested with a reset URL built from the signed token", async () => {
-      prisma.user.findUnique.mockResolvedValue({ id: "user1", email: "aziz@example.uz" });
+      prisma.user.findFirst.mockResolvedValue({ id: "user1", email: "aziz@example.uz" });
 
       await service.forgotPassword("aziz@example.uz");
 
@@ -154,7 +154,7 @@ describe("AuthService", () => {
     });
 
     it("does not emit anything for an email that doesn't exist (no account-enumeration signal)", async () => {
-      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.user.findFirst.mockResolvedValue(null);
       await service.forgotPassword("nobody@example.uz");
       expect(events.emitAsync).not.toHaveBeenCalled();
     });

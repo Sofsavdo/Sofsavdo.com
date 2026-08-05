@@ -34,7 +34,16 @@ function NewStaffUserContent() {
       </CardHeader>
       <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
         <TextField label="To'liq ism" value={displayName} onChange={(e) => setDisplayName(e.target.value)} required minLength={2} />
-        <TextField label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        <TextField
+          label="Email"
+          type="email"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+        />
         <TextField label="Parol" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} />
 
         <div>

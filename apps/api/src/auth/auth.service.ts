@@ -50,8 +50,12 @@ export class AuthService {
   }
 
   async register(dto: RegisterDto): Promise<AuthResult> {
-    if (dto.email) {
-      const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    // Normalized once, here, and reused for both the uniqueness check and the stored row — new
+    // accounts always get a lowercase email, so "Test@x.com" and "test@x.com" can never become two
+    // separate accounts, and login()'s case-insensitive lookup always has a single canonical match.
+    const email = dto.email?.trim().toLowerCase();
+    if (email) {
+      const existing = await this.prisma.user.findUnique({ where: { email } });
       if (existing) throw new DomainException("EMAIL_TAKEN", "Bu email allaqachon ro'yxatdan o'tgan.");
     }
     if (dto.phone) {
@@ -78,7 +82,7 @@ export class AuthService {
       // everywhere.
       const user = await tx.user.create({
         data: {
-          email: dto.email,
+          email,
           phone: dto.phone,
           passwordHash,
           creatorProfile: {
@@ -118,8 +122,9 @@ export class AuthService {
   // authenticated User can act as a buyer with no separate approval gate, unlike Creator (see
   // DECISIONS.md's Buyer Accounts ADR).
   async registerBuyer(dto: RegisterBuyerDto): Promise<AuthResult> {
-    if (dto.email) {
-      const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    const email = dto.email?.trim().toLowerCase();
+    if (email) {
+      const existing = await this.prisma.user.findUnique({ where: { email } });
       if (existing) throw new DomainException("EMAIL_TAKEN", "Bu email allaqachon ro'yxatdan o'tgan.");
     }
     if (dto.phone) {
@@ -131,7 +136,7 @@ export class AuthService {
 
     const userId = await this.prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
-        data: { email: dto.email, phone: dto.phone, displayName: dto.fullName, passwordHash },
+        data: { email, phone: dto.phone, displayName: dto.fullName, passwordHash },
       });
 
       // Reconciliation: if this phone number already placed a guest order before this account
@@ -156,8 +161,15 @@ export class AuthService {
     if (!dto.email && !dto.phone) {
       throw new DomainException("VALIDATION_ERROR", "Email yoki telefon raqami kiritilishi shart.");
     }
+    // Case-insensitive on purpose: mobile keyboards routinely auto-capitalize the first letter of
+    // an email <input> (no autoCapitalize="none" reliably survives every browser/OS combination),
+    // so the same real password entered on a phone silently looked up zero users and returned the
+    // exact same "Email/parol noto'g'ri" message a genuinely wrong password would — a real creator
+    // hit this exact case in production. `mode: "insensitive"` matches how virtually every login
+    // system in the wild already treats email addresses, regardless of the casing stored at
+    // registration (register()/registerBuyer() below still store whatever casing was typed).
     const user = await this.prisma.user.findFirst({
-      where: dto.email ? { email: dto.email } : { phone: dto.phone },
+      where: dto.email ? { email: { equals: dto.email, mode: "insensitive" } } : { phone: dto.phone },
     });
     if (!user) throw new DomainException("INVALID_CREDENTIALS", "Email/parol noto'g'ri.");
     if (user.status === "SUSPENDED") throw new DomainException("FORBIDDEN", "Hisobingiz vaqtincha bloklangan.");
@@ -251,7 +263,10 @@ export class AuthService {
   // production; only that a reset was requested. Development environments still get the full
   // token logged so the flow is testable end-to-end without a real email provider.
   async forgotPassword(email: string): Promise<void> {
-    const user = await this.prisma.user.findUnique({ where: { email } });
+    // Same case-insensitivity as login() — a reset request typed with different casing than what's
+    // stored must still find the account, or "always returns success" above becomes a lie for
+    // exactly the users who need this most.
+    const user = await this.prisma.user.findFirst({ where: { email: { equals: email, mode: "insensitive" } } });
     if (!user) return;
     const token = this.jwt.sign(
       { sub: user.id, purpose: "password_reset" } satisfies PasswordResetPayload,
