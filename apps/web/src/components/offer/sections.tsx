@@ -151,7 +151,7 @@ export function Hero({
               </span>
             ) : null}
           </div>
-          <Button size="lg" onClick={onBuyClick} className="w-full md:w-fit">
+          <Button id="hero-buy-button" size="lg" onClick={onBuyClick} className="w-full md:w-fit">
             {offer.ctaLabel}
           </Button>
         </div>

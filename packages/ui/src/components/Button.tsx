@@ -26,7 +26,13 @@ const variantClasses: Record<Variant, string> = {
 const sizeClasses: Record<Size, string> = {
   sm: "h-8 px-3 text-sm",
   md: "h-10 px-4 text-base",
-  lg: "h-12 px-6 text-lg",
+  // `min-h` rather than a fixed `h` — `lg` is the size used for primary CTAs whose label often
+  // includes a dynamically-formatted price ("Hozir buyurtma bering — 24,900 so'm"), which can wrap
+  // to two lines at narrow widths. A fixed height clipped that second line invisibly (flex
+  // containers don't reveal vertical overflow on their own) — real bug, found on the checkout
+  // page's submit button at 375px wide. `py-2` keeps single-line buttons visually identical to the
+  // old fixed 48px height while letting genuinely long labels grow instead of losing text.
+  lg: "min-h-12 px-6 py-2 text-lg leading-tight",
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(

@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Button } from "@sofsavdo/ui";
 import { BRAND } from "@sofsavdo/config/brand";
 
 // Shared, minimal top bar for the two "browse the shop" hub pages (home, /catalog) — before this,
@@ -21,16 +20,17 @@ export function PublicHeader() {
           </Link>
           {/* A creator's own entry point previously existed only as one small link buried in the
               footer — creators had to scroll all the way down and hunt for it. Moved to the top
-              nav, visible on both pages this header renders on. Links to /creator/register (the
-              actual sign-up entry point) rather than /creator/login, matching this button's
-              inviting "join us" framing — an existing creator can still reach login in one more
-              click from the register page's own "Hisobingiz bormi?" link. */}
-          <Link href="/creator/register" className="font-body text-sm font-medium text-text-secondary hover:text-text-primary">
+              nav, visible on both pages this header renders on. Links to /creator/login, not
+              /creator/register: most people clicking "Hamkorlik uchun" already have an account
+              from a prior visit, and login's own "Ro'yxatdan o'tish" link is one click from there
+              for anyone who doesn't — landing on login first means an existing creator never has
+              to notice/back out of a registration form by mistake. The separate buyer "Kirish"
+              button that used to sit here was removed — it linked to /buyer/login, which a creator
+              could easily mistake for their own login given the identical label right next to
+              "Hamkorlik uchun". */}
+          <Link href="/creator/login" className="font-body text-sm font-medium text-text-secondary hover:text-text-primary">
             Hamkorlik uchun
           </Link>
-          <Button asChild size="sm" variant="outline">
-            <Link href="/buyer/login">Kirish</Link>
-          </Button>
         </nav>
       </div>
     </header>

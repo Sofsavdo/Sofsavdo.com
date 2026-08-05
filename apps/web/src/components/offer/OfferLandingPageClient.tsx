@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Skeleton } from "@sofsavdo/ui";
@@ -18,6 +18,21 @@ export function OfferLandingPageClient({ offerSlug }: { offerSlug: string }) {
 
   const query = useOfferPublic(offerSlug, refCode);
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
+
+  // The sticky mobile CTA exists to keep the buy button reachable once the Hero's own button has
+  // scrolled out of view — on a short landing page (few/no extra sections) that never happens, so
+  // both buttons stayed on screen at once. Nothing coordinates a `position: fixed` element against
+  // normal document flow, so they visually overlapped/collided at the bottom of the viewport (real
+  // bug, confirmed in browser at 375px width). Hide the sticky bar for as long as the Hero button
+  // is itself visible; only show it once the buyer has scrolled past it.
+  const [heroButtonVisible, setHeroButtonVisible] = useState(true);
+  useEffect(() => {
+    const el = document.getElementById("hero-buy-button");
+    if (!el) return;
+    const observer = new IntersectionObserver(([entry]) => setHeroButtonVisible(entry!.isIntersecting), { threshold: 0 });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [query.data]);
 
   if (query.isLoading) {
     return (
@@ -59,7 +74,7 @@ export function OfferLandingPageClient({ offerSlug }: { offerSlug: string }) {
   }
 
   return (
-    <div className="pb-20 md:pb-0">
+    <div className={heroButtonVisible ? "" : "pb-20 md:pb-0"}>
       <header className="border-b border-border bg-surface px-pad-mobile py-2 md:px-pad-desktop md:py-3">
         <Link href="/" className="font-heading text-base font-bold text-text-primary md:text-lg">
           {BRAND.name}
@@ -89,12 +104,14 @@ export function OfferLandingPageClient({ offerSlug }: { offerSlug: string }) {
         </p>
       </footer>
 
-      <StickyMobileCta
-        price={activeVariant.priceMinor}
-        currency={offer.currency}
-        ctaLabel={offer.ctaLabel}
-        onBuyClick={goToCheckout}
-      />
+      {!heroButtonVisible ? (
+        <StickyMobileCta
+          price={activeVariant.priceMinor}
+          currency={offer.currency}
+          ctaLabel={offer.ctaLabel}
+          onBuyClick={goToCheckout}
+        />
+      ) : null}
     </div>
   );
 }
