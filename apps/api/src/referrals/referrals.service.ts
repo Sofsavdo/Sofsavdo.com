@@ -109,18 +109,24 @@ export class ReferralsService {
     tx: Prisma.TransactionClient,
   ): Promise<{ referrerCreatorId: string; referralCodeUsed: string } | null> {
     if (!referralCodeInput) return null;
+    // Both codes are generated uppercase-only (see code-generator.ts's SUFFIX_ALPHABET) — a friend
+    // typing/retyping a shared code by hand (rather than clicking a link) very naturally lowercases
+    // it, and this lookup was a byte-exact match, so attribution silently failed with zero error
+    // shown to anyone: the new creator's registration still succeeded, their friend just never got
+    // credit. Same bug class as login()'s email case-sensitivity — normalize the same way.
+    const normalizedCode = referralCodeInput.trim().toUpperCase();
     // Check customPromoCode first, then fallback to referralCode
     const referrer = await tx.creatorProfile.findFirst({
       where: {
         OR: [
-          { customPromoCode: referralCodeInput },
-          { referralCode: referralCodeInput },
+          { customPromoCode: normalizedCode },
+          { referralCode: normalizedCode },
         ],
       },
       select: { id: true },
     });
     if (referrer) {
-      return { referrerCreatorId: referrer.id, referralCodeUsed: referralCodeInput };
+      return { referrerCreatorId: referrer.id, referralCodeUsed: normalizedCode };
     }
     this.logger.warn(`Registration referred by unknown code "${referralCodeInput}" — ignored, no attribution created.`);
     return null;

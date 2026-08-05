@@ -76,8 +76,11 @@ export class FlowsService {
   }
 
   async getFlowByReferralCode(referralCode: string) {
+    // Flow.referralCode is always generated uppercase-only (see generateUniqueReferralCode below)
+    // — normalized here for the same reason login()/resolveReferrerForAttribution are: a code
+    // shared as plain text (not a clicked link) is naturally retyped in whatever case someone types.
     const flow = await this.prisma.flow.findUnique({
-      where: { referralCode },
+      where: { referralCode: referralCode.trim().toUpperCase() },
       include: {
         product: PRODUCT_WITH_ACTIVE_OFFER,
         creatorProfile: true,

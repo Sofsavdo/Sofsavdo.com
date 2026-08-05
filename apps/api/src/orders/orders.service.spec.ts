@@ -18,7 +18,7 @@ describe("OrdersService", () => {
     offer: { findUnique: jest.Mock };
     campaign: { findUnique: jest.Mock };
     promoCode: { findUnique: jest.Mock };
-    referralLink: { findUnique: jest.Mock };
+    referralLink: { findFirst: jest.Mock };
     referralVisit: { findFirst: jest.Mock };
     attribution: { findUnique: jest.Mock };
     flow: { findUnique: jest.Mock };
@@ -75,7 +75,7 @@ describe("OrdersService", () => {
       offer: { findUnique: jest.fn() },
       campaign: { findUnique: jest.fn() },
       promoCode: { findUnique: jest.fn() },
-      referralLink: { findUnique: jest.fn() },
+      referralLink: { findFirst: jest.fn() },
       referralVisit: { findFirst: jest.fn() },
       attribution: { findUnique: jest.fn() },
       flow: { findUnique: jest.fn().mockResolvedValue(null) },
@@ -222,7 +222,7 @@ describe("OrdersService", () => {
     });
 
     it("attributes the sale to a creator and snapshots a commission when a valid refCode is given", async () => {
-      prisma.referralLink.findUnique.mockResolvedValue({ id: "link1", offerId: "offer1", creatorId: "creator1", campaignId: "campaign1", status: "ACTIVE", expiresAt: null });
+      prisma.referralLink.findFirst.mockResolvedValue({ id: "link1", offerId: "offer1", creatorId: "creator1", campaignId: "campaign1", status: "ACTIVE", expiresAt: null });
       prisma.campaign.findUnique.mockResolvedValue({ status: "ACTIVE", startDate: null, endDate: null });
       tx.campaign.findUnique.mockResolvedValue({ id: "campaign1", commissionType: "PERCENTAGE", commissionRateBps: 1000, commissionAmountMinor: null });
       tx.commissionRule.findFirst.mockResolvedValue(null);
@@ -255,11 +255,11 @@ describe("OrdersService", () => {
       );
       expect(tx.flow.update).toHaveBeenCalledWith({ where: { id: "flow1" }, data: { orderCount: { increment: 1 }, commissionEarnedMinor: { increment: 15_000_00 } } });
       // Flow resolves before the legacy ReferralLink lookup — no need to even query it.
-      expect(prisma.referralLink.findUnique).not.toHaveBeenCalled();
+      expect(prisma.referralLink.findFirst).not.toHaveBeenCalled();
     });
 
     it("rejects with REFERRAL_CODE_INVALID for an unknown/mismatched refCode", async () => {
-      prisma.referralLink.findUnique.mockResolvedValue(null);
+      prisma.referralLink.findFirst.mockResolvedValue(null);
       const dto: CreateCheckoutDto = { ...validDto, refCode: "bad-code" };
       await expect(service.createOrder("physical-offer", dto)).rejects.toMatchObject({ code: "REFERRAL_CODE_INVALID" });
     });

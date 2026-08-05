@@ -8,7 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery } from "@tanstack/react-query";
 import { formatMoneyMinor } from "@sofsavdo/types";
 import { Alert, Button, Card, CardHeader, CardTitle, Skeleton, TextField } from "@sofsavdo/ui";
-import { useOfferPublic, useCreateOrder, useValidatePromoCode, useTrackVisit } from "@/services/offer";
+import { useOfferPublic, useCreateOrder, useTrackVisit } from "@/services/offer";
 import { checkoutSchema, type CheckoutInput } from "@/lib/schemas";
 import { RegionSelect } from "./RegionSelect";
 import { UZ_DELIVERY_ZONES, UZ_VILOYATLAR } from "@/lib/uz-regions";
@@ -36,11 +36,8 @@ export function CheckoutPageClient({ offerSlug }: { offerSlug: string }) {
 
   const offerQuery = useOfferPublic(offerSlug, refCode);
   const createOrder = useCreateOrder();
-  const validatePromo = useValidatePromoCode();
   const trackVisit = useTrackVisit();
 
-  const [promoInput, setPromoInput] = useState("");
-  const [appliedPromo, setAppliedPromo] = useState<{ code: string; discountMinor: number } | null>(null);
   const [regionCode, setRegionCode] = useState("");
   const [visitorId, setVisitorId] = useState<string | undefined>(undefined);
   const [creatorDisplayName, setCreatorDisplayName] = useState<string | undefined>(undefined);
@@ -88,7 +85,6 @@ export function CheckoutPageClient({ offerSlug }: { offerSlug: string }) {
         onSuccess: (result) => {
           setVisitorId(result.visitorId);
           setCreatorDisplayName(result.creatorDisplayName);
-          if (result.promoCode) setPromoInput((current) => current || result.promoCode!);
         },
       },
     );
@@ -158,23 +154,12 @@ export function CheckoutPageClient({ offerSlug }: { offerSlug: string }) {
     );
   }
 
-  const totalMinor = Math.max(variant.priceMinor - (appliedPromo?.discountMinor ?? 0) + deliveryFeeMinor, 0);
-
-  async function onApplyPromo() {
-    if (!promoInput.trim()) return;
-    try {
-      const result = await validatePromo.mutateAsync({ offerSlug, code: promoInput.trim(), baseAmountMinor: variant!.priceMinor });
-      setAppliedPromo({ code: result.code, discountMinor: result.discountMinor });
-    } catch {
-      setAppliedPromo(null);
-    }
-  }
+  const totalMinor = Math.max(variant.priceMinor + deliveryFeeMinor, 0);
 
   async function onSubmit(values: CheckoutInput) {
     const order = await createOrder.mutateAsync({
       offerSlug,
       variantId: variant!.id,
-      promoCode: appliedPromo?.code,
       refCode,
       visitorId,
       regionCode: isPhysical ? regionCode : undefined,
@@ -237,31 +222,6 @@ export function CheckoutPageClient({ offerSlug }: { offerSlug: string }) {
             </div>
           ) : null}
 
-          <div>
-            <p className="mb-1.5 font-body text-sm font-medium text-text-primary">Promo kod</p>
-            <div className="flex flex-wrap gap-2">
-              <input
-                value={promoInput}
-                onChange={(e) => {
-                  setPromoInput(e.target.value);
-                  setAppliedPromo(null);
-                }}
-                placeholder="Masalan: MALIKA10"
-                className="h-10 min-w-0 flex-1 rounded-input border border-border bg-surface px-3 font-body text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-              />
-              <Button type="button" variant="outline" onClick={onApplyPromo} disabled={validatePromo.isPending}>
-                {validatePromo.isPending ? "..." : "Qo'llash"}
-              </Button>
-            </div>
-            {validatePromo.isError ? (
-              <p className="mt-1.5 font-body text-sm text-error">{(validatePromo.error as ApiError).message}</p>
-            ) : appliedPromo ? (
-              <p className="mt-1.5 font-body text-sm text-success">
-                Promo kod qo&apos;llandi: −{formatMoneyMinor(appliedPromo.discountMinor, offer.currency)}
-              </p>
-            ) : null}
-          </div>
-
           {/* LEGAL.md gap #1 — checkout previously had no ToS/Privacy links or consent at all;
               a customer could pay real money with zero acknowledgment of any policy. */}
           <label className="flex items-start gap-2 font-body text-sm text-text-secondary">
@@ -293,12 +253,6 @@ export function CheckoutPageClient({ offerSlug }: { offerSlug: string }) {
               <div className="flex justify-between text-text-secondary">
                 <span>Yetkazib berish</span>
                 <span className="font-numeric tabular-nums">{deliveryFeeMinor === 0 ? "Bepul" : formatMoneyMinor(deliveryFeeMinor, offer.currency)}</span>
-              </div>
-            ) : null}
-            {appliedPromo ? (
-              <div className="flex justify-between text-success">
-                <span>Chegirma</span>
-                <span className="font-numeric tabular-nums">−{formatMoneyMinor(appliedPromo.discountMinor, offer.currency)}</span>
               </div>
             ) : null}
             <div className="mt-2 flex justify-between border-t border-border pt-2 font-medium text-text-primary">

@@ -353,15 +353,23 @@ export class OrdersService {
     }
 
     if (refCode) {
+      // Flow.referralCode is always generated uppercase-only (see FlowsService's own generator) —
+      // normalized the same way as login()/resolveReferrerForAttribution, so a refCode that reached
+      // checkout with different casing (e.g. a link-preview unfurler that lowercases URLs) doesn't
+      // wrongly throw REFERRAL_CODE_INVALID for a code that's actually valid.
+      const normalizedFlowCode = refCode.trim().toUpperCase();
       // First try Flow-based referral (simplified architecture)
-      const flow = await this.prisma.flow.findUnique({ where: { referralCode: refCode } });
+      const flow = await this.prisma.flow.findUnique({ where: { referralCode: normalizedFlowCode } });
       if (flow && flow.status === "ACTIVE") {
         // For Flow-based attribution, we don't need campaign or referralVisit
         return { source: "FLOW", creatorId: flow.creatorProfileId, campaignId: null, referralVisitId: null, flowId: flow.id, productId: flow.productId };
       }
 
-      // Fallback to legacy Campaign-based referral
-      const link = await this.prisma.referralLink.findUnique({ where: { code: refCode } });
+      // Fallback to legacy Campaign-based referral. Unlike Flow codes, ReferralLink.code has no
+      // fixed casing convention (production's one remaining row is lowercase) — matched
+      // case-insensitively rather than assuming/forcing a case, which would break whatever casing
+      // is actually stored.
+      const link = await this.prisma.referralLink.findFirst({ where: { code: { equals: refCode.trim(), mode: "insensitive" } } });
       if (!link || link.offerId !== offerId || link.status !== "ACTIVE" || (link.expiresAt && link.expiresAt < now)) {
         throw new DomainException("REFERRAL_CODE_INVALID", "Referral havola yaroqsiz yoki muddati tugagan.");
       }
