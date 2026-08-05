@@ -983,7 +983,10 @@ export interface RealAdminCommission {
   orderId: string;
   orderPublicToken: string;
   creator: { id: string; displayName: string };
-  campaign: { id: string; name: string };
+  // Null for Flow-based attribution (no CommissionRule/Campaign) — see Commission.commissionRuleId's
+  // schema comment. Every other campaign-scoped domain (Content, CampaignApplication) can safely
+  // assume non-null; Commission is the one domain that spans both attribution paths.
+  campaign: { id: string; name: string } | null;
   commissionType: CommissionType;
   baseAmountMinor: number;
   amountMinor: number;

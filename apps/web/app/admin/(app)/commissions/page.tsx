@@ -67,7 +67,7 @@ function RealAdminCommissionsPage() {
           title={c.creator.displayName}
           meta={<StatusBadge tone={commissionStatusMeta[c.status].tone} label={commissionStatusMeta[c.status].label} />}
           fields={[
-            { label: "Campaign", value: c.campaign.name },
+            { label: "Campaign", value: c.campaign?.name ?? "Flow-based" },
             { label: "Baza", value: formatMoneyMinor(c.baseAmountMinor, c.currency) },
             { label: "Komissiya", value: formatMoneyMinor(c.amountMinor, c.currency), emphasis: true },
           ]}
@@ -117,7 +117,7 @@ function RealAdminCommissionsPage() {
             {items.map((c) => (
               <tr key={c.id} className="border-t border-border hover:bg-bg">
                 <td className="px-4 py-2.5 text-text-primary">{c.creator.displayName}</td>
-                <td className="px-4 py-2.5 text-text-secondary">{c.campaign.name}</td>
+                <td className="px-4 py-2.5 text-text-secondary">{c.campaign?.name ?? "Flow-based"}</td>
                 <td className="whitespace-nowrap px-4 py-2.5 text-xs text-text-muted">
                   {formatCommissionValue(c.commissionType, c.commissionType === "PERCENTAGE" ? (c.baseAmountMinor > 0 ? Math.round((c.amountMinor / c.baseAmountMinor) * 10000) : 0) : c.amountMinor)}
                 </td>
