@@ -126,6 +126,7 @@ export class FlowsService {
   async activateFlow(flowId: string, creatorProfileId: string) {
     const flow = await this.prisma.flow.findUnique({
       where: { id: flowId },
+      include: { product: { select: { status: true } } },
     });
 
     if (!flow) {
@@ -134,6 +135,13 @@ export class FlowsService {
 
     if (flow.creatorProfileId !== creatorProfileId) {
       throw new DomainException("FORBIDDEN", "Siz faqat o'zingizning Flowlaringizni boshqarishingiz mumkin.");
+    }
+
+    // Without this, a flow ProductsService.archive() just paused (see that method's own comment)
+    // could be reactivated straight back to ACTIVE by its creator — the exact bypass the cascade
+    // pause exists to close.
+    if (flow.product.status !== "ACTIVE") {
+      throw new DomainException("INVALID_STATE", "Mahsulot faol emas — oqimni qayta faollashtirib bo'lmaydi.");
     }
 
     return this.prisma.flow.update({

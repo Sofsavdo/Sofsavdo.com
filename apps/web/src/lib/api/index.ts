@@ -52,10 +52,6 @@ export { getCatalog } from "./public-real";
 export type { HomepageSection } from "./public-real";
 export { getHomepageSections } from "./public-real";
 
-// Public homepage FOMO ticker — same convention: real backend only, brand-new public surface.
-export type { PublicActivityEvent } from "./public-real";
-export { getRecentActivity } from "./public-real";
-
 export const getCampaigns = (): Promise<Campaign[]> => (USE_REAL_API ? creatorRealApi.getCampaigns() : mockApi.apiGetCampaigns());
 
 export const getCampaign = (id: string): Promise<Campaign | null> =>
@@ -195,12 +191,6 @@ export const getCompetitionLeaderboard = (competitionId: string): Promise<creato
   USE_REAL_API ? creatorRealApi.getCompetitionLeaderboard(competitionId) : Promise.resolve({ competitionId, top: [], me: null });
 export const joinCompetition = (competitionId: string): Promise<{ joined: boolean }> =>
   USE_REAL_API ? creatorRealApi.joinCompetition(competitionId) : Promise.reject(new Error("Competition join is only available in real-API mode."));
-
-// ---- Activity ticker (Phase N) — real backend only, no mock counterpart: mock mode resolves to
-// an empty feed rather than a mock reimplementation of the sale/payout/contribution merge.
-export type { ActivityEvent, ActivityEventType, ActivityTickerResponse } from "./creator-real";
-export const getActivityTicker = (): Promise<creatorRealApi.ActivityTickerResponse> =>
-  USE_REAL_API ? creatorRealApi.getActivityTicker() : Promise.resolve({ events: [] });
 
 // ---- Creator Fund (Phase N) — real backend only, no mock counterpart: mock mode resolves to a
 // zeroed/empty fund rather than a mock reimplementation of the guarded contribute-and-lock flow.

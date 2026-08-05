@@ -210,7 +210,16 @@ export class ProductsService {
 
   async archive(id: string): Promise<Product> {
     await this.findOneOrThrow(id);
-    return this.prisma.product.update({ where: { id }, data: { status: "ARCHIVED" } });
+    const archived = await this.prisma.product.update({ where: { id }, data: { status: "ARCHIVED" } });
+    // Every creator's existing Flow for this product otherwise keeps redirecting/counting clicks
+    // indefinitely — createFlow() already blocks NEW flows against a non-ACTIVE product, but
+    // nothing previously stopped ones created before the archive. Pausing (not deleting) preserves
+    // the Flow's real clickCount/orderCount/commissionEarnedMinor history and every Order/Commission
+    // that references it; FlowsService.getFlowByReferralCode already treats any non-ACTIVE status as
+    // blocked, so this alone stops the referral link from working, and the creator-facing status
+    // badge ("Faol"/"To'xtatilgan") already reflects it with no frontend change needed.
+    await this.prisma.flow.updateMany({ where: { productId: id, status: "ACTIVE" }, data: { status: "PAUSED" } });
+    return archived;
   }
 
   private async assertSlugAndSkuAvailable(slug?: string, sku?: string, excludeId?: string): Promise<void> {

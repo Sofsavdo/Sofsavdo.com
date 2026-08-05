@@ -10,7 +10,6 @@ import { canWorkAsCreator } from "@/lib/routing";
 import { applicationStatusMeta, realPayoutStatusMeta } from "@/lib/status";
 import { DashboardChart } from "@/components/creator/DashboardChart";
 import { SalesTable } from "@/components/creator/SalesTable";
-import { ActivityTicker } from "@/components/creator/ActivityTicker";
 import { LaunchBonusProgress } from "@/components/creator/LaunchBonusProgress";
 import { useFlows, getReferralUrl } from "@/services/flows";
 
@@ -87,8 +86,6 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <h1 className="font-heading text-2xl font-bold text-text-primary">Dashboard</h1>
-
-      <ActivityTicker />
 
       <LaunchBonusProgress compact />
 

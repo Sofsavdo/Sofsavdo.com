@@ -118,16 +118,17 @@ export default function MyStreamsPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row">
                   <input
                     type="text"
                     readOnly
                     value={getReferralUrl(flow.referralCode)}
-                    className="flex-1 rounded-input border border-border bg-bg px-3 py-2 font-body text-sm text-text-muted"
+                    className="min-w-0 flex-1 rounded-input border border-border bg-bg px-3 py-2 font-body text-sm text-text-muted"
                   />
                   <Button
                     size="sm"
                     variant="outline"
+                    className="shrink-0"
                     onClick={() => onCopy(flow.id, flow.referralCode)}
                   >
                     {copiedFlowId === flow.id ? 'Nusxa olindi!' : 'Nusxa'}

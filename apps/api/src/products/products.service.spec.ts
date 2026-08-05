@@ -13,6 +13,9 @@ describe("ProductsService", () => {
       create: jest.Mock;
       update: jest.Mock;
     };
+    flow: {
+      updateMany: jest.Mock;
+    };
   };
 
   beforeEach(async () => {
@@ -23,6 +26,9 @@ describe("ProductsService", () => {
         findUnique: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
+      },
+      flow: {
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
     };
     const moduleRef = await Test.createTestingModule({
@@ -164,6 +170,18 @@ describe("ProductsService", () => {
 
       expect(prisma.product.update).toHaveBeenCalledWith({ where: { id: "p1" }, data: { status: "ARCHIVED" } });
       expect(result.status).toBe("ARCHIVED");
+    });
+
+    it("pauses every ACTIVE Flow against the archived product, without deleting them", async () => {
+      prisma.product.findUnique.mockResolvedValue({ id: "p1", status: "ACTIVE" });
+      prisma.product.update.mockResolvedValue({ id: "p1", status: "ARCHIVED" });
+
+      await service.archive("p1");
+
+      expect(prisma.flow.updateMany).toHaveBeenCalledWith({
+        where: { productId: "p1", status: "ACTIVE" },
+        data: { status: "PAUSED" },
+      });
     });
 
     it("throws NOT_FOUND when archiving a nonexistent product", async () => {

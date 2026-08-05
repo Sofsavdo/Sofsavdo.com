@@ -9,7 +9,7 @@ import { BRAND } from "@sofsavdo/config/brand";
 // hurt conversion, not help it (see that page's own file comment).
 export function PublicHeader() {
   return (
-    <header className="border-b border-border">
+    <header className="sticky top-0 z-30 border-b border-border bg-surface">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-pad-mobile py-4 md:px-pad-desktop">
         <Link href="/" className="font-heading text-xl font-bold text-text-primary">
           {BRAND.name}

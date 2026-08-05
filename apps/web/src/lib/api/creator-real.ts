@@ -927,27 +927,6 @@ export async function joinCompetition(competitionId: string): Promise<{ joined: 
   return apiRequest<{ joined: boolean }>(`/creator/competitions/${competitionId}/join`, { method: "POST" });
 }
 
-// ---- Activity ticker (Phase N) — real backend only, no mock counterpart. Field names match
-// ActivityTickerResponse (apps/api/src/activity-ticker/activity-ticker.service.ts) 1:1.
-
-export type ActivityEventType = "SALE" | "PAYOUT" | "FUND_CONTRIBUTION";
-
-export interface ActivityEvent {
-  type: ActivityEventType;
-  creatorDisplayName: string;
-  amountMinor: number;
-  currency: string;
-  occurredAt: string;
-}
-
-export interface ActivityTickerResponse {
-  events: ActivityEvent[];
-}
-
-export async function getActivityTicker(): Promise<ActivityTickerResponse> {
-  return apiRequest<ActivityTickerResponse>("/creator/activity-ticker");
-}
-
 // ---- Creator Fund (Phase N) — real backend only, no mock counterpart. Field names match
 // CreatorFundService's responses (apps/api/src/creator-fund/creator-fund.service.ts) 1:1.
 

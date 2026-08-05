@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { BRAND } from "@sofsavdo/config/brand";
-import { getFeaturedOffers, getHomepageSections, getRecentActivity } from "@/lib/api";
+import { getFeaturedOffers, getHomepageSections } from "@/lib/api";
 import { PublicHeader } from "@/components/home/PublicHeader";
-import { RecentActivityTicker } from "@/components/home/RecentActivityTicker";
 import { Hero } from "@/components/home/Hero";
 import { WhySofsavdo } from "@/components/home/WhySofsavdo";
 import { FeaturedProducts } from "@/components/home/FeaturedProducts";
@@ -38,17 +37,15 @@ export const revalidate = 60;
 // comment). Once an admin has added at least one HomepageSection row, every section (including
 // which of these seven appear, and in what order) is driven by that data instead.
 export default async function HomePage() {
-  const [featuredOffers, sections, recentActivity] = await Promise.all([
+  const [featuredOffers, sections] = await Promise.all([
     getFeaturedOffers().catch(() => []),
     getHomepageSections().catch(() => []),
-    getRecentActivity().catch(() => []),
   ]);
 
   if (sections.length === 0) {
     return (
       <main>
         <PublicHeader />
-        <RecentActivityTicker events={recentActivity} />
         <Hero />
         <WhySofsavdo />
         <FeaturedProducts offers={featuredOffers} />
@@ -65,7 +62,6 @@ export default async function HomePage() {
   return (
     <main>
       <PublicHeader />
-      <RecentActivityTicker events={recentActivity} />
       {sections.map((section) => (
         <HomepageSectionRenderer key={`${section.type}-${section.sortOrder}`} section={section} featuredOffers={featuredOffers} />
       ))}

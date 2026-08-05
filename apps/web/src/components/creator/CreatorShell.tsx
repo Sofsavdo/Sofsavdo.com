@@ -91,7 +91,7 @@ export function CreatorShell({ children }: { children: ReactNode }) {
       </aside>
 
       {/* Mobile header */}
-      <header className="flex items-center justify-between border-b border-border bg-surface px-pad-mobile py-3 md:hidden">
+      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-border bg-surface px-pad-mobile py-3 md:hidden">
         <Link href="/creator/dashboard" className="font-heading text-lg font-bold text-text-primary">
           {BRAND.name}
         </Link>
