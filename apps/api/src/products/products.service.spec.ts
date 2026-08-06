@@ -134,6 +134,19 @@ describe("ProductsService", () => {
         data: expect.objectContaining({ images: [], videos: [], currency: "UZS" }),
       });
     });
+
+    it("normalizes a blank sku/creatorProfileId to null instead of writing an empty string", async () => {
+      prisma.product.findUnique.mockResolvedValue(null);
+      prisma.product.create.mockResolvedValue({ id: "new" });
+
+      await service.create({ name: "Serum", slug: "serum", type: "PHYSICAL_PRODUCT", sku: "", creatorProfileId: "" } as any);
+
+      expect(prisma.product.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ sku: null, creatorProfileId: null }),
+      });
+      // A blank sku must never trigger the SKU_TAKEN uniqueness lookup — "" isn't a real value.
+      expect(prisma.product.findUnique).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe("update", () => {
@@ -152,6 +165,19 @@ describe("ProductsService", () => {
       await service.update("p1", { status: "DRAFT" } as any);
 
       expect(prisma.product.update).toHaveBeenCalled();
+    });
+
+    it("normalizes a blank sku/creatorProfileId to null and never treats it as a real value change", async () => {
+      prisma.product.findUnique.mockResolvedValueOnce({ id: "p1", status: "ACTIVE", slug: "s", sku: "OLD-SKU" });
+      prisma.product.update.mockResolvedValue({ id: "p1" });
+
+      await service.update("p1", { sku: "", creatorProfileId: "" } as any);
+
+      expect(prisma.product.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ sku: null, creatorProfileId: null }) }),
+      );
+      // Clearing the sku must never trigger a SKU_TAKEN uniqueness lookup against "" or the old value.
+      expect(prisma.product.findUnique).toHaveBeenCalledTimes(1);
     });
 
     it("re-checks slug uniqueness only when the slug actually changes", async () => {

@@ -7,6 +7,14 @@ import type { CreateProductDto } from "./dto/create-product.dto";
 import type { UpdateProductDto } from "./dto/update-product.dto";
 import type { ProductQueryDto } from "./dto/product-query.dto";
 
+// A blank text input submits "" (not undefined/omitted) — writing that literally into `sku`
+// (unique) collides with any other product also left blank (Postgres treats "" as a real,
+// non-distinct value, unlike NULL), and into `creatorProfileId` (a foreign key) fails lookup
+// entirely since no CreatorProfile has id "". Both must become a real absence of value instead.
+function emptyToNull(value: string | undefined | null): string | undefined | null {
+  return value === "" ? null : value;
+}
+
 @Injectable()
 export class ProductsService {
   constructor(private prisma: PrismaService) {}
@@ -159,7 +167,9 @@ export class ProductsService {
   }
 
   async create(dto: CreateProductDto): Promise<Product> {
-    await this.assertSlugAndSkuAvailable(dto.slug, dto.sku);
+    const sku = emptyToNull(dto.sku);
+    const creatorProfileId = emptyToNull(dto.creatorProfileId);
+    await this.assertSlugAndSkuAvailable(dto.slug, sku ?? undefined);
     return this.prisma.product.create({
       data: {
         name: dto.name,
@@ -168,14 +178,14 @@ export class ProductsService {
         shortDescription: dto.shortDescription,
         description: dto.description,
         brand: dto.brand,
-        sku: dto.sku,
+        sku,
         images: dto.images ?? [],
         videos: dto.videos ?? [],
         attributes: dto.attributes as Prisma.InputJsonValue | undefined,
         costPriceMinor: dto.costPriceMinor,
         currency: dto.currency ?? "UZS",
         internalNotes: dto.internalNotes,
-        creatorProfileId: dto.creatorProfileId,
+        creatorProfileId,
         status: dto.status ?? "DRAFT",
         commissionType: dto.commissionType,
         commissionRateBps: dto.commissionRateBps,
@@ -196,8 +206,10 @@ export class ProductsService {
       // is the only allowed transition out of this state.
       throw new DomainException("PRODUCT_ARCHIVED", "Arxivlangan mahsulotni tahrirlab bo'lmaydi — avval qayta faollashtiring.");
     }
+    const sku = emptyToNull(dto.sku);
+    const creatorProfileId = emptyToNull(dto.creatorProfileId);
     if (dto.slug && dto.slug !== existing.slug) await this.assertSlugAndSkuAvailable(dto.slug, undefined, id);
-    if (dto.sku && dto.sku !== existing.sku) await this.assertSlugAndSkuAvailable(undefined, dto.sku, id);
+    if (sku && sku !== existing.sku) await this.assertSlugAndSkuAvailable(undefined, sku, id);
 
     return this.prisma.product.update({
       where: { id },
@@ -208,7 +220,7 @@ export class ProductsService {
         shortDescription: dto.shortDescription,
         description: dto.description,
         brand: dto.brand,
-        sku: dto.sku,
+        sku,
         images: dto.images,
         videos: dto.videos,
         attributes: dto.attributes as Prisma.InputJsonValue | undefined,
@@ -216,7 +228,7 @@ export class ProductsService {
         currency: dto.currency,
         internalNotes: dto.internalNotes,
         status: dto.status,
-        creatorProfileId: dto.creatorProfileId,
+        creatorProfileId,
         commissionType: dto.commissionType,
         commissionRateBps: dto.commissionRateBps,
         commissionAmountMinor: dto.commissionAmountMinor,

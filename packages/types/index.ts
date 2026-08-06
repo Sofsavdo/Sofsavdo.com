@@ -578,7 +578,7 @@ export interface Product {
   description?: string;
   images: string[];
   costPriceMinor?: number;
-  sku?: string;
+  sku?: string | null;
   attributes: { key: string; value: string }[];
   internalNotes?: string;
   status: ProductStatus;
