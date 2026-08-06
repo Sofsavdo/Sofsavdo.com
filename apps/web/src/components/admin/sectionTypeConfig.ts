@@ -1,6 +1,6 @@
 import type { LandingSectionType } from "@sofsavdo/types";
 
-export type SectionContentShape = "none" | "text" | "items" | "steps" | "reviews" | "faq" | "images" | "caption";
+export type SectionContentShape = "none" | "text" | "items" | "steps" | "reviews" | "faq" | "images" | "caption" | "video";
 
 export const SECTION_TYPE_LABELS: Record<LandingSectionType, string> = {
   HERO: "Hero",
@@ -33,7 +33,7 @@ export const SECTION_TYPE_SHAPE: Record<LandingSectionType, SectionContentShape>
   HOW_IT_WORKS: "steps",
   AUDIENCE: "text",
   NOT_FOR: "text",
-  CREATOR_VIDEO: "caption",
+  CREATOR_VIDEO: "video",
   PRODUCT_GALLERY: "images",
   PRICING: "none",
   OFFER_VARIANTS: "none",

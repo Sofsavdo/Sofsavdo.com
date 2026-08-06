@@ -21,6 +21,16 @@ const PAYMENT_RESULT_LABELS: Record<string, string> = {
   REFUNDED: "Qaytarildi",
 };
 
+// A COURSE/SERVICE/CONSULTATION purchase was never a shipped package — "Buyurtma qabul qilindi"
+// (order accepted, delivery-flavored) read wrong for an enrollment or a booking. PHYSICAL/DIGITAL
+// keep the original order language; everything else gets copy that actually matches what happened.
+const SUCCESS_COPY: Record<string, { title: string; tokenLabel: string }> = {
+  COURSE: { title: "Kursga yozildingiz!", tokenLabel: "Ro'yxatdan o'tish raqami" },
+  SERVICE: { title: "Arizangiz qabul qilindi!", tokenLabel: "Ariza raqami" },
+  CONSULTATION: { title: "Arizangiz qabul qilindi!", tokenLabel: "Ariza raqami" },
+};
+const DEFAULT_SUCCESS_COPY = { title: "Buyurtma qabul qilindi!", tokenLabel: "Buyurtma raqami" };
+
 export default function OrderSuccessPage({ params }: { params: Promise<{ orderId: string }> }) {
   const { orderId } = use(params);
   const query = useOrderPublic(orderId);
@@ -36,6 +46,7 @@ export default function OrderSuccessPage({ params }: { params: Promise<{ orderId
 
   const order = query.data;
   const paymentResultLabel = order ? PAYMENT_RESULT_LABELS[(order as { status?: string }).status ?? ""] : undefined;
+  const successCopy = order?.productType ? (SUCCESS_COPY[order.productType] ?? DEFAULT_SUCCESS_COPY) : DEFAULT_SUCCESS_COPY;
   if (!order) {
     return (
       <div className="mx-auto max-w-lg px-pad-mobile py-20 text-center md:px-pad-desktop">
@@ -51,9 +62,9 @@ export default function OrderSuccessPage({ params }: { params: Promise<{ orderId
     <div className="mx-auto max-w-lg px-pad-mobile py-16 md:px-pad-desktop">
       <div className="mb-6 flex flex-col items-center text-center">
         <CheckCircle2 className="size-12 text-success" />
-        <h1 className="mt-3 font-heading text-2xl font-bold text-text-primary">Buyurtma qabul qilindi!</h1>
+        <h1 className="mt-3 font-heading text-2xl font-bold text-text-primary">{successCopy.title}</h1>
         <p className="mt-1 font-body text-sm text-text-secondary">
-          Buyurtma raqami: <strong>{order.publicToken}</strong>
+          {successCopy.tokenLabel}: <strong>{order.publicToken}</strong>
         </p>
       </div>
 

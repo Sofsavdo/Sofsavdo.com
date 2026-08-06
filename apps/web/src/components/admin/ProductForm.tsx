@@ -12,10 +12,13 @@ import { useCreateProduct, useUpdateProduct, useUploadImage } from "@/services/a
 import { ApiError } from "@/lib/api/admin";
 import { useRealCreatorList } from "@/services/admin/creators";
 
-// Only title/shortDescription — the two ProductAiDraft fields that actually have a home in this
-// form today. `description`/features/benefits/etc have nowhere to go here (ProductForm doesn't
-// expose a `description` field at all yet); see ProductAiDraftPanel's own review panel for those,
-// and DECISIONS.md ADR-028 for why this is a disclosed scoping choice, not an oversight.
+// title/shortDescription/description — the ProductAiDraft fields with a home in this form.
+// features/benefits/etc still have nowhere to go here; see ProductAiDraftPanel's own review panel
+// for those. DECISIONS.md ADR-028 originally scoped `description` out of this form entirely — it
+// was AI-draftable but never actually persisted anywhere — revisited after real admin usage showed
+// shortDescription's 500-char cap was being used (and hit) as the only home for full product
+// storytelling, when `description` (the field the buyer-facing offer page's Hero actually renders)
+// was sitting unused.
 export interface ProductAiPrefill {
   title: string;
   shortDescription: string;
@@ -63,6 +66,7 @@ export function ProductForm({
           slug: existing.slug,
           type: existing.type,
           shortDescription: existing.shortDescription,
+          description: existing.description,
           sku: existing.sku,
           costPriceMinor: existing.costPriceMinor ? String(existing.costPriceMinor / 100) : undefined,
           internalNotes: existing.internalNotes,
@@ -97,6 +101,7 @@ export function ProductForm({
       slug: values.slug,
       type: values.type,
       shortDescription: values.shortDescription,
+      description: values.description,
       sku: values.sku,
       costPriceMinor: values.costPriceMinor ? Math.round(Number(values.costPriceMinor) * 100) : undefined,
       internalNotes: values.internalNotes,
@@ -134,7 +139,20 @@ export function ProductForm({
             </option>
           ))}
         </SelectField>
-        <TextAreaField label="Qisqacha tavsif" {...register("shortDescription")} />
+        <TextAreaField
+          label="Qisqacha tavsif"
+          hint="Mahsulot kartochkalarida ko'rinadigan qisqa sarlavha (1000 belgigacha)."
+          error={errors.shortDescription?.message}
+          rows={2}
+          {...register("shortDescription")}
+        />
+        <TextAreaField
+          label="To'liq tavsif"
+          hint="Buyerga ko'rinadigan sahifada asosiy tavsif sifatida chiqadi — mahsulotni chuqurroq ochib bering (20000 belgigacha)."
+          error={errors.description?.message}
+          rows={8}
+          {...register("description")}
+        />
         <div className="grid grid-cols-2 gap-3">
           <TextField label="SKU" {...register("sku")} />
           <TextField label="Cost price (so'm)" type="number" {...register("costPriceMinor")} />
@@ -169,7 +187,7 @@ export function ProductForm({
           <p className="mb-1.5 font-body text-sm font-medium text-text-primary">Rasmlar</p>
           <div className="flex flex-wrap gap-3">
             {images.map((url, index) => (
-              <div key={url} className="relative size-24 overflow-hidden rounded-input border border-border">
+              <div key={url} className="relative aspect-[3/4] w-24 shrink-0 overflow-hidden rounded-input border border-border">
                 <img src={url} alt="" className="size-full object-cover" />
                 <IconButton
                   type="button"

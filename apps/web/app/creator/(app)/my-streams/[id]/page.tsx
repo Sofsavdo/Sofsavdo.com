@@ -92,7 +92,7 @@ export default function MyStreamDetailPage() {
             {flow.product.images.length > 0 ? (
               <div className="mb-4 grid grid-cols-2 gap-3">
                 {flow.product.images.map((imageUrl, index) => (
-                  <div key={imageUrl} className="group relative aspect-square overflow-hidden rounded-lg bg-bg">
+                  <div key={imageUrl} className="group relative aspect-[3/4] overflow-hidden rounded-lg bg-bg">
                     <img src={imageUrl} alt={flow.product.name} className="h-full w-full object-cover" />
                     <button
                       type="button"
@@ -111,7 +111,7 @@ export default function MyStreamDetailPage() {
                 ))}
               </div>
             ) : (
-              <div className="mb-4 flex aspect-square items-center justify-center rounded-lg bg-bg text-text-muted">
+              <div className="mb-4 flex aspect-[3/4] items-center justify-center rounded-lg bg-bg text-text-muted">
                 Rasm yo&apos;q
               </div>
             )}

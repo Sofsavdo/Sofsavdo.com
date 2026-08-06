@@ -47,7 +47,7 @@ function MediaCarousel({ images, name }: { images: string[]; name: string }) {
 
   if (images.length === 0) {
     return (
-      <div className="flex aspect-square items-center justify-center overflow-hidden rounded-media bg-gradient-to-br from-accent/10 to-bg">
+      <div className="flex aspect-[3/4] items-center justify-center overflow-hidden rounded-media bg-gradient-to-br from-accent/10 to-bg">
         <ImageIcon className="size-16 text-accent/30" strokeWidth={1.5} />
       </div>
     );
@@ -58,10 +58,10 @@ function MediaCarousel({ images, name }: { images: string[]; name: string }) {
       <div
         ref={scrollerRef}
         onScroll={onScroll}
-        className="flex aspect-square snap-x snap-mandatory overflow-x-auto overscroll-x-contain rounded-media bg-bg [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="flex aspect-[3/4] snap-x snap-mandatory overflow-x-auto overscroll-x-contain rounded-media bg-bg [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {images.map((img, i) => (
-          <div key={img + i} className="aspect-square w-full shrink-0 snap-center">
+          <div key={img + i} className="aspect-[3/4] w-full shrink-0 snap-center">
             {/* eslint-disable-next-line @next/next/no-img-element -- storage-driver-dependent host, see ProductCard's own comment */}
             <img src={img} alt={`${name} — ${i + 1}`} className="h-full w-full object-cover" />
           </div>
@@ -224,15 +224,40 @@ export function NotForSection({ text }: { text: string }) {
   );
 }
 
-export function CreatorVideoSection({ caption }: { caption?: string }) {
+// Embeds a YouTube link (watch/youtu.be/shorts URLs) as an iframe; any other URL is assumed to be
+// a direct playable video file (e.g. an uploaded .mp4) and rendered with a native <video> tag.
+function extractYouTubeId(url: string): string | null {
+  const match = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([\w-]{11})/);
+  return match ? match[1]! : null;
+}
+
+export function CreatorVideoSection({ videoUrl, caption }: { videoUrl?: string; caption?: string }) {
+  const youtubeId = videoUrl ? extractYouTubeId(videoUrl) : null;
   return (
     <section className="bg-surface px-pad-mobile py-6 md:px-pad-desktop">
       <div className="mx-auto max-w-page">
         <h2 className="font-heading text-xl font-bold text-text-primary">Creator videosi</h2>
-        <div className="mt-3 flex aspect-video max-w-md flex-col items-center justify-center gap-2 rounded-media bg-gradient-to-br from-dark to-text-secondary">
-          <PlayCircle className="size-10 text-white/70" strokeWidth={1.5} />
-          <span className="font-body text-sm text-white/70">Video tez orada</span>
-        </div>
+        {videoUrl ? (
+          <div className="mt-3 aspect-video max-w-md overflow-hidden rounded-media bg-dark">
+            {youtubeId ? (
+              <iframe
+                src={`https://www.youtube.com/embed/${youtubeId}`}
+                title="Creator videosi"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                className="size-full"
+              />
+            ) : (
+              // eslint-disable-next-line jsx-a11y/media-has-caption -- creator-uploaded content, no transcript source
+              <video src={videoUrl} controls className="size-full object-cover" />
+            )}
+          </div>
+        ) : (
+          <div className="mt-3 flex aspect-video max-w-md flex-col items-center justify-center gap-2 rounded-media bg-gradient-to-br from-dark to-text-secondary">
+            <PlayCircle className="size-10 text-white/70" strokeWidth={1.5} />
+            <span className="font-body text-sm text-white/70">Video tez orada</span>
+          </div>
+        )}
         {caption ? <p className="mt-2 max-w-md font-body text-sm text-text-secondary">{caption}</p> : null}
       </div>
     </section>
@@ -247,7 +272,7 @@ export function Gallery({ images }: { images: string[] }) {
         <h2 className="font-heading text-xl font-bold text-text-primary">Mahsulot galereyasi</h2>
         <div className="mt-3 grid grid-cols-3 gap-3">
           {images.map((img) => (
-            <div key={img} className="aspect-square overflow-hidden rounded-card bg-bg">
+            <div key={img} className="aspect-[3/4] overflow-hidden rounded-card bg-bg">
               {/* eslint-disable-next-line @next/next/no-img-element -- storage-driver-dependent host, see ProductCard's own comment */}
               <img src={img} alt="" className="h-full w-full object-cover" />
             </div>
@@ -466,7 +491,7 @@ export function LandingSectionRenderer({
     case "NOT_FOR":
       return <NotForSection text={(c.text as string) ?? ""} />;
     case "CREATOR_VIDEO":
-      return <CreatorVideoSection caption={c.caption as string | undefined} />;
+      return <CreatorVideoSection videoUrl={c.videoUrl as string | undefined} caption={c.caption as string | undefined} />;
     case "PRODUCT_GALLERY": {
       const customImages = c.images as string[] | undefined;
       return <Gallery images={customImages && customImages.length > 0 ? customImages : offer.images} />;

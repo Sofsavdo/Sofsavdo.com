@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { LandingSectionAdmin } from "@sofsavdo/types";
-import { Button, TextAreaField, TextField } from "@sofsavdo/ui";
-import { Plus, Trash2 } from "lucide-react";
+import { Button, IconButton, TextAreaField, TextField } from "@sofsavdo/ui";
+import { Plus, Trash2, X } from "lucide-react";
 import { SECTION_TYPE_SHAPE } from "./sectionTypeConfig";
+import { useUploadImage } from "@/services/admin/catalog";
 
 type Step = { step: string; text: string };
 type Review = { author: string; rating: number; text: string };
@@ -21,11 +22,14 @@ export function SectionEditor({
 }) {
   const shape = SECTION_TYPE_SHAPE[section.type];
   const content = section.content as Record<string, unknown>;
+  const uploadImage = useUploadImage();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [text, setText] = useState((content.text as string) ?? "");
   const [caption, setCaption] = useState((content.caption as string) ?? "");
+  const [videoUrl, setVideoUrl] = useState((content.videoUrl as string) ?? "");
   const [items, setItems] = useState(((content.items as string[]) ?? []).join("\n"));
-  const [images, setImages] = useState(((content.images as string[]) ?? []).join("\n"));
+  const [images, setImages] = useState<string[]>((content.images as string[]) ?? []);
   const [steps, setSteps] = useState<Step[]>((content.steps as Step[]) ?? [{ step: "1", text: "" }]);
   const [reviews, setReviews] = useState<Review[]>((content.reviews as Review[]) ?? [{ author: "", rating: 5, text: "" }]);
   const [faq, setFaq] = useState<FaqItem[]>((content.items as FaqItem[]) ?? [{ q: "", a: "" }]);
@@ -38,16 +42,26 @@ export function SectionEditor({
     );
   }
 
+  async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    const url = await uploadImage.mutateAsync(file);
+    setImages((prev) => [...prev, url]);
+  }
+
   function save() {
     switch (shape) {
       case "text":
         return onSave({ text });
       case "caption":
         return onSave({ caption });
+      case "video":
+        return onSave({ videoUrl, caption });
       case "items":
         return onSave({ items: items.split("\n").map((s) => s.trim()).filter(Boolean) });
       case "images":
-        return onSave({ images: images.split("\n").map((s) => s.trim()).filter(Boolean) });
+        return onSave({ images });
       case "steps":
         return onSave({ steps });
       case "reviews":
@@ -61,11 +75,50 @@ export function SectionEditor({
     <div className="flex flex-col gap-3">
       {shape === "text" ? <TextAreaField label="Matn" value={text} onChange={(e) => setText(e.target.value)} /> : null}
       {shape === "caption" ? <TextField label="Izoh" value={caption} onChange={(e) => setCaption(e.target.value)} /> : null}
+      {shape === "video" ? (
+        <div className="flex flex-col gap-3">
+          <TextField
+            label="Video havolasi"
+            hint="To'g'ridan-to'g'ri video fayl manzili (.mp4) yoki YouTube havolasi."
+            placeholder="https://... yoki https://youtube.com/watch?v=..."
+            value={videoUrl}
+            onChange={(e) => setVideoUrl(e.target.value)}
+          />
+          <TextField label="Izoh (ixtiyoriy)" value={caption} onChange={(e) => setCaption(e.target.value)} />
+        </div>
+      ) : null}
       {shape === "items" ? (
         <TextAreaField label="Har birini yangi qatordan kiriting" value={items} onChange={(e) => setItems(e.target.value)} />
       ) : null}
       {shape === "images" ? (
-        <TextAreaField label="Rasm nomlari (har birini yangi qatordan)" value={images} onChange={(e) => setImages(e.target.value)} />
+        <div>
+          <p className="mb-1.5 font-body text-sm font-medium text-text-primary">Rasmlar</p>
+          <div className="flex flex-wrap gap-3">
+            {images.map((url, index) => (
+              <div key={url} className="relative aspect-[3/4] w-24 shrink-0 overflow-hidden rounded-input border border-border">
+                <img src={url} alt="" className="size-full object-cover" />
+                <IconButton
+                  type="button"
+                  aria-label="Rasmni o'chirish"
+                  size="sm"
+                  className="absolute right-1 top-1 bg-dark/60 text-white hover:bg-dark/80"
+                  onClick={() => setImages((prev) => prev.filter((_, i) => i !== index))}
+                >
+                  <X className="size-3.5" />
+                </IconButton>
+              </div>
+            ))}
+            <button
+              type="button"
+              disabled={uploadImage.isPending}
+              onClick={() => fileInputRef.current?.click()}
+              className="flex aspect-[3/4] w-24 flex-col items-center justify-center gap-1 rounded-input border border-dashed border-border font-body text-xs text-text-muted hover:border-accent hover:text-accent"
+            >
+              {uploadImage.isPending ? "Yuklanmoqda..." : "+ Rasm"}
+            </button>
+          </div>
+          <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleFileSelect} />
+        </div>
       ) : null}
 
       {shape === "steps" ? (

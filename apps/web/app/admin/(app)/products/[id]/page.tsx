@@ -72,11 +72,14 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
         ) : (
           <ul className="divide-y divide-border">
             {relatedOffers.map((o) => (
-              <li key={o.id} className="flex items-center justify-between py-2.5">
+              <li key={o.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5">
                 <span className="font-body text-sm text-text-primary">{o.name}</span>
                 <div className="flex items-center gap-3">
                   <span className="font-numeric text-sm tabular-nums text-text-secondary">{formatMoneyMinor(o.priceMinor, o.currency)}</span>
                   <Badge tone={offerStatusMeta[o.status].tone}>{offerStatusMeta[o.status].label}</Badge>
+                  <Link href={`/admin/landings/${o.id}/edit`} className="font-body text-sm text-accent underline">
+                    Landing sahifa
+                  </Link>
                 </div>
               </li>
             ))}

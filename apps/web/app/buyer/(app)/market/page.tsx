@@ -124,7 +124,7 @@ export default function MarketPage() {
               <Link key={product.id} href={`/o/${product.slug}`}>
                 <SimplifiedCard className="hover:shadow-lg transition-shadow cursor-pointer">
                   <SimplifiedCardContent className="p-3">
-                    <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden mb-3">
+                    <div className="aspect-[3/4] bg-gray-100 rounded-lg overflow-hidden mb-3">
                       <img
                         src={product.imageUrl || '/placeholder.png'}
                         alt={product.name}

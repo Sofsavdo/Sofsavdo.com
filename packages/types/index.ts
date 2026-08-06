@@ -905,6 +905,9 @@ export interface CheckoutOrderResult {
   publicToken: string;
   status: RealOrderStatus;
   offerName: string;
+  // Null only in the defensive, shouldn't-happen case of an order missing its offer/product
+  // relation — lets order-success phrase itself per product type (enrollment vs. shipped order).
+  productType: ProductType | null;
   variantName?: string;
   customer: { fullName: string; phone: string };
   subtotalMinor: number;

@@ -126,7 +126,7 @@ export default function StreamsPage() {
             return (
               <Card key={product.id} className="hover:border-accent transition-colors">
                 <div className="p-4 space-y-4">
-                  <div className="aspect-square bg-bg rounded-lg overflow-hidden">
+                  <div className="aspect-[3/4] bg-bg rounded-lg overflow-hidden">
                     {product.images && product.images.length > 0 ? (
                       <img
                         src={product.images[0]}

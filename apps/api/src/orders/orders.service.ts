@@ -17,7 +17,7 @@ import type { OrderQueryDto } from "./dto/order-query.dto";
 import type { CreateRefundDto } from "./dto/create-refund.dto";
 
 const ORDER_INCLUDE = {
-  offer: { select: { id: true, name: true, slug: true, product: { select: { images: true } } } },
+  offer: { select: { id: true, name: true, slug: true, product: { select: { images: true, type: true } } } },
   campaign: { select: { id: true, name: true, slug: true } },
   customer: true,
   address: true,
@@ -38,6 +38,10 @@ export interface PublicOrderResponse {
   publicToken: string;
   status: OrderStatus;
   offerName: string;
+  // Lets the order-success page phrase itself as an enrollment/booking rather than a shipped-goods
+  // order for non-physical products (COURSE/SERVICE/CONSULTATION) — null only in the defensive,
+  // shouldn't-happen case of a checkout order somehow missing its offer/product relation.
+  productType: ProductType | null;
   variantName: string | null;
   customer: { fullName: string; phone: string };
   subtotalMinor: number;
@@ -169,6 +173,7 @@ export class OrdersService {
       publicToken: order.publicToken,
       status: order.status,
       offerName: order.offer?.name ?? "Unknown",
+      productType: order.offer?.product.type ?? null,
       variantName: item?.nameSnapshot !== order.offer?.name ? (item?.nameSnapshot ?? null) : null,
       customer: { fullName: order.customer.fullName, phone: order.customer.phone },
       subtotalMinor: order.subtotalMinor,

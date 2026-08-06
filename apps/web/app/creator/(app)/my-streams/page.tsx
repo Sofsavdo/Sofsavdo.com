@@ -96,7 +96,7 @@ export default function MyStreamsPage() {
               </CardHeader>
               <div className="flex flex-1 flex-col gap-3 px-6 pb-6">
                 {flow.product.images.length > 0 && (
-                  <div className="aspect-square w-full overflow-hidden rounded-lg border border-border">
+                  <div className="aspect-[3/4] w-full overflow-hidden rounded-lg border border-border">
                     <img src={flow.product.images[0]} alt={flow.product.name} className="h-full w-full object-cover" />
                   </div>
                 )}

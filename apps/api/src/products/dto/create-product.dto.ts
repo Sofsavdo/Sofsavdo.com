@@ -39,15 +39,19 @@ export class CreateProductDto {
   @IsIn(PRODUCT_TYPES)
   type!: ProductType;
 
+  // A short teaser shown in card previews (product picker, catalog grid) — kept genuinely short by
+  // convention, not because 1000 chars is some hard ceiling. Full storytelling belongs in
+  // `description` below, which the buyer-facing offer page's Hero actually renders.
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  @MaxLength(500)
+  @MaxLength(1000)
   shortDescription?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @MaxLength(20000)
   description?: string;
 
   @ApiPropertyOptional()

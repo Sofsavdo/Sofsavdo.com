@@ -23,7 +23,7 @@ export function ProductCard({ offer }: { offer: ProductCardOffer }) {
       href={`/o/${offer.slug}`}
       className="group block overflow-hidden rounded-card border border-border bg-surface shadow-card transition-shadow hover:shadow-elevated"
     >
-      <div className="aspect-square w-full overflow-hidden bg-surface-muted">
+      <div className="aspect-[3/4] w-full overflow-hidden bg-surface-muted">
         {offer.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element -- same convention as CampaignCard/ContentCard: image hosts are storage-driver-dependent (local/S3/R2), not registered in next.config.ts's image remotePatterns.
           <img
