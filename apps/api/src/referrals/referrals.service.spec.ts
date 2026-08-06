@@ -5,7 +5,7 @@ import { PrismaService } from "../prisma/prisma.service";
 describe("ReferralsService", () => {
   let service: ReferralsService;
   let prisma: {
-    creatorProfile: { findUnique: jest.Mock; findFirst: jest.Mock };
+    creatorProfile: { findUnique: jest.Mock; findFirst: jest.Mock; update: jest.Mock };
     creatorReferral: { findUnique: jest.Mock; create: jest.Mock; update: jest.Mock };
     creatorReferralRule: { findMany: jest.Mock; findUnique: jest.Mock; create: jest.Mock; update: jest.Mock };
     creatorReferralReward: { create: jest.Mock; findFirst: jest.Mock };
@@ -13,7 +13,7 @@ describe("ReferralsService", () => {
 
   beforeEach(async () => {
     prisma = {
-      creatorProfile: { findUnique: jest.fn(), findFirst: jest.fn() },
+      creatorProfile: { findUnique: jest.fn(), findFirst: jest.fn(), update: jest.fn() },
       creatorReferral: { findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
       creatorReferralRule: { findMany: jest.fn(), findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
       creatorReferralReward: { create: jest.fn(), findFirst: jest.fn().mockResolvedValue(null) },
@@ -37,10 +37,48 @@ describe("ReferralsService", () => {
       expect(result).toBeNull();
     });
 
-    it("resolves a valid code to the referrer's creatorId", async () => {
-      prisma.creatorProfile.findFirst.mockResolvedValue({ id: "creator-referrer-1" });
-      const result = await service.resolveReferrerForAttribution("VALIDCOD", prisma as never);
+    it("resolves a valid referralCode to the referrer's creatorId", async () => {
+      prisma.creatorProfile.findFirst.mockResolvedValue({ id: "creator-referrer-1", referralCode: "VALIDCOD", customPromoCode: null });
+      const result = await service.resolveReferrerForAttribution("validcod", prisma as never);
       expect(result).toEqual({ referrerCreatorId: "creator-referrer-1", referralCodeUsed: "VALIDCOD" });
+    });
+
+    it("resolves a lowercase-typed customPromoCode against a lowercase-stored one — the actual reported bug", async () => {
+      prisma.creatorProfile.findFirst.mockResolvedValue({ id: "creator-referrer-1", referralCode: "AUTOGEN1", customPromoCode: "nuroy15" });
+      const result = await service.resolveReferrerForAttribution("nuroy15", prisma as never);
+      expect(result).toEqual({ referrerCreatorId: "creator-referrer-1", referralCodeUsed: "nuroy15" });
+      expect(prisma.creatorProfile.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { OR: [{ customPromoCode: { equals: "nuroy15", mode: "insensitive" } }, { referralCode: "NUROY15" }] },
+        }),
+      );
+    });
+
+    it("resolves a differently-cased input against a stored customPromoCode without rewriting its casing", async () => {
+      prisma.creatorProfile.findFirst.mockResolvedValue({ id: "creator-referrer-1", referralCode: "AUTOGEN1", customPromoCode: "nuroy15" });
+      const result = await service.resolveReferrerForAttribution("NUROY15", prisma as never);
+      expect(result).toEqual({ referrerCreatorId: "creator-referrer-1", referralCodeUsed: "nuroy15" });
+    });
+  });
+
+  describe("updateCustomPromoCode", () => {
+    it("rejects a code that collides case-insensitively with another creator's", async () => {
+      prisma.creatorProfile.findFirst.mockResolvedValue({ id: "other-creator" });
+      await expect(service.updateCustomPromoCode("creator-1", "NUROY15")).rejects.toThrow("Bu promo kod allaqachon band qilingan");
+      expect(prisma.creatorProfile.findFirst).toHaveBeenCalledWith({
+        where: { customPromoCode: { equals: "NUROY15", mode: "insensitive" }, id: { not: "creator-1" } },
+      });
+      expect(prisma.creatorProfile.update).not.toHaveBeenCalled();
+    });
+
+    it("stores the code exactly as typed when it's free", async () => {
+      prisma.creatorProfile.findFirst.mockResolvedValue(null);
+      const result = await service.updateCustomPromoCode("creator-1", "nuroy15");
+      expect(result).toEqual({ success: true });
+      expect(prisma.creatorProfile.update).toHaveBeenCalledWith({
+        where: { id: "creator-1" },
+        data: { customPromoCode: "nuroy15" },
+      });
     });
   });
 

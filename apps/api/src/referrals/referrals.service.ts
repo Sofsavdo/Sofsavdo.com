@@ -109,24 +109,32 @@ export class ReferralsService {
     tx: Prisma.TransactionClient,
   ): Promise<{ referrerCreatorId: string; referralCodeUsed: string } | null> {
     if (!referralCodeInput) return null;
-    // Both codes are generated uppercase-only (see code-generator.ts's SUFFIX_ALPHABET) — a friend
+    // referralCode is generated uppercase-only (see code-generator.ts's SUFFIX_ALPHABET) — a friend
     // typing/retyping a shared code by hand (rather than clicking a link) very naturally lowercases
     // it, and this lookup was a byte-exact match, so attribution silently failed with zero error
     // shown to anyone: the new creator's registration still succeeded, their friend just never got
     // credit. Same bug class as login()'s email case-sensitivity — normalize the same way.
-    const normalizedCode = referralCodeInput.trim().toUpperCase();
-    // Check customPromoCode first, then fallback to referralCode
+    //
+    // customPromoCode is different: it's free-typed by the creator (updateCustomPromoCode stores
+    // it exactly as entered, e.g. "nuroy15") and never forced to uppercase — matching it against
+    // an uppercased input the same way referralCode is matched meant a real, live custom code
+    // could never actually attribute a referral (confirmed: a creator's own lowercase code failed
+    // every registration attempt that used it). Matched case-insensitively instead, so the
+    // creator's stored casing is never rewritten but any casing a new registrant types still hits.
+    const trimmed = referralCodeInput.trim();
+    const normalizedCode = trimmed.toUpperCase();
     const referrer = await tx.creatorProfile.findFirst({
       where: {
         OR: [
-          { customPromoCode: normalizedCode },
+          { customPromoCode: { equals: trimmed, mode: "insensitive" } },
           { referralCode: normalizedCode },
         ],
       },
-      select: { id: true },
+      select: { id: true, referralCode: true, customPromoCode: true },
     });
     if (referrer) {
-      return { referrerCreatorId: referrer.id, referralCodeUsed: normalizedCode };
+      const codeUsed = referrer.customPromoCode?.toUpperCase() === normalizedCode ? referrer.customPromoCode! : referrer.referralCode;
+      return { referrerCreatorId: referrer.id, referralCodeUsed: codeUsed };
     }
     this.logger.warn(`Registration referred by unknown code "${referralCodeInput}" — ignored, no attribution created.`);
     return null;
@@ -403,10 +411,13 @@ export class ReferralsService {
       return { success: true };
     }
 
-    // Check if the custom promo code is already taken by another creator
+    // Check if the custom promo code is already taken by another creator — case-insensitively,
+    // matching how resolveReferrerForAttribution looks it up at registration time. Without this,
+    // two creators could hold visually-identical codes ("nuroy15" / "NUROY15") that would then
+    // resolve to whichever one Prisma happens to return first, silently misattributing referrals.
     const existing = await this.prisma.creatorProfile.findFirst({
       where: {
-        customPromoCode: customPromoCode.trim(),
+        customPromoCode: { equals: customPromoCode.trim(), mode: "insensitive" },
         id: { not: creatorId },
       },
     });
