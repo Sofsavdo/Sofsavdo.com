@@ -17,12 +17,18 @@ export interface Flow {
     name: string;
     description: string | null;
     images: string[];
+    videos: string[];
     commissionType: string | null;
     commissionRateBps: number | null;
     commissionAmountMinor: number | null;
     // Product has no price of its own — it lives on the one active Offer behind it (an
     // internal implementation detail never surfaced to creators as a separate concept).
     offers: { priceMinor: number; compareAtPriceMinor: number | null; currency: string }[];
+    // Set only for a partner-platform redirect (e.g. Fidem) — see Product.externalRedirectUrl's
+    // schema comment. When set, offers is always empty, so priceMinor-derived earnings estimates
+    // are meaningless; estimatedEarningLabel is the admin-entered replacement to show instead.
+    externalRedirectUrl: string | null;
+    estimatedEarningLabel: string | null;
   };
 }
 

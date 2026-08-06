@@ -577,6 +577,7 @@ export interface Product {
   shortDescription?: string;
   description?: string;
   images: string[];
+  videos?: string[];
   costPriceMinor?: number;
   sku?: string | null;
   attributes: { key: string; value: string }[];

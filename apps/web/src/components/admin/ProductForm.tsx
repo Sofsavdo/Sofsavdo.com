@@ -52,6 +52,11 @@ export function ProductForm({
   // could never change them. Real, editable state now; the admin uploads a file directly instead
   // of pasting an external image-hosting URL (see DECISIONS.md's Product Image Upload ADR).
   const [images, setImages] = useState<string[]>(existing?.images ?? []);
+  // No dedicated video-upload endpoint exists (only /admin/uploads/image) — admin pastes a URL
+  // instead, same convention as SectionEditor's CREATOR_VIDEO field: a direct file URL (.mp4) or
+  // a YouTube link both work, since the buyer/creator-facing renderers already handle both.
+  const [videos, setVideos] = useState<string[]>(existing?.videos ?? []);
+  const [newVideoUrl, setNewVideoUrl] = useState("");
 
   const {
     register,
@@ -111,6 +116,7 @@ export function ProductForm({
       costPriceMinor: values.costPriceMinor ? Math.round(Number(values.costPriceMinor) * 100) : undefined,
       internalNotes: values.internalNotes,
       images,
+      videos,
       attributes: existing?.attributes ?? [],
       creatorProfileId: values.creatorProfileId || null,
       featuredBadge: values.featuredBadge || null,
@@ -224,6 +230,48 @@ export function ProductForm({
           </div>
           <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleFileSelect} />
           {uploadImage.isError ? <p className="mt-1.5 font-body text-xs text-error">{(uploadImage.error as ApiError).message}</p> : null}
+        </div>
+
+        <div>
+          <p className="mb-1.5 font-body text-sm font-medium text-text-primary">Videolar</p>
+          {videos.length > 0 ? (
+            <ul className="mb-2 flex flex-col gap-1.5">
+              {videos.map((url, index) => (
+                <li key={url} className="flex items-center gap-2 rounded-input border border-border px-3 py-2">
+                  <span className="min-w-0 flex-1 truncate font-body text-sm text-text-secondary">{url}</span>
+                  <IconButton
+                    type="button"
+                    aria-label="Videoni o'chirish"
+                    size="sm"
+                    onClick={() => setVideos((prev) => prev.filter((_, i) => i !== index))}
+                  >
+                    <X className="size-3.5" />
+                  </IconButton>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          <div className="flex items-end gap-2">
+            <TextField
+              label="Video havolasi"
+              hint="To'g'ridan-to'g'ri video fayl manzili (.mp4) yoki YouTube havolasi."
+              placeholder="https://... yoki https://youtube.com/watch?v=..."
+              value={newVideoUrl}
+              onChange={(e) => setNewVideoUrl(e.target.value)}
+              className="flex-1"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!newVideoUrl.trim()}
+              onClick={() => {
+                setVideos((prev) => [...prev, newVideoUrl.trim()]);
+                setNewVideoUrl("");
+              }}
+            >
+              Qo&apos;shish
+            </Button>
+          </div>
         </div>
 
         {mutation.isError ? <Alert tone="error">{(mutation.error as ApiError).message}</Alert> : null}

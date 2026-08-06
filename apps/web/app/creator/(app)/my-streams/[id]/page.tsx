@@ -21,6 +21,7 @@ export default function MyStreamDetailPage() {
   const [descriptionCopied, setDescriptionCopied] = useState(false);
   const [downloadingIndex, setDownloadingIndex] = useState<number | null>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [carouselIndex, setCarouselIndex] = useState(0);
 
   if (flowsQuery.isLoading) {
     return (
@@ -47,6 +48,9 @@ export default function MyStreamDetailPage() {
     flow.product.commissionType === 'PERCENTAGE'
       ? `${((flow.product.commissionRateBps ?? 0) / 100).toFixed(1)}%`
       : formatMoneyMinor(flow.product.commissionAmountMinor ?? 0);
+  // A partner-platform redirect (e.g. Fidem) has no Offer/price at all, so the computed estimate
+  // is always 0 — the admin-entered label is the real number to show instead.
+  const isExternal = !!flow.product.externalRedirectUrl;
   const estimatedEarningMinor =
     flow.product.commissionType === 'PERCENTAGE'
       ? Math.round((priceMinor * (flow.product.commissionRateBps ?? 0)) / 10000)
@@ -90,25 +94,44 @@ export default function MyStreamDetailPage() {
         <Card>
           <div className="p-4">
             {flow.product.images.length > 0 ? (
-              <div className="mb-4 grid grid-cols-2 gap-3">
-                {flow.product.images.map((imageUrl, index) => (
-                  <div key={imageUrl} className="group relative aspect-[3/4] overflow-hidden rounded-lg bg-bg">
-                    <img src={imageUrl} alt={flow.product.name} className="h-full w-full object-cover" />
-                    <button
-                      type="button"
-                      onClick={() => handleDownload(index)}
-                      disabled={downloadingIndex === index}
-                      aria-label="Rasmni yuklab olish"
-                      className="absolute bottom-2 right-2 flex size-8 items-center justify-center rounded-full bg-dark/70 text-white hover:bg-dark/90 disabled:opacity-60"
-                    >
-                      {downloadingIndex === index ? (
-                        <span className="size-3 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-                      ) : (
-                        <Download className="size-4" />
-                      )}
-                    </button>
+              <div className="relative mb-4">
+                <div
+                  onScroll={(e) => {
+                    const el = e.currentTarget;
+                    if (el.clientWidth === 0) return;
+                    setCarouselIndex(Math.round(el.scrollLeft / el.clientWidth));
+                  }}
+                  className="flex aspect-[3/4] snap-x snap-mandatory overflow-x-auto overscroll-x-contain rounded-lg bg-bg [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                >
+                  {flow.product.images.map((imageUrl, index) => (
+                    <div key={imageUrl} className="group relative w-full shrink-0 snap-center">
+                      <img src={imageUrl} alt={flow.product.name} className="h-full w-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => handleDownload(index)}
+                        disabled={downloadingIndex === index}
+                        aria-label="Rasmni yuklab olish"
+                        className="absolute bottom-2 right-2 flex size-8 items-center justify-center rounded-full bg-dark/70 text-white hover:bg-dark/90 disabled:opacity-60"
+                      >
+                        {downloadingIndex === index ? (
+                          <span className="size-3 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                        ) : (
+                          <Download className="size-4" />
+                        )}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                {flow.product.images.length > 1 ? (
+                  <div className="mt-2 flex items-center justify-center gap-1.5">
+                    {flow.product.images.map((_, i) => (
+                      <span
+                        key={i}
+                        className={`size-1.5 rounded-full ${i === carouselIndex ? 'bg-accent' : 'bg-border'}`}
+                      />
+                    ))}
                   </div>
-                ))}
+                ) : null}
               </div>
             ) : (
               <div className="mb-4 flex aspect-[3/4] items-center justify-center rounded-lg bg-bg text-text-muted">
@@ -122,9 +145,11 @@ export default function MyStreamDetailPage() {
             ) : null}
             <h2 className="mb-2 font-heading text-xl font-bold text-text-primary">{flow.product.name}</h2>
             <div className="mb-4 flex items-center gap-3">
-              <span className="font-numeric text-2xl font-bold tabular-nums text-accent">
-                {formatMoneyMinor(priceMinor)}
-              </span>
+              {!isExternal ? (
+                <span className="font-numeric text-2xl font-bold tabular-nums text-accent">
+                  {formatMoneyMinor(priceMinor)}
+                </span>
+              ) : null}
               <Badge tone="success">{commissionLabel} komissiya</Badge>
             </div>
 
@@ -174,7 +199,7 @@ export default function MyStreamDetailPage() {
               <div className="rounded-lg bg-accent/10 p-4">
                 <p className="font-body text-sm font-medium text-text-primary">Har bir sotuvdan taxminan:</p>
                 <p className="font-numeric text-2xl font-bold tabular-nums text-accent">
-                  {formatMoneyMinor(estimatedEarningMinor)}
+                  {isExternal ? (flow.product.estimatedEarningLabel ?? commissionLabel) : formatMoneyMinor(estimatedEarningMinor)}
                 </p>
               </div>
             </div>
