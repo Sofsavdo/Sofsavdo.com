@@ -65,12 +65,16 @@ export function ProductForm({
           name: existing.name,
           slug: existing.slug,
           type: existing.type,
-          shortDescription: existing.shortDescription,
-          description: existing.description,
+          // Every one of these is a nullable DB column — the API genuinely returns `null` (not
+          // omitted) when unset, but the zod schema's `.optional()` only accepts `undefined`, not
+          // `null` ("Invalid input: expected string, received null"). Every nullable field loaded
+          // into defaultValues needs this same `?? undefined` normalization.
+          shortDescription: existing.shortDescription ?? undefined,
+          description: existing.description ?? undefined,
           sku: existing.sku ?? undefined,
           costPriceMinor: existing.costPriceMinor ? String(existing.costPriceMinor / 100) : undefined,
-          internalNotes: existing.internalNotes,
-          creatorProfileId: (existing as any).creatorProfileId,
+          internalNotes: existing.internalNotes ?? undefined,
+          creatorProfileId: (existing as any).creatorProfileId ?? undefined,
           featuredBadge: existing.featuredBadge ?? "",
           externalRedirectUrl: existing.externalRedirectUrl ?? "",
           estimatedEarningLabel: existing.estimatedEarningLabel ?? "",
