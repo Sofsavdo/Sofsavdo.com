@@ -382,12 +382,22 @@ model Product {
   commissionAmountMinor Int?     // Fixed commission amount in minor units (tiyin)
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
+  // Admin-controlled placement/labeling for the creator-facing product picker
+  // (ProductsService.listAvailableForPromotion) — pinned products sort first (most-recently-
+  // pinned first among them), everything else falls back to createdAt desc as before. Separate
+  // from featuredBadge: a product can be pinned without a badge, or badged without being pinned.
+  isPinned         Boolean       @default(false)
+  pinnedAt         DateTime?
+  // "PREMIUM" | "VIP" | null — a label shown next to the product name, not a business-logic gate
+  // (no different commission/visibility rules attach to it, purely marketing signal to creators).
+  featuredBadge    String?
 
   offers Offer[]
   flows Flow[]
 
   @@index([type, status])
   @@index([creatorProfileId])
+  @@index([isPinned])
 }
 
 // Flow model - Creator's promotion of a Product with a unique referral code

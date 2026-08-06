@@ -9,6 +9,7 @@ export const productSchema = z.object({
   costPriceMinor: z.string().optional(),
   internalNotes: z.string().optional(),
   creatorProfileId: z.string().optional(),
+  featuredBadge: z.enum(["PREMIUM", "VIP", ""]).optional(),
 });
 export type ProductInput = z.infer<typeof productSchema>;
 

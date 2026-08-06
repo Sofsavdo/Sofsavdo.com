@@ -56,6 +56,13 @@ export const updateProduct = (id: string, patch: Partial<Product>): Promise<Prod
 export const archiveProduct = (id: string): Promise<Product> =>
   USE_REAL_API ? realAdmin.archiveProduct(id) : mockAdmin.apiAdminArchiveProduct(id);
 
+// Real-only, no mock counterpart — same convention as every other brand-new admin action surface
+// this platform has added (Competitions, Telegram linking, ...).
+export const pinProduct = (id: string): Promise<Product> =>
+  USE_REAL_API ? realAdmin.pinProduct(id) : Promise.reject(new Error("Product pinning is only available in real-API mode."));
+export const unpinProduct = (id: string): Promise<Product> =>
+  USE_REAL_API ? realAdmin.unpinProduct(id) : Promise.reject(new Error("Product pinning is only available in real-API mode."));
+
 export const getOffers = (): Promise<Offer[]> => (USE_REAL_API ? realAdmin.getOffers() : mockAdmin.apiAdminGetOffers());
 
 export const getOffer = (id: string): Promise<Offer | null> =>

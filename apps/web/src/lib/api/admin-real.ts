@@ -180,6 +180,14 @@ export async function archiveProduct(id: string): Promise<Product> {
   return apiRequest<Product>(`/admin/products/${id}/archive`, { method: "POST" });
 }
 
+export async function pinProduct(id: string): Promise<Product> {
+  return apiRequest<Product>(`/admin/products/${id}/pin`, { method: "POST" });
+}
+
+export async function unpinProduct(id: string): Promise<Product> {
+  return apiRequest<Product>(`/admin/products/${id}/unpin`, { method: "POST" });
+}
+
 // ---- Offers ----
 
 interface BackendOfferVariant {

@@ -189,4 +189,35 @@ describe("ProductsService", () => {
       await expect(service.archive("missing")).rejects.toMatchObject({ code: "NOT_FOUND" });
     });
   });
+
+  describe("pin / unpin", () => {
+    it("pin sets isPinned and stamps pinnedAt", async () => {
+      prisma.product.findUnique.mockResolvedValue({ id: "p1", status: "ACTIVE" });
+      prisma.product.update.mockResolvedValue({ id: "p1", isPinned: true });
+
+      await service.pin("p1");
+
+      expect(prisma.product.update).toHaveBeenCalledWith({
+        where: { id: "p1" },
+        data: { isPinned: true, pinnedAt: expect.any(Date) },
+      });
+    });
+
+    it("unpin clears isPinned and pinnedAt", async () => {
+      prisma.product.findUnique.mockResolvedValue({ id: "p1", status: "ACTIVE" });
+      prisma.product.update.mockResolvedValue({ id: "p1", isPinned: false });
+
+      await service.unpin("p1");
+
+      expect(prisma.product.update).toHaveBeenCalledWith({
+        where: { id: "p1" },
+        data: { isPinned: false, pinnedAt: null },
+      });
+    });
+
+    it("throws NOT_FOUND when pinning a nonexistent product", async () => {
+      prisma.product.findUnique.mockResolvedValue(null);
+      await expect(service.pin("missing")).rejects.toMatchObject({ code: "NOT_FOUND" });
+    });
+  });
 });

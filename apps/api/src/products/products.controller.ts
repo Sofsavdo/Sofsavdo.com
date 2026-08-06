@@ -72,4 +72,16 @@ export class ProductsController {
   archive(@Param("id") id: string) {
     return this.products.archive(id);
   }
+
+  @RequirePermissions("product.write")
+  @Post(":id/pin")
+  pin(@Param("id") id: string) {
+    return this.products.pin(id);
+  }
+
+  @RequirePermissions("product.write")
+  @Post(":id/unpin")
+  unpin(@Param("id") id: string) {
+    return this.products.unpin(id);
+  }
 }

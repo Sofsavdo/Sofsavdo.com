@@ -46,6 +46,27 @@ export function useArchiveProduct() {
   });
 }
 
+function invalidateProduct(qc: ReturnType<typeof useQueryClient>, id: string) {
+  qc.invalidateQueries({ queryKey: ["admin-products"] });
+  qc.invalidateQueries({ queryKey: ["admin-products", id] });
+}
+
+export function usePinProduct() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.pinProduct(id),
+    onSuccess: (_data, id) => invalidateProduct(qc, id),
+  });
+}
+
+export function useUnpinProduct() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.unpinProduct(id),
+    onSuccess: (_data, id) => invalidateProduct(qc, id),
+  });
+}
+
 export function useAdminOffers() {
   return useQuery({ queryKey: ["admin-offers"], queryFn: api.getOffers });
 }

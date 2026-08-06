@@ -67,6 +67,7 @@ export function ProductForm({
           costPriceMinor: existing.costPriceMinor ? String(existing.costPriceMinor / 100) : undefined,
           internalNotes: existing.internalNotes,
           creatorProfileId: (existing as any).creatorProfileId,
+          featuredBadge: existing.featuredBadge ?? "",
         }
       : { type: "PHYSICAL_PRODUCT" },
   });
@@ -101,6 +102,7 @@ export function ProductForm({
       images,
       attributes: existing?.attributes ?? [],
       creatorProfileId: values.creatorProfileId,
+      featuredBadge: values.featuredBadge || null,
     };
     if (existing) {
       await updateProduct.mutateAsync({ id: existing.id, patch: payload });
@@ -142,6 +144,15 @@ export function ProductForm({
               {creator.displayName} ({creator.email})
             </option>
           ))}
+        </SelectField>
+        <SelectField
+          label="Belgi (Premium / VIP)"
+          hint="Creatorlarga mahsulot ro'yxatida ko'rinadigan qo'shimcha yorliq — hech qanday shart-sharoitga ta'sir qilmaydi."
+          {...register("featuredBadge")}
+        >
+          <option value="">Belgisiz</option>
+          <option value="PREMIUM">Premium</option>
+          <option value="VIP">VIP</option>
         </SelectField>
         <TextAreaField label="Ichki izohlar (faqat admin ko'radi)" {...register("internalNotes")} />
 

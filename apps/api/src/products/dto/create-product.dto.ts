@@ -16,6 +16,7 @@ import type { ProductStatus, ProductType } from "@prisma/client";
 const PRODUCT_TYPES: ProductType[] = ["PHYSICAL_PRODUCT", "DIGITAL_PRODUCT", "COURSE", "SERVICE", "CONSULTATION"];
 const PRODUCT_STATUSES: ProductStatus[] = ["DRAFT", "ACTIVE", "ARCHIVED"];
 const COMMISSION_TYPES = ["PERCENTAGE", "FIXED_AMOUNT"] as const;
+const FEATURED_BADGES = ["PREMIUM", "VIP"] as const;
 
 export class CreateProductDto {
   @ApiProperty()
@@ -136,4 +137,12 @@ export class CreateProductDto {
   @IsInt()
   @Min(0)
   commissionAmountMinor?: number;
+
+  // Marketing label only — see Product.featuredBadge's schema comment. Pin state itself moves via
+  // the dedicated /pin and /unpin action endpoints, not this generic DTO (same convention as
+  // status only moving through publish/complete/archive elsewhere in this codebase).
+  @ApiPropertyOptional({ enum: FEATURED_BADGES, description: "PREMIUM yoki VIP belgisi (ixtiyoriy)." })
+  @IsOptional()
+  @IsIn(FEATURED_BADGES)
+  featuredBadge?: "PREMIUM" | "VIP" | null;
 }

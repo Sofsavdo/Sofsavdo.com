@@ -48,7 +48,7 @@ export class ProductsService {
           { creatorProfileId: null, status: 'ACTIVE' },
         ],
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ isPinned: "desc" }, { pinnedAt: "desc" }, { createdAt: "desc" }],
       select: {
         id: true,
         name: true,
@@ -72,10 +72,16 @@ export class ProductsService {
         commissionType: true,
         commissionRateBps: true,
         commissionAmountMinor: true,
+        isPinned: true,
+        pinnedAt: true,
+        featuredBadge: true,
       },
     });
   }
 
+  // Pinned products sort first (most-recently-pinned first among them), matching the "creators
+  // should see this one first" ask directly — everything else falls back to newest-first, as
+  // before this feature existed.
   async listAvailableForPromotion(): Promise<Product[]> {
     return this.prisma.product.findMany({
       where: {
@@ -86,7 +92,7 @@ export class ProductsService {
           },
         },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ isPinned: "desc" }, { pinnedAt: "desc" }, { createdAt: "desc" }],
       select: {
         id: true,
         name: true,
@@ -110,6 +116,9 @@ export class ProductsService {
         commissionType: true,
         commissionRateBps: true,
         commissionAmountMinor: true,
+        isPinned: true,
+        pinnedAt: true,
+        featuredBadge: true,
         offers: {
           where: { status: "ACTIVE" },
           select: {
@@ -167,6 +176,7 @@ export class ProductsService {
         commissionType: dto.commissionType,
         commissionRateBps: dto.commissionRateBps,
         commissionAmountMinor: dto.commissionAmountMinor,
+        featuredBadge: dto.featuredBadge,
       },
     });
   }
@@ -204,8 +214,19 @@ export class ProductsService {
         commissionType: dto.commissionType,
         commissionRateBps: dto.commissionRateBps,
         commissionAmountMinor: dto.commissionAmountMinor,
+        featuredBadge: dto.featuredBadge,
       },
     });
+  }
+
+  async pin(id: string): Promise<Product> {
+    await this.findOneOrThrow(id);
+    return this.prisma.product.update({ where: { id }, data: { isPinned: true, pinnedAt: new Date() } });
+  }
+
+  async unpin(id: string): Promise<Product> {
+    await this.findOneOrThrow(id);
+    return this.prisma.product.update({ where: { id }, data: { isPinned: false, pinnedAt: null } });
   }
 
   async archive(id: string): Promise<Product> {

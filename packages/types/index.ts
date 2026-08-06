@@ -587,6 +587,12 @@ export interface Product {
   commissionType?: "PERCENTAGE" | "FIXED_AMOUNT";
   commissionRateBps?: number;
   commissionAmountMinor?: number;
+  // Admin-controlled placement in the creator-facing product picker — see
+  // ProductsService.listAvailableForPromotion's own comment. featuredBadge is a marketing label
+  // only, independent of isPinned (a product can carry either, both, or neither).
+  isPinned?: boolean;
+  pinnedAt?: string | null;
+  featuredBadge?: "PREMIUM" | "VIP" | null;
 }
 
 export interface AdminOfferVariant {
