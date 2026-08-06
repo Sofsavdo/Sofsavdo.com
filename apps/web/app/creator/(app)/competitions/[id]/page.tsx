@@ -4,7 +4,7 @@ import { use, useState } from "react";
 import Link from "next/link";
 import { formatMoneyMinor } from "@sofsavdo/types";
 import { Alert, Badge, Button, Card, EmptyState, Skeleton, TextField, cn } from "@sofsavdo/ui";
-import { Trophy, UserPlus } from "lucide-react";
+import { ExternalLink, Trophy, UserPlus } from "lucide-react";
 import { useCompetitionLeaderboard, useMyCompetitions, useJoinCompetition, useSubmitCompetitionVideo } from "@/services/competitions";
 
 function VideoSubmissionForm({ competitionId, rejectionNote }: { competitionId: string; rejectionNote?: string | null }) {
@@ -161,7 +161,16 @@ export default function CompetitionDetailPage({ params }: { params: Promise<{ id
                     </p>
                   </div>
                 </div>
-                {!isVideoCompetition ? (
+                {isVideoCompetition && entry.videoUrl ? (
+                  <a
+                    href={entry.videoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex shrink-0 items-center gap-1 font-body text-sm text-accent underline"
+                  >
+                    Video <ExternalLink className="size-3.5" />
+                  </a>
+                ) : !isVideoCompetition ? (
                   <span className="font-numeric text-sm font-semibold tabular-nums text-text-primary">
                     {formatMoneyMinor(entry.commissionMinor)}
                   </span>
@@ -186,7 +195,11 @@ export default function CompetitionDetailPage({ params }: { params: Promise<{ id
                 </p>
               </div>
             </div>
-            {!isVideoCompetition ? (
+            {isVideoCompetition && me.videoUrl ? (
+              <a href={me.videoUrl} target="_blank" rel="noopener noreferrer" className="flex shrink-0 items-center gap-1 font-body text-sm text-accent underline">
+                Video <ExternalLink className="size-3.5" />
+              </a>
+            ) : !isVideoCompetition ? (
               <span className="font-numeric text-sm font-semibold tabular-nums text-text-primary">{formatMoneyMinor(me.commissionMinor)}</span>
             ) : null}
           </div>

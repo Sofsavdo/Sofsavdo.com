@@ -918,6 +918,8 @@ export interface CompetitionLeaderboardEntry {
   displayName: string;
   commissionMinor: number;
   ordersCount: number;
+  // Only set for INSTAGRAM_VIEWS competitions — lets other participants see each other's videos.
+  videoUrl?: string | null;
 }
 
 export interface CompetitionLeaderboardResponse {

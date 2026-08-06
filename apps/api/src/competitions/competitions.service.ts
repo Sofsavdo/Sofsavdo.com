@@ -126,6 +126,16 @@ export class CompetitionsService {
     };
   }
 
+  private buildPrizeDescription(firstPrize: string, secondPrize: string, thirdPrize: string): string | null {
+    const labeled: [string, string][] = [
+      ["🥇 1-o'rin", firstPrize],
+      ["🥈 2-o'rin", secondPrize],
+      ["🥉 3-o'rin", thirdPrize],
+    ];
+    const parts = labeled.filter(([, prize]) => Boolean(prize)).map(([label, prize]) => `${label}: ${prize}`);
+    return parts.length > 0 ? parts.join(" · ") : null;
+  }
+
   private assertDatesConsistent(startAt: Date, endAt: Date): void {
     if (startAt >= endAt) {
       throw new DomainException("VALIDATION_ERROR", "Boshlanish sanasi tugash sanasidan oldin bo'lishi kerak.", { field: "startAt" });
@@ -249,9 +259,10 @@ export class CompetitionsService {
           myParticipant = participant ? { status: participant.status, videoUrl: participant.videoUrl, reviewNote: participant.reviewNote } : null;
         }
 
-        // Build prize description from individual prizes
-        const prizeParts = [r.firstPrize, r.secondPrize, r.thirdPrize].filter(Boolean);
-        const prizeDescription = prizeParts.length > 0 ? prizeParts.join(", ") : null;
+        // Build prize description from individual prizes, labeled per place — a bare
+        // "500$, 300$, 100$" reads as one undifferentiated pile of money; a creator needs to know
+        // which amount is actually theirs for finishing where they did.
+        const prizeDescription = this.buildPrizeDescription(r.firstPrize, r.secondPrize, r.thirdPrize);
 
         return {
           id: r.id,
@@ -680,6 +691,7 @@ export class CompetitionsService {
       displayName: p.creator.displayName,
       commissionMinor: 0,
       ordersCount: p.viewCount,
+      videoUrl: p.videoUrl,
     }));
   }
 }

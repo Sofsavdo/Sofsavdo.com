@@ -6,6 +6,11 @@ export interface RankedCreator {
   displayName: string;
   commissionMinor: number;
   ordersCount: number;
+  // Only ever set by CompetitionsService.rankParticipantsByViewCount (INSTAGRAM_VIEWS
+  // competitions) — every other ranking function here leaves it undefined. Lets the leaderboard
+  // show a "Videoni ko'rish" link so participants can see each other's submissions, not just the
+  // final rank/count.
+  videoUrl?: string | null;
 }
 
 // Shared by CreatorLeaderboardService (always "this_month") and CompetitionsService (an arbitrary

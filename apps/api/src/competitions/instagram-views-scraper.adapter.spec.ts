@@ -34,6 +34,12 @@ describe("InstagramViewsScraperAdapter", () => {
     expect(result).toEqual({ ok: true, viewCount: 777 });
   });
 
+  it("extracts the count when the JSON blob is escaped inside another JSON wrapper", async () => {
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, status: 200, text: () => Promise.resolve('...\\"play_count\\":42000...') });
+    const result = await adapter.fetchViewCount("https://www.instagram.com/reel/abc123/");
+    expect(result).toEqual({ ok: true, viewCount: 42000 });
+  });
+
   it("fails loudly (never fakes success) when no known count pattern is found", async () => {
     global.fetch = jest.fn().mockResolvedValue({ ok: true, status: 200, text: () => Promise.resolve("<html>nothing useful here</html>") });
     const result = await adapter.fetchViewCount("https://www.instagram.com/reel/abc123/");
