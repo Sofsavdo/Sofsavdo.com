@@ -126,6 +126,11 @@ export default function EarningsPage() {
         <StatTile label="To'langan (jami)" value={formatMoneyMinor(b.paidMinor, b.currency)} />
         <StatTile label="Bekor qilingan" value={formatMoneyMinor(b.reversedMinor, b.currency)} />
       </div>
+      <p className="-mt-2 font-body text-xs text-text-muted">
+        <strong>Kutilmoqda</strong> — mijoz buyurtmani qabul qilib, qaytarish muddati (14 kun) tugagach, komissiya
+        avtomatik &quot;Mavjud&quot; balansga o&apos;tadi. <strong>Payout jarayonida</strong> — siz allaqachon
+        so&apos;ragan, hozir ko&apos;rib chiqilayotgan summa.
+      </p>
 
       {/* Payout Methods */}
       <Card>

@@ -120,6 +120,14 @@ export function LaunchBonusProgress({ compact = false }: { compact?: boolean } =
             {status === "LOCKED" && (
               <div className="space-y-3">
                 <p className="font-body text-sm font-medium text-text-primary">Bajarish shartlari:</p>
+                <p className="font-body text-xs text-text-muted">
+                  Bu — bir martalik ochish bonusi, doimiy &quot;Do&apos;stlar&quot; mukofotidan (har bir do&apos;st
+                  uchun 20,000 so&apos;m) alohida. Pastdagi &quot;Referral&quot; shartga{" "}
+                  <Link href="/creator/referrals" className="underline">
+                    o&apos;sha yerda
+                  </Link>{" "}
+                  taklif qilingan do&apos;stlaringiz hisoblanadi.
+                </p>
                 {requirements.map((req) => (
                   <div key={req.label} className="flex items-center justify-between rounded-input border border-border px-3 py-2">
                     <div className="flex items-center gap-2">

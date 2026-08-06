@@ -4,6 +4,7 @@ import { useState } from "react";
 import { formatMoneyMinor } from "@sofsavdo/types";
 import { Alert, Badge, Card, CardHeader, CardTitle, CopyButton, EmptyState, Skeleton, StatTile, TextField, Button } from "@sofsavdo/ui";
 import { BRAND } from "@sofsavdo/config/brand";
+import Link from "next/link";
 import { useMyReferralRewards, useMyReferrals, useReferralCode, useReferralSummary } from "@/services/referrals";
 import { referralActivityMeta } from "@/lib/status";
 import { useSession } from "@/services/session";
@@ -63,6 +64,13 @@ export default function CreatorReferralsPage() {
       <Alert tone="info">
         <strong>Mukofot tizimi:</strong> Do&apos;stingiz creator sifatida ro&apos;yxatdan o&apos;tganda va haqiqiy daromad topshirganda sizga mukofot beriladi.
         Har bir daromad keltirgan creator uchun <strong>20,000 so'm</strong> mukofot olasiz.
+        <br />
+        Bu — shu &quot;Do&apos;stlar&quot; mukofoti. Ro&apos;yxatdan o&apos;tishda bir martalik{" "}
+        <strong>1.5–2.5 mln so&apos;mlik Launch Bonus</strong> alohida tizim — uni{" "}
+        <Link href="/creator/launch-bonus" className="underline">
+          shu yerdan
+        </Link>{" "}
+        kuzatib boring (bu yerdagi taklif qilingan do&apos;stlar soni o&apos;sha bonusning bitta shartiga ham hisoblanadi).
       </Alert>
 
       <Card>
