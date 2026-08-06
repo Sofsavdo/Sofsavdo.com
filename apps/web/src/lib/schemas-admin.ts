@@ -10,6 +10,7 @@ export const productSchema = z.object({
   internalNotes: z.string().optional(),
   creatorProfileId: z.string().optional(),
   featuredBadge: z.enum(["PREMIUM", "VIP", ""]).optional(),
+  externalRedirectUrl: z.string().optional(),
 });
 export type ProductInput = z.infer<typeof productSchema>;
 

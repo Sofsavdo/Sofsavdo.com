@@ -6,6 +6,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  IsUrl,
   Matches,
   MaxLength,
   Min,
@@ -145,4 +146,13 @@ export class CreateProductDto {
   @IsOptional()
   @IsIn(FEATURED_BADGES)
   featuredBadge?: "PREMIUM" | "VIP" | null;
+
+  // When set, this product is never sold through Sofsavdo's own checkout — a Flow click redirects
+  // straight here instead (see ReferralController.handleReferral). Used for partner-platform
+  // products like Fidem, where the actual purchase happens on their own Telegram Mini App.
+  @ApiPropertyOptional({ description: "Sherik platforma (masalan, Fidem) manzili — bo'lsa, Flow havolasi to'g'ridan-to'g'ri shu yerga yo'naltiradi." })
+  @IsOptional()
+  @IsString()
+  @IsUrl({ require_tld: false })
+  externalRedirectUrl?: string | null;
 }

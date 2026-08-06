@@ -121,6 +121,14 @@ export interface AppConfig {
     // failed-queue to surface.
     maxDeliveryAttempts: number;
   };
+  fidem: {
+    // Shared HMAC key with the Fidem backend (a separate Railway service/repo) — signs the click
+    // token embedded in a Flow redirect to Fidem's Telegram bot, and authenticates Fidem's
+    // inbound conversion webhook. Empty means the integration is unconfigured; the click-token
+    // signer and webhook controller both fail loudly rather than silently accepting anything, same
+    // convention as Telegram's webhookSecret above.
+    integrationSecret: string;
+  };
 }
 
 // Fails fast on missing secrets in non-development environments — a backend that silently
@@ -225,5 +233,8 @@ export default (): AppConfig => ({
       fromAddress: process.env.EMAIL_FROM ?? "no-reply@sofsavdo.com",
     },
     maxDeliveryAttempts: Number(process.env.NOTIFICATION_MAX_DELIVERY_ATTEMPTS ?? 3),
+  },
+  fidem: {
+    integrationSecret: process.env.FIDEM_INTEGRATION_SECRET ?? "",
   },
 });

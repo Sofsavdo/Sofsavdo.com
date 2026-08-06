@@ -784,7 +784,7 @@ const REAL_TO_LEGACY_ORDER_STATUS: Record<string, OrderStatus> = {
 
 interface BackendCreatorSale {
   id: string;
-  orderPublicToken: string;
+  orderPublicToken: string | null;
   createdAt: string;
   campaignName: string;
   offerName: string;
@@ -793,8 +793,8 @@ interface BackendCreatorSale {
   discountMinor: number;
   commissionBaseMinor: number;
   commissionMinor: number;
-  orderStatus: string;
-  attributionSource: "PROMO_CODE" | "REFERRAL_VISIT" | "MANUAL";
+  orderStatus: string | null;
+  attributionSource: "PROMO_CODE" | "REFERRAL_VISIT" | "MANUAL" | null;
 }
 
 export async function getMySales(): Promise<Sale[]> {
@@ -810,10 +810,11 @@ export async function getMySales(): Promise<Sale[]> {
     discountMinor: s.discountMinor,
     commissionBaseMinor: s.commissionBaseMinor,
     commissionMinor: s.commissionMinor,
-    orderStatus: REAL_TO_LEGACY_ORDER_STATUS[s.orderStatus] ?? "NEW",
+    // Null for an EXTERNAL-source (e.g. Fidem) sale — no Sofsavdo Order behind it.
+    orderStatus: s.orderStatus ? (REAL_TO_LEGACY_ORDER_STATUS[s.orderStatus] ?? "NEW") : null,
     // MANUAL attribution (admin override) has no legacy-mock equivalent — falls back to
     // REFERRAL_VISIT since that's the more common real-world cause a manual correction fixes.
-    attributionSource: s.attributionSource === "PROMO_CODE" ? "PROMO_CODE" : "REFERRAL_VISIT",
+    attributionSource: s.attributionSource === null ? null : s.attributionSource === "PROMO_CODE" ? "PROMO_CODE" : "REFERRAL_VISIT",
   }));
 }
 
@@ -1003,7 +1004,7 @@ export async function getMyLaunchBonus(): Promise<any> {
 
 export interface CreatorCommission {
   id: string;
-  orderPublicToken: string;
+  orderPublicToken: string | null;
   campaignName: string;
   commissionType: string;
   baseAmountMinor: number;

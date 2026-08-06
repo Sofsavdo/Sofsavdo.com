@@ -68,6 +68,7 @@ export function ProductForm({
           internalNotes: existing.internalNotes,
           creatorProfileId: (existing as any).creatorProfileId,
           featuredBadge: existing.featuredBadge ?? "",
+          externalRedirectUrl: existing.externalRedirectUrl ?? "",
         }
       : { type: "PHYSICAL_PRODUCT" },
   });
@@ -103,6 +104,7 @@ export function ProductForm({
       attributes: existing?.attributes ?? [],
       creatorProfileId: values.creatorProfileId,
       featuredBadge: values.featuredBadge || null,
+      externalRedirectUrl: values.externalRedirectUrl || null,
     };
     if (existing) {
       await updateProduct.mutateAsync({ id: existing.id, patch: payload });
@@ -154,6 +156,13 @@ export function ProductForm({
           <option value="PREMIUM">Premium</option>
           <option value="VIP">VIP</option>
         </SelectField>
+        <TextField
+          label="Sherik platforma havolasi (ixtiyoriy)"
+          hint="Bo'lsa, bu mahsulotning Flow havolasi Sofsavdo checkout o'rniga to'g'ridan-to'g'ri shu manzilga (masalan, Fidem Telegram botiga) yo'naltiradi."
+          placeholder="https://t.me/Fidem_Appbot"
+          error={errors.externalRedirectUrl?.message}
+          {...register("externalRedirectUrl")}
+        />
         <TextAreaField label="Ichki izohlar (faqat admin ko'radi)" {...register("internalNotes")} />
 
         <div>

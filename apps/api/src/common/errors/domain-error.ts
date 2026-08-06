@@ -111,7 +111,11 @@ export type ErrorCode =
   | "INVALID_STATE"
   | "INTERNAL_ERROR"
   | "TELEGRAM_NOT_CONFIGURED"
-  | "INSTAGRAM_FETCH_FAILED";
+  | "INSTAGRAM_FETCH_FAILED"
+  | "FIDEM_NOT_CONFIGURED"
+  | "INVALID_FIDEM_SIGNATURE"
+  | "INVALID_CLICK_TOKEN"
+  | "FLOW_NOT_FOUND";
 
 const STATUS_BY_CODE: Partial<Record<ErrorCode, number>> = {
   VALIDATION_ERROR: 400,
@@ -221,6 +225,10 @@ const STATUS_BY_CODE: Partial<Record<ErrorCode, number>> = {
   // matches AI_GENERATION_FAILED's precedent of a 5xx for "the server-side dependency failed",
   // distinct from every other code above, which is 4xx because the client did something wrong.
   STORAGE_ERROR: 500,
+  FIDEM_NOT_CONFIGURED: 503,
+  INVALID_FIDEM_SIGNATURE: 400,
+  INVALID_CLICK_TOKEN: 400,
+  FLOW_NOT_FOUND: 404,
 };
 
 // The one exception type application/domain code should throw for business-rule failures —

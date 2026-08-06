@@ -278,7 +278,7 @@ export default function EarningsPage() {
                     {formatMoneyMinor(t.amountMinor, b.currency)}
                   </p>
                   <p className="font-body text-xs text-text-muted">
-                    {t.commission.orderPublicToken} · {new Date(t.createdAt).toLocaleDateString('uz-UZ')}
+                    {t.commission.orderPublicToken ?? "Fidem"} · {new Date(t.createdAt).toLocaleDateString('uz-UZ')}
                   </p>
                   {t.reason ? <p className="mt-1 font-body text-xs text-text-muted">{t.reason}</p> : null}
                 </div>

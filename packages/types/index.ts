@@ -402,7 +402,8 @@ export interface CreatorContent {
 
 export interface Sale {
   id: string;
-  orderPublicToken: string;
+  // Both null for an EXTERNAL-source (e.g. Fidem) commission — no Sofsavdo Order behind it.
+  orderPublicToken: string | null;
   createdAt: string;
   campaignName: string;
   offerName: string;
@@ -411,8 +412,8 @@ export interface Sale {
   discountMinor: number;
   commissionBaseMinor: number;
   commissionMinor: number;
-  orderStatus: OrderStatus;
-  attributionSource: "PROMO_CODE" | "REFERRAL_VISIT";
+  orderStatus: OrderStatus | null;
+  attributionSource: "PROMO_CODE" | "REFERRAL_VISIT" | null;
 }
 
 export interface Commission {
@@ -593,6 +594,9 @@ export interface Product {
   isPinned?: boolean;
   pinnedAt?: string | null;
   featuredBadge?: "PREMIUM" | "VIP" | null;
+  // When set, this product is never sold through Sofsavdo's own checkout — a Flow link redirects
+  // straight here instead (a partner platform, e.g. Fidem's Telegram Mini App).
+  externalRedirectUrl?: string | null;
 }
 
 export interface AdminOfferVariant {
@@ -961,7 +965,7 @@ export interface RealWalletTransaction {
   amountMinor: number;
   reason?: string;
   createdAt: string;
-  commission: { id: string; orderPublicToken: string };
+  commission: { id: string; orderPublicToken: string | null };
 }
 
 export interface RealPayoutMethod {
@@ -986,8 +990,11 @@ export interface RealPayout {
 
 export interface RealAdminCommission {
   id: string;
-  orderId: string;
-  orderPublicToken: string;
+  // Null when source is "EXTERNAL" — a partner-platform (Fidem) conversion has no Sofsavdo Order.
+  orderId: string | null;
+  orderPublicToken: string | null;
+  source: "ORDER" | "EXTERNAL";
+  externalDescription: string | null;
   creator: { id: string; displayName: string };
   // Null for Flow-based attribution (no CommissionRule/Campaign) — see Commission.commissionRuleId's
   // schema comment. Every other campaign-scoped domain (Content, CampaignApplication) can safely

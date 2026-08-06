@@ -448,9 +448,11 @@ export const MALIKA_COMMISSIONS: Commission[] = MALIKA_SALES.map((s, i) => ({
   campaignName: s.campaignName,
   baseAmountMinor: s.commissionBaseMinor,
   amountMinor: s.commissionMinor,
-  status: commissionStatusFor(s.orderStatus),
+  // Mock seed data always sets a concrete orderStatus (see salesRaw above) — Sale.orderStatus is
+  // nullable only for a real EXTERNAL-source (Fidem) commission, which never appears in mock data.
+  status: commissionStatusFor(s.orderStatus!),
   createdAt: s.createdAt,
-  payableAt: ["DELIVERED", "COMPLETED"].includes(s.orderStatus) ? daysAgo(2) : undefined,
+  payableAt: ["DELIVERED", "COMPLETED"].includes(s.orderStatus!) ? daysAgo(2) : undefined,
   paidAt: i === 5 ? daysAgo(1) : undefined,
 }));
 

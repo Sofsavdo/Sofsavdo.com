@@ -24,8 +24,10 @@ type CommissionWithRelations = Prisma.CommissionGetPayload<{ include: typeof COM
 
 export interface AdminCommissionResponse {
   id: string;
-  orderId: string;
-  orderPublicToken: string;
+  orderId: string | null;
+  orderPublicToken: string | null;
+  source: "ORDER" | "EXTERNAL";
+  externalDescription: string | null;
   creator: { id: string; displayName: string };
   campaign: { id: string; name: string } | null;
   commissionType: string | null;
@@ -46,7 +48,7 @@ export interface AdminCommissionResponse {
 // mapping stays a thin, obvious transcription rather than a redesign of what the page expects.
 export interface CreatorSaleResponse {
   id: string;
-  orderPublicToken: string;
+  orderPublicToken: string | null;
   createdAt: Date;
   campaignName: string;
   offerName: string;
@@ -55,15 +57,15 @@ export interface CreatorSaleResponse {
   discountMinor: number;
   commissionBaseMinor: number;
   commissionMinor: number;
-  orderStatus: OrderStatus;
-  attributionSource: AttributionSource;
+  orderStatus: OrderStatus | null;
+  attributionSource: AttributionSource | null;
 }
 
 // The `/creator/commissions` page's shape — filterable by real Commission.status client-side,
 // distinct from CreatorSaleResponse above (which exposes Order.status, not Commission.status).
 export interface CreatorCommissionResponse {
   id: string;
-  orderPublicToken: string;
+  orderPublicToken: string | null;
   campaignName: string;
   commissionType: string;
   baseAmountMinor: number;
@@ -108,8 +110,10 @@ export class CommissionsService {
   private toAdminResponse(c: CommissionWithRelations): AdminCommissionResponse {
     return {
       id: c.id,
-      orderId: c.order.id,
-      orderPublicToken: c.order.publicToken,
+      orderId: c.order?.id ?? null,
+      orderPublicToken: c.order?.publicToken ?? null,
+      source: c.source,
+      externalDescription: c.externalDescription,
       creator: c.creator,
       campaign: c.commissionRule?.campaign ?? null,
       commissionType: c.commissionRule?.commissionType ?? null,
@@ -172,6 +176,7 @@ export class CommissionsService {
               { creator: { displayName: { contains: query.search, mode: "insensitive" } } },
               { commissionRule: { campaign: { name: { contains: query.search, mode: "insensitive" } } } },
               { order: { publicToken: { contains: query.search, mode: "insensitive" } } },
+              { externalDescription: { contains: query.search, mode: "insensitive" } },
             ],
           }
         : {}),
@@ -324,24 +329,42 @@ export class CommissionsService {
         commissionRule: { select: { campaign: { select: { name: true } } } },
       },
     });
-    return rows.map((c) => ({
-      id: c.id,
-      orderPublicToken: c.order.publicToken,
-      createdAt: c.order.createdAt,
-      campaignName: c.commissionRule?.campaign?.name ?? "Flow-based",
-      offerName: c.order.offer?.name ?? "Unknown",
-      customerMasked: maskCustomerContact(c.order.customer.fullName, c.order.customer.phone),
-      amountMinor: c.order.subtotalMinor,
-      discountMinor: c.order.discountMinor,
-      commissionBaseMinor: c.baseAmountMinor,
-      commissionMinor: c.amountMinor,
-      orderStatus: c.order.status,
-      // A Commission only ever gets created for an order that was successfully attributed to this
-      // creator (see ATTRIBUTION.md/ARCHITECTURE.md's checkout flow) — order.attribution should
-      // always be present here. The fallback exists only so a data anomaly surfaces as a
-      // plausible-looking row instead of a 500, since this is a read-only summary view.
-      attributionSource: c.order.attribution?.source ?? "REFERRAL_VISIT",
-    }));
+    return rows.map((c) =>
+      c.order
+        ? {
+            id: c.id,
+            orderPublicToken: c.order.publicToken,
+            createdAt: c.order.createdAt,
+            campaignName: c.commissionRule?.campaign?.name ?? "Flow-based",
+            offerName: c.order.offer?.name ?? "Unknown",
+            customerMasked: maskCustomerContact(c.order.customer.fullName, c.order.customer.phone),
+            amountMinor: c.order.subtotalMinor,
+            discountMinor: c.order.discountMinor,
+            commissionBaseMinor: c.baseAmountMinor,
+            commissionMinor: c.amountMinor,
+            orderStatus: c.order.status,
+            // A Commission only ever gets created for an order that was successfully attributed to
+            // this creator (see ATTRIBUTION.md/ARCHITECTURE.md's checkout flow) — order.attribution
+            // should always be present here. The fallback exists only so a data anomaly surfaces as
+            // a plausible-looking row instead of a 500, since this is a read-only summary view.
+            attributionSource: c.order.attribution?.source ?? "REFERRAL_VISIT",
+          }
+        : {
+            // EXTERNAL-source commission (e.g. Fidem) — no Order behind it at all.
+            id: c.id,
+            orderPublicToken: null,
+            createdAt: c.createdAt,
+            campaignName: c.externalDescription ?? "Fidem",
+            offerName: c.externalDescription ?? "Fidem",
+            customerMasked: "—",
+            amountMinor: c.amountMinor,
+            discountMinor: 0,
+            commissionBaseMinor: c.baseAmountMinor,
+            commissionMinor: c.amountMinor,
+            orderStatus: null,
+            attributionSource: null,
+          },
+    );
   }
 
   // The `/creator/commissions` page's real backend — one row per Commission, filterable by the
@@ -363,8 +386,8 @@ export class CommissionsService {
     });
     return rows.map((c) => ({
       id: c.id,
-      orderPublicToken: c.order.publicToken,
-      campaignName: c.commissionRule?.campaign?.name ?? "Flow-based",
+      orderPublicToken: c.order?.publicToken ?? null,
+      campaignName: c.order ? (c.commissionRule?.campaign?.name ?? "Flow-based") : (c.externalDescription ?? "Fidem"),
       commissionType: c.commissionRule?.commissionType ?? "PERCENTAGE",
       baseAmountMinor: c.baseAmountMinor,
       amountMinor: c.amountMinor,
@@ -374,7 +397,7 @@ export class CommissionsService {
     }));
   }
 
-  async listMyLedger(creatorId: string, query: CommissionQueryDto): Promise<PaginatedResult<{ id: string; type: string; amountMinor: number; reason: string | null; createdAt: Date; commission: { id: string; orderPublicToken: string } }>> {
+  async listMyLedger(creatorId: string, query: CommissionQueryDto): Promise<PaginatedResult<{ id: string; type: string; amountMinor: number; reason: string | null; createdAt: Date; commission: { id: string; orderPublicToken: string | null } }>> {
     await this.reconcileRefundedOrders({ creatorId });
     const where: Prisma.CommissionLedgerWhereInput = { commission: { creatorId } };
     const [items, total] = await Promise.all([
@@ -388,7 +411,7 @@ export class CommissionsService {
       this.prisma.commissionLedger.count({ where }),
     ]);
     return paginate(
-      items.map((l) => ({ id: l.id, type: l.type, amountMinor: l.amountMinor, reason: l.reason, createdAt: l.createdAt, commission: { id: l.commission.id, orderPublicToken: l.commission.order.publicToken } })),
+      items.map((l) => ({ id: l.id, type: l.type, amountMinor: l.amountMinor, reason: l.reason, createdAt: l.createdAt, commission: { id: l.commission.id, orderPublicToken: l.commission.order?.publicToken ?? null } })),
       total,
       query,
     );

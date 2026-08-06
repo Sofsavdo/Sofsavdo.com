@@ -17,11 +17,17 @@ export function SalesTable({ sales, limit }: { sales: Sale[]; limit?: number }) 
           <MobileDataCard
             key={sale.id}
             title={sale.campaignName}
-            meta={<Badge tone={orderStatusMeta[sale.orderStatus].tone}>{orderStatusMeta[sale.orderStatus].label}</Badge>}
+            meta={
+              sale.orderStatus ? (
+                <Badge tone={orderStatusMeta[sale.orderStatus].tone}>{orderStatusMeta[sale.orderStatus].label}</Badge>
+              ) : (
+                <Badge tone="info">Fidem</Badge>
+              )
+            }
             fields={[
               { label: "Sana", value: new Date(sale.createdAt).toLocaleDateString("uz-UZ") },
               { label: "Mijoz", value: sale.customerMasked },
-              { label: "Manba", value: sale.attributionSource === "PROMO_CODE" ? "Promo kod" : "Referral link" },
+              { label: "Manba", value: sale.attributionSource === "PROMO_CODE" ? "Promo kod" : sale.attributionSource === "REFERRAL_VISIT" ? "Referral link" : "Fidem" },
               { label: "Komissiya", value: formatMoneyMinor(sale.commissionMinor), emphasis: true },
             ]}
           />
@@ -55,10 +61,14 @@ export function SalesTable({ sales, limit }: { sales: Sale[]; limit?: number }) 
                 {formatMoneyMinor(sale.commissionMinor)}
               </td>
               <td className="whitespace-nowrap px-4 py-2.5 text-text-secondary">
-                {sale.attributionSource === "PROMO_CODE" ? "Promo kod" : "Referral link"}
+                {sale.attributionSource === "PROMO_CODE" ? "Promo kod" : sale.attributionSource === "REFERRAL_VISIT" ? "Referral link" : "Fidem"}
               </td>
               <td className="whitespace-nowrap px-4 py-2.5">
-                <Badge tone={orderStatusMeta[sale.orderStatus].tone}>{orderStatusMeta[sale.orderStatus].label}</Badge>
+                {sale.orderStatus ? (
+                  <Badge tone={orderStatusMeta[sale.orderStatus].tone}>{orderStatusMeta[sale.orderStatus].label}</Badge>
+                ) : (
+                  <Badge tone="info">Fidem</Badge>
+                )}
               </td>
             </tr>
           ))}

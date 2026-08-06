@@ -391,6 +391,12 @@ model Product {
   // "PREMIUM" | "VIP" | null — a label shown next to the product name, not a business-logic gate
   // (no different commission/visibility rules attach to it, purely marketing signal to creators).
   featuredBadge    String?
+  // When set, this product is never sold through Sofsavdo's own checkout — it represents a
+  // partner platform's offering (e.g. Fidem). ReferralController redirects a Flow click straight
+  // here (with a signed click token appended) instead of to /o/[offerSlug]; the partner reports
+  // conversions back via a webhook that creates an EXTERNAL-source Commission. See
+  // src/flows/referral.controller.ts and src/fidem-integration/.
+  externalRedirectUrl String?
 
   offers Offer[]
   flows Flow[]
@@ -1638,8 +1644,17 @@ enum CommissionStatus {
 
 model Commission {
   id                 String                   @id @default(cuid())
-  orderId            String                   @unique
-  order              Order                    @relation(fields: [orderId], references: [id])
+  // Nullable because EXTERNAL-source commissions (e.g. Fidem conversions reported via webhook)
+  // have no Sofsavdo Order at all — see `source` below. ORDER-source rows always have one.
+  orderId            String?                  @unique
+  order              Order?                   @relation(fields: [orderId], references: [id])
+  // Where this commission came from. ORDER = normal checkout attribution (the only kind that
+  // existed before this field). EXTERNAL = a partner platform (Fidem) reported a conversion via
+  // webhook for a click that started on a creator's Flow link — externalRef/externalDescription
+  // are only set for this kind.
+  source             CommissionSource         @default(ORDER)
+  externalRef        String?                  @unique // partner's transaction id — idempotency key for webhook retries
+  externalDescription String?                 // human label shown instead of an order, e.g. "Fidem — VIP yillik obuna"
   creatorId          String
   creator            CreatorProfile           @relation(fields: [creatorId], references: [id])
   commissionRuleId   String?                  // Nullable for Flow-based attribution
@@ -1672,6 +1687,11 @@ model Commission {
   // Launch-readiness fix — [creatorId, status] above can't serve NotificationSweepService's
   // global (non-creator-scoped) status sweep at all; this can, and also bounds it by recency.
   @@index([status, updatedAt])
+}
+
+enum CommissionSource {
+  ORDER
+  EXTERNAL
 }
 
 enum LedgerEntryType {
