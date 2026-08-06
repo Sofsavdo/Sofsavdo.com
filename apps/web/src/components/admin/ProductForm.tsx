@@ -73,6 +73,7 @@ export function ProductForm({
           creatorProfileId: (existing as any).creatorProfileId,
           featuredBadge: existing.featuredBadge ?? "",
           externalRedirectUrl: existing.externalRedirectUrl ?? "",
+          estimatedEarningLabel: existing.estimatedEarningLabel ?? "",
         }
       : { type: "PHYSICAL_PRODUCT" },
   });
@@ -110,6 +111,7 @@ export function ProductForm({
       creatorProfileId: values.creatorProfileId,
       featuredBadge: values.featuredBadge || null,
       externalRedirectUrl: values.externalRedirectUrl || null,
+      estimatedEarningLabel: values.estimatedEarningLabel || null,
     };
     if (existing) {
       await updateProduct.mutateAsync({ id: existing.id, patch: payload });
@@ -180,6 +182,13 @@ export function ProductForm({
           placeholder="https://t.me/Fidem_Appbot"
           error={errors.externalRedirectUrl?.message}
           {...register("externalRedirectUrl")}
+        />
+        <TextField
+          label="Daromad taxmini (ixtiyoriy)"
+          hint="Sherik platforma mahsulotlari uchun — creator-picker'da hisoblangan narx/komissiya o'rniga shu matn ko'rsatiladi."
+          placeholder="17 500 – 29 900 so'm"
+          error={errors.estimatedEarningLabel?.message}
+          {...register("estimatedEarningLabel")}
         />
         <TextAreaField label="Ichki izohlar (faqat admin ko'radi)" {...register("internalNotes")} />
 

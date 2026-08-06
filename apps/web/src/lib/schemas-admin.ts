@@ -12,6 +12,7 @@ export const productSchema = z.object({
   creatorProfileId: z.string().optional(),
   featuredBadge: z.enum(["PREMIUM", "VIP", ""]).optional(),
   externalRedirectUrl: z.string().optional(),
+  estimatedEarningLabel: z.string().max(100, "100 belgidan oshmasin").optional(),
 });
 export type ProductInput = z.infer<typeof productSchema>;
 

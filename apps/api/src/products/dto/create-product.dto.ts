@@ -159,4 +159,10 @@ export class CreateProductDto {
   @IsString()
   @IsUrl({ require_tld: false })
   externalRedirectUrl?: string | null;
+
+  @ApiPropertyOptional({ description: "Creator-picker'da ko'rsatiladigan daromad taxmini, masalan \"17 500 – 29 900 so'm\" (ixtiyoriy)." })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  estimatedEarningLabel?: string | null;
 }

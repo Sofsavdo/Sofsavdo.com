@@ -76,6 +76,7 @@ export class ProductsService {
         pinnedAt: true,
         featuredBadge: true,
         externalRedirectUrl: true,
+        estimatedEarningLabel: true,
       },
     });
   }
@@ -121,6 +122,7 @@ export class ProductsService {
         pinnedAt: true,
         featuredBadge: true,
         externalRedirectUrl: true,
+        estimatedEarningLabel: true,
         offers: {
           where: { status: "ACTIVE" },
           select: {
@@ -180,6 +182,7 @@ export class ProductsService {
         commissionAmountMinor: dto.commissionAmountMinor,
         featuredBadge: dto.featuredBadge,
         externalRedirectUrl: dto.externalRedirectUrl,
+        estimatedEarningLabel: dto.estimatedEarningLabel,
       },
     });
   }
@@ -219,6 +222,7 @@ export class ProductsService {
         commissionAmountMinor: dto.commissionAmountMinor,
         featuredBadge: dto.featuredBadge,
         externalRedirectUrl: dto.externalRedirectUrl,
+        estimatedEarningLabel: dto.estimatedEarningLabel,
       },
     });
   }

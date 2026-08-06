@@ -397,6 +397,12 @@ model Product {
   // conversions back via a webhook that creates an EXTERNAL-source Commission. See
   // src/flows/referral.controller.ts and src/fidem-integration/.
   externalRedirectUrl String?
+  // Free-text earning-potential label shown to creators in place of a computed price/commission
+  // amount (e.g. "17 500 – 29 900 so'm") — for an external-redirect product there's no Sofsavdo
+  // checkout price to multiply commissionRateBps against, so this is admin-entered directly
+  // rather than derived. Optional for every other product too; a normal product with a real Offer
+  // keeps showing its computed price/earnings instead.
+  estimatedEarningLabel String?
 
   offers Offer[]
   flows Flow[]

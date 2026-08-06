@@ -597,6 +597,9 @@ export interface Product {
   // When set, this product is never sold through Sofsavdo's own checkout — a Flow link redirects
   // straight here instead (a partner platform, e.g. Fidem's Telegram Mini App).
   externalRedirectUrl?: string | null;
+  // Free-text earning-potential label shown to creators in place of a computed price/commission
+  // amount, e.g. "17 500 – 29 900 so'm" — see the schema field's own comment.
+  estimatedEarningLabel?: string | null;
 }
 
 export interface AdminOfferVariant {

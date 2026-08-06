@@ -142,12 +142,18 @@ export default function StreamsPage() {
 
                   <div>
                     <h3 className="font-heading text-sm font-medium text-text-primary line-clamp-2">{product.name}</h3>
-                    <p className="font-body text-xs text-text-muted mt-1">{product.category}</p>
+                    {product.shortDescription ? (
+                      <p className="font-body text-xs text-text-muted mt-1 line-clamp-2">{product.shortDescription}</p>
+                    ) : null}
                   </div>
 
                   <div className="flex items-center justify-between">
                     {product.externalRedirectUrl ? (
-                      <Badge tone="accent">Sherik dastur</Badge>
+                      <Badge tone="accent">
+                        {product.commissionType === "PERCENTAGE" && product.commissionRateBps
+                          ? `Komissiya: ${product.commissionRateBps / 100}% gacha`
+                          : "Sherik dastur"}
+                      </Badge>
                     ) : (
                       <span className="font-numeric text-lg font-bold tabular-nums text-accent">
                         {formatMoneyMinor(product.offers?.[0]?.priceMinor ?? 0)}
@@ -164,8 +170,8 @@ export default function StreamsPage() {
                   <div className="rounded-input border border-success/30 bg-success/5 px-3 py-2">
                     <p className="font-body text-xs text-text-secondary">Siz ishlab olasiz</p>
                     {product.externalRedirectUrl ? (
-                      <p className="font-body text-sm font-medium text-success">
-                        Har bir pullik faollashtirishdan bonus (sherik hisoblaydi)
+                      <p className="font-numeric text-base font-bold tabular-nums text-success">
+                        {product.estimatedEarningLabel ?? "Har bir pullik faollashtirishdan bonus (sherik hisoblaydi)"}
                       </p>
                     ) : (
                       <p className="font-numeric text-base font-bold tabular-nums text-success">
