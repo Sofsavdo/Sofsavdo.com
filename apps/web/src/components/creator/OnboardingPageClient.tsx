@@ -68,6 +68,7 @@ export function OnboardingPageClient() {
       initialStep={application.currentStep || 1}
       revisionNote={application.status !== "DRAFT" ? application.reviewNote : undefined}
       mode={application.status === "DRAFT" ? "submit" : "resubmit"}
+      applicantName={user.displayName}
     />,
   );
 }

@@ -66,21 +66,34 @@ export class FidemIntegrationService {
     const baseAmountMinor = dto.amountMinor;
     const amountMinor = dto.commissionAmountMinor;
 
-    await this.prisma.$transaction(async (tx) => {
-      await tx.commission.create({
-        data: {
-          creatorId: flow.creatorProfileId,
-          source: "EXTERNAL",
-          externalRef: dto.externalPaymentId,
-          externalDescription: dto.planName ? `Fidem — ${dto.planName}` : `Fidem — ${flow.product.name}`,
-          baseAmountMinor,
-          amountMinor,
-          currency: dto.currency ?? "UZS",
-          status: "PENDING",
-        },
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.commission.create({
+          data: {
+            creatorId: flow.creatorProfileId,
+            source: "EXTERNAL",
+            externalRef: dto.externalPaymentId,
+            externalDescription: dto.planName ? `Fidem — ${dto.planName}` : `Fidem — ${flow.product.name}`,
+            baseAmountMinor,
+            amountMinor,
+            currency: dto.currency ?? "UZS",
+            status: "PENDING",
+          },
+        });
+        await tx.flow.update({ where: { id: flow.id }, data: { commissionEarnedMinor: { increment: amountMinor } } });
       });
-      await tx.flow.update({ where: { id: flow.id }, data: { commissionEarnedMinor: { increment: amountMinor } } });
-    });
+    } catch (err) {
+      // The duplicate check above (findUnique) runs outside this transaction, so two
+      // near-simultaneous retries of the same webhook delivery can both pass it before either
+      // commits — Commission.externalRef's unique index still prevents a second row from ever
+      // being created, but the losing request would otherwise see a raw P2002 and return an
+      // unhandled 500 instead of the clean {status:"duplicate"} this method promises. Same
+      // swallow-only-P2002 pattern as ReferralsService.onCampaignApplicationApproved.
+      if (err instanceof Object && "code" in err && (err as { code?: string }).code === "P2002") {
+        return { status: "duplicate" };
+      }
+      throw err;
+    }
 
     return { status: "created" };
   }

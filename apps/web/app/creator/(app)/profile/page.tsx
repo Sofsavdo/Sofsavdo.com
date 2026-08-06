@@ -3,10 +3,13 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Badge, Card, CardHeader, CardTitle, Skeleton, Button, TextField, Alert } from "@sofsavdo/ui";
+import type { SocialAccount, SocialPlatform } from "@sofsavdo/types";
+import { Badge, Card, CardHeader, CardTitle, Skeleton, Button, TextField, SelectField, Alert } from "@sofsavdo/ui";
+import { Plus, Trash2 } from "lucide-react";
 import { useSession } from "@/services/session";
 import { applicationStatusMeta } from "@/lib/status";
 import { useCreatePayoutMethod, useDeletePayoutMethod, useRealPayoutMethods } from "@/services/finance";
+import { useUpdateApplication } from "@/services/application";
 import { payoutMethodSchema, type PayoutMethodInput } from "@/lib/schemas";
 
 const PLATFORM_LABELS: Record<string, string> = {
@@ -15,16 +18,21 @@ const PLATFORM_LABELS: Record<string, string> = {
   YOUTUBE: "YouTube",
   TELEGRAM: "Telegram",
 };
+const PLATFORM_OPTIONS: SocialPlatform[] = ["INSTAGRAM", "TIKTOK", "YOUTUBE", "TELEGRAM"];
+
+function newRow(): SocialAccount {
+  return { id: `new-${Math.random().toString(36).slice(2)}`, platform: "INSTAGRAM", handle: "", profileUrl: "", followerCount: 0 };
+}
 
 export default function CreatorProfilePage() {
   const { user, isLoading } = useSession();
   const [isEditing, setIsEditing] = useState(false);
-  const [socialLinks, setSocialLinks] = useState({
-    instagram: "",
-    tiktok: "",
-    youtube: "",
-    telegram: "",
-  });
+  // Edits the real socialAccounts array (the same data onboarding step 2 collects) — this used to
+  // be a separate, disconnected 4-field "instagram/tiktok/youtube/telegram URL" form whose "Saqlash"
+  // button never actually called any API at all (just an alert claiming success), so nothing typed
+  // here was ever persisted or ever matched what onboarding had actually saved.
+  const [rows, setRows] = useState<SocialAccount[]>([]);
+  const updateApplication = useUpdateApplication();
 
   const methodsQuery = useRealPayoutMethods();
   const createMethod = useCreatePayoutMethod();
@@ -52,16 +60,16 @@ export default function CreatorProfilePage() {
   const data = application.data;
   const statusMeta = applicationStatusMeta[application.status];
 
-  const handleSave = async () => {
-    try {
-      // Save social links to backend
-      alert("Ijtimoiy tarmoq havolalari saqlandi!");
-      setIsEditing(false);
-    } catch (error) {
-      console.error('Failed to save social links:', error);
-      alert("Xatolik yuz berdi. Iltimos, qaytadan urinib ko'ring.");
-    }
-  };
+  function startEditing() {
+    setRows(data.socialAccounts && data.socialAccounts.length > 0 ? data.socialAccounts.map((a) => ({ ...a })) : [newRow()]);
+    setIsEditing(true);
+  }
+
+  async function handleSave() {
+    const cleaned = rows.filter((r) => r.handle.trim() || r.profileUrl.trim());
+    await updateApplication.mutateAsync({ patch: { socialAccounts: cleaned }, step: application.currentStep || 1 });
+    setIsEditing(false);
+  }
 
   return (
     <div className="space-y-6">
@@ -71,7 +79,7 @@ export default function CreatorProfilePage() {
           <p className="font-body text-sm text-text-secondary">Ijtimoiy tarmoq havolalaringizni qo'shing</p>
         </div>
         {!isEditing && (
-          <Button onClick={() => setIsEditing(true)} variant="outline">
+          <Button onClick={startEditing} variant="outline">
             Tahrirlash
           </Button>
         )}
@@ -122,33 +130,51 @@ export default function CreatorProfilePage() {
         <div className="space-y-4">
           {isEditing ? (
             <div className="space-y-4">
-              <TextField
-                label="Instagram"
-                placeholder="https://instagram.com/username"
-                value={socialLinks.instagram}
-                onChange={(e) => setSocialLinks({ ...socialLinks, instagram: e.target.value })}
-              />
-              <TextField
-                label="TikTok"
-                placeholder="https://tiktok.com/@username"
-                value={socialLinks.tiktok}
-                onChange={(e) => setSocialLinks({ ...socialLinks, tiktok: e.target.value })}
-              />
-              <TextField
-                label="YouTube"
-                placeholder="https://youtube.com/@username"
-                value={socialLinks.youtube}
-                onChange={(e) => setSocialLinks({ ...socialLinks, youtube: e.target.value })}
-              />
-              <TextField
-                label="Telegram"
-                placeholder="https://t.me/username"
-                value={socialLinks.telegram}
-                onChange={(e) => setSocialLinks({ ...socialLinks, telegram: e.target.value })}
-              />
+              {rows.map((row, index) => (
+                <div key={row.id} className="grid grid-cols-1 gap-3 rounded-input border border-border p-4 sm:grid-cols-2">
+                  <SelectField
+                    label="Platforma"
+                    value={row.platform}
+                    onChange={(e) => setRows((prev) => prev.map((r, i) => (i === index ? { ...r, platform: e.target.value as SocialPlatform } : r)))}
+                  >
+                    {PLATFORM_OPTIONS.map((p) => (
+                      <option key={p} value={p}>
+                        {PLATFORM_LABELS[p]}
+                      </option>
+                    ))}
+                  </SelectField>
+                  <TextField
+                    label="Foydalanuvchi nomi"
+                    placeholder="@handle"
+                    value={row.handle}
+                    onChange={(e) => setRows((prev) => prev.map((r, i) => (i === index ? { ...r, handle: e.target.value } : r)))}
+                  />
+                  <TextField
+                    label="Profil havolasi"
+                    placeholder="https://instagram.com/..."
+                    value={row.profileUrl}
+                    onChange={(e) => setRows((prev) => prev.map((r, i) => (i === index ? { ...r, profileUrl: e.target.value } : r)))}
+                  />
+                  <TextField
+                    label="Obunachilar soni"
+                    type="number"
+                    value={row.followerCount}
+                    onChange={(e) => setRows((prev) => prev.map((r, i) => (i === index ? { ...r, followerCount: Number(e.target.value) || 0 } : r)))}
+                  />
+                  <Button type="button" variant="ghost" size="sm" className="w-fit text-error hover:bg-error/5 sm:col-span-2" onClick={() => setRows((prev) => prev.filter((_, i) => i !== index))}>
+                    <Trash2 className="mr-1.5 size-4" /> O&apos;chirish
+                  </Button>
+                </div>
+              ))}
+              <Button type="button" variant="outline" size="sm" className="w-fit" onClick={() => setRows((prev) => [...prev, newRow()])}>
+                <Plus className="mr-1.5 size-4" /> Hisob qo&apos;shish
+              </Button>
+              {updateApplication.isError ? <Alert tone="error">Saqlashda xatolik yuz berdi. Qaytadan urinib ko&apos;ring.</Alert> : null}
               <div className="flex gap-2">
-                <Button onClick={handleSave}>Saqlash</Button>
-                <Button variant="outline" onClick={() => setIsEditing(false)}>
+                <Button onClick={handleSave} disabled={updateApplication.isPending}>
+                  {updateApplication.isPending ? "Saqlanmoqda..." : "Saqlash"}
+                </Button>
+                <Button variant="outline" onClick={() => setIsEditing(false)} disabled={updateApplication.isPending}>
                   Bekor qilish
                 </Button>
               </div>

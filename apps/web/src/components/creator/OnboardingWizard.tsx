@@ -37,6 +37,7 @@ export function OnboardingWizard({
   initialStep,
   revisionNote,
   mode = "submit",
+  applicantName,
 }: {
   initialData: CreatorApplicationData;
   initialStep: number;
@@ -45,6 +46,9 @@ export function OnboardingWizard({
   // distinct real-backend actions (see OnboardingPageClient) — mock mode's single apiSubmitApplication
   // handles both identically, so only the real branch actually differs.
   mode?: "submit" | "resubmit";
+  // The account's own displayName, set once at registration (see useSession's `register`) — never
+  // part of CreatorApplicationData, so the review summary can't `watch()` it as a form field.
+  applicantName: string;
 }) {
   const [step, setStep] = useState(Math.min(Math.max(initialStep, 1), STEP_TITLES.length));
   const [stepError, setStepError] = useState<string | null>(null);
@@ -97,15 +101,10 @@ export function OnboardingWizard({
       setStepError("Kamida bitta kontent yo'nalishini tanlang.");
       return;
     }
-    if (step === 3) {
-      const values = watch();
-      const cardOk = payoutMethodType === "CARD" && values.payoutCardNumber && values.payoutCardHolder;
-      const bankOk = payoutMethodType === "BANK_ACCOUNT" && values.payoutBankName && values.payoutBankAccount;
-      if (!cardOk && !bankOk) {
-        setStepError("To'lov ma'lumotlarini to'liq kiriting.");
-        return;
-      }
-    }
+    // Step 3's own card/bank fields are validated by react-hook-form's own registered rules (see
+    // the "Karta raqami" TextField below) when the form is actually submitted — step 3 has no
+    // "Keyingisi" button to reach this function at all (it goes straight to submit), so a
+    // duplicate check here was unreachable dead code.
     try {
       await persist(Math.min(step + 1, STEP_TITLES.length));
       setStep((s) => Math.min(s + 1, STEP_TITLES.length));
@@ -117,15 +116,6 @@ export function OnboardingWizard({
   function goBack() {
     setStepError(null);
     setStep((s) => Math.max(s - 1, 1));
-  }
-
-  async function onSaveDraft() {
-    setStepError(null);
-    try {
-      await persist(step);
-    } catch {
-      setStepError("Saqlashda xatolik yuz berdi.");
-    }
   }
 
   async function onFinalSubmit() {
@@ -292,28 +282,39 @@ export function OnboardingWizard({
             </SelectField>
             {payoutMethodType === "CARD" ? (
               <>
-                <TextField 
-                  label="Karta raqami" 
-                  placeholder="8600 0000 0000 0000" 
+                <TextField
+                  label="Karta raqami"
+                  placeholder="8600 0000 0000 0000"
+                  error={errors.payoutCardNumber?.message}
                   {...register("payoutCardNumber", {
+                    required: "Karta raqamini kiriting",
+                    // Accepts however the user actually types it (with or without the spaces the
+                    // placeholder itself shows) — stripped before validating/storing, so a real
+                    // card number typed exactly like the placeholder never fails the 16-digit check.
+                    setValueAs: (v: string) => (v ?? "").replace(/\s+/g, ""),
                     pattern: {
                       value: /^\d{16}$/,
                       message: "16 xonali karta raqamini kiriting"
                     }
-                  })} 
+                  })}
                 />
-                <TextField 
-                  label="Karta egasi" 
-                  placeholder="MALIKA YUSUPOVA" 
+                <TextField
+                  label="Karta egasi"
+                  placeholder="MALIKA YUSUPOVA"
+                  error={errors.payoutCardHolder?.message}
                   {...register("payoutCardHolder", {
                     required: "Karta egasini kiriting"
-                  })} 
+                  })}
                 />
               </>
             ) : (
               <>
-                <TextField label="Bank nomi" {...register("payoutBankName")} />
-                <TextField label="Hisob raqami" {...register("payoutBankAccount")} />
+                <TextField label="Bank nomi" error={errors.payoutBankName?.message} {...register("payoutBankName", { required: "Bank nomini kiriting" })} />
+                <TextField
+                  label="Hisob raqami"
+                  error={errors.payoutBankAccount?.message}
+                  {...register("payoutBankAccount", { required: "Hisob raqamini kiriting" })}
+                />
               </>
             )}
 
@@ -326,7 +327,7 @@ export function OnboardingWizard({
             <div className="flex flex-col gap-4">
               <div className="rounded-input border border-border bg-bg p-4 font-body text-sm text-text-secondary">
                 <p className="mb-2 font-medium text-text-primary">Ariza xulosasi</p>
-                <p>{watch("fullName")} · {watch("city")}</p>
+                <p>{applicantName} · {watch("city")}</p>
                 <p>{fields.length} ta ijtimoiy tarmoq hisobi · {contentNiches.join(", ") || "—"}</p>
               </div>
               <label className="flex items-start gap-2 font-body text-sm text-text-secondary">
@@ -344,9 +345,6 @@ export function OnboardingWizard({
             Orqaga
           </Button>
           <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" onClick={onSaveDraft} disabled={updateApplication.isPending}>
-              {updateApplication.isPending ? "Saqlanmoqda..." : "Qoralama sifatida saqlash"}
-            </Button>
             {step < STEP_TITLES.length ? (
               <Button type="button" onClick={goNext} disabled={updateApplication.isPending}>
                 Keyingisi

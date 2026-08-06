@@ -89,6 +89,21 @@ describe("FidemIntegrationService", () => {
       expect(prisma.commission.create).not.toHaveBeenCalled();
     });
 
+    // Regression test: the duplicate check above runs outside the transaction, so two
+    // near-simultaneous retries of the same webhook can both pass it before either commits — the
+    // losing one used to surface a raw, unhandled P2002 instead of a clean duplicate response.
+    it("returns duplicate (not a raw 500) when a concurrent retry loses the unique-constraint race", async () => {
+      const p2002 = Object.assign(new Error("Unique constraint failed"), { code: "P2002" });
+      prisma.commission.create.mockRejectedValue(p2002);
+      const result = await service.recordConversion(buildDto());
+      expect(result).toEqual({ status: "duplicate" });
+    });
+
+    it("re-throws a non-P2002 transaction error instead of swallowing it", async () => {
+      prisma.commission.create.mockRejectedValue(new Error("connection lost"));
+      await expect(service.recordConversion(buildDto())).rejects.toThrow("connection lost");
+    });
+
     it("throws FLOW_NOT_FOUND when the flow no longer exists or isn't an external-redirect product", async () => {
       prisma.flow.findUnique.mockResolvedValue(null);
       await expect(service.recordConversion(buildDto())).rejects.toMatchObject({ code: "FLOW_NOT_FOUND" });
