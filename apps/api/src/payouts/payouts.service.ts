@@ -112,32 +112,44 @@ export class PayoutsService {
     if (!method || method.creatorId !== creatorId) throw new DomainException("PAYOUT_METHOD_NOT_FOUND", "To'lov usuli topilmadi.");
     if (!method.isActive) throw new DomainException("PAYOUT_METHOD_INACTIVE", "Bu to'lov usuli faol emas.");
 
-    // Launch Bonus integration - check for unlocked bonus and include in available balance
+    // Launch Bonus integration - a creator's one-time unlocked bonus can be folded into this
+    // request's available balance. This read is outside the transaction and can be stale — that's
+    // fine, since the actual claim below is what's guarded; a stale read here can only make this
+    // request under-count its balance, never double-spend.
     const unlockedBonus = await this.prisma.launchBonus.findUnique({
       where: { creatorProfileId: creatorId, status: "UNLOCKED" },
     });
-    const bonusAmountMinor = unlockedBonus?.bonusAmountMinor || 0;
 
-    const payout = await this.prisma.$transaction(async (tx) => {
+    const { payout, bonusAmountMinor } = await this.prisma.$transaction(async (tx) => {
       const created = await tx.payout.create({
         data: { creatorId, payoutMethodId: dto.payoutMethodId, amountMinor: dto.amountMinor, status: "REQUESTED" },
       });
-      // Throws INSUFFICIENT_BALANCE (rolling back the whole transaction, including the Payout
-      // row just created) if the creator's available balance can't cover it — see
-      // CommissionsService.lockPayableCommissions for the race-safety reasoning.
-      // Pass bonus amount to allow using unlocked bonus for payout
-      await this.commissions.lockPayableCommissions(tx, creatorId, dto.amountMinor, created.id, bonusAmountMinor);
-      
-      // If bonus was used, mark it PAID (distinct from EXPIRED — this is the success path, not a
-      // missed deadline) so it can never be folded into a second payout.
-      if (bonusAmountMinor > 0 && unlockedBonus) {
-        await tx.launchBonus.update({
-          where: { id: unlockedBonus.id },
+
+      // A LaunchBonus is one-time and per-creator-unique, but marking it PAID was previously a
+      // bare `update()` by id with no status guard — two near-simultaneous requestPayout calls
+      // could both read the same UNLOCKED bonus above, both fold its amount into their own balance
+      // math, and both then bare-`update()` it to PAID, letting the same one-time bonus cover two
+      // separate payouts (a real double-spend of platform funds). Guarded exactly like
+      // CommissionsService.lockPayableCommissions guards Commission rows below: `updateMany` whose
+      // WHERE re-asserts `status: "UNLOCKED"`, so whichever concurrent request commits second finds
+      // the row already flipped and gets `count === 0` — it must proceed without the bonus, not
+      // silently count it twice. A later INSUFFICIENT_BALANCE throw from lockPayableCommissions
+      // rolls back this whole transaction (including this claim), returning the bonus to UNLOCKED.
+      let bonusAmountMinor = 0;
+      if (unlockedBonus) {
+        const claim = await tx.launchBonus.updateMany({
+          where: { id: unlockedBonus.id, status: "UNLOCKED" },
           data: { status: "PAID" },
         });
+        if (claim.count > 0) bonusAmountMinor = unlockedBonus.bonusAmountMinor;
       }
-      
-      return created;
+
+      // Throws INSUFFICIENT_BALANCE (rolling back the whole transaction, including the Payout row
+      // and any bonus claim above) if the creator's available balance can't cover it — see
+      // CommissionsService.lockPayableCommissions for the race-safety reasoning.
+      await this.commissions.lockPayableCommissions(tx, creatorId, dto.amountMinor, created.id, bonusAmountMinor);
+
+      return { payout: created, bonusAmountMinor };
     });
 
     await this.audit.record({ actorId: userId, action: "PAYOUT_REQUESTED", entityType: "Payout", entityId: payout.id, after: { amountMinor: dto.amountMinor, bonusIncluded: bonusAmountMinor } });

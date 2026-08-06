@@ -14,7 +14,7 @@ describe("PayoutsService", () => {
     launchBonus: { findUnique: jest.Mock };
     $transaction: jest.Mock;
   };
-  let tx: { payout: { create: jest.Mock; update: jest.Mock; updateMany: jest.Mock } };
+  let tx: { payout: { create: jest.Mock; update: jest.Mock; updateMany: jest.Mock }; launchBonus: { updateMany: jest.Mock } };
   let commissions: { lockPayableCommissions: jest.Mock; releaseLockedCommissions: jest.Mock; settleLockedCommissions: jest.Mock };
   let audit: { record: jest.Mock };
 
@@ -45,7 +45,10 @@ describe("PayoutsService", () => {
       launchBonus: { findUnique: jest.fn().mockResolvedValue(null) },
       $transaction: jest.fn(),
     };
-    tx = { payout: { create: jest.fn(), update: jest.fn(), updateMany: jest.fn().mockResolvedValue({ count: 1 }) } };
+    tx = {
+      payout: { create: jest.fn(), update: jest.fn(), updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+      launchBonus: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+    };
     prisma.$transaction.mockImplementation((cb: (tx: unknown) => unknown) => cb(tx));
     commissions = { lockPayableCommissions: jest.fn(), releaseLockedCommissions: jest.fn(), settleLockedCommissions: jest.fn() };
     audit = { record: jest.fn() };
@@ -118,6 +121,33 @@ describe("PayoutsService", () => {
       tx.payout.create.mockResolvedValue({ id: "payout1" });
       commissions.lockPayableCommissions.mockRejectedValue(Object.assign(new Error("insufficient"), { code: "INSUFFICIENT_BALANCE" }));
       await expect(service.requestPayout("creator1", "user1", { amountMinor: 200_000_00, payoutMethodId: "pm1" })).rejects.toMatchObject({ code: "INSUFFICIENT_BALANCE" });
+    });
+
+    // Regression test for a real double-spend: marking the bonus PAID used to be a bare `update()`
+    // by id with no status guard, so two concurrent requests could both fold the same one-time
+    // bonus into their own balance math and both succeed in claiming it.
+    it("atomically claims an unlocked bonus with a guarded updateMany and folds it into the balance check", async () => {
+      prisma.payoutMethod.findUnique.mockResolvedValue(activeMethod);
+      prisma.launchBonus.findUnique.mockResolvedValue({ id: "bonus1", bonusAmountMinor: 250_000_00 });
+      tx.payout.create.mockResolvedValue({ id: "payout1" });
+      prisma.payout.findUnique.mockResolvedValue(fullPayoutLookup);
+
+      await service.requestPayout("creator1", "user1", { amountMinor: 200_000_00, payoutMethodId: "pm1" });
+
+      expect(tx.launchBonus.updateMany).toHaveBeenCalledWith({ where: { id: "bonus1", status: "UNLOCKED" }, data: { status: "PAID" } });
+      expect(commissions.lockPayableCommissions).toHaveBeenCalledWith(tx, "creator1", 200_000_00, "payout1", 250_000_00);
+    });
+
+    it("treats the bonus as unavailable (0) when the atomic claim loses the race, instead of double-counting it", async () => {
+      prisma.payoutMethod.findUnique.mockResolvedValue(activeMethod);
+      prisma.launchBonus.findUnique.mockResolvedValue({ id: "bonus1", bonusAmountMinor: 250_000_00 });
+      tx.launchBonus.updateMany.mockResolvedValue({ count: 0 }); // another concurrent request already claimed it
+      tx.payout.create.mockResolvedValue({ id: "payout1" });
+      prisma.payout.findUnique.mockResolvedValue(fullPayoutLookup);
+
+      await service.requestPayout("creator1", "user1", { amountMinor: 200_000_00, payoutMethodId: "pm1" });
+
+      expect(commissions.lockPayableCommissions).toHaveBeenCalledWith(tx, "creator1", 200_000_00, "payout1", 0);
     });
   });
 
