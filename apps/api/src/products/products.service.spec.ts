@@ -79,6 +79,20 @@ describe("ProductsService", () => {
     });
   });
 
+  describe("listAvailableForPromotion", () => {
+    it("includes a product with no live Offer as long as it's an external-redirect product", async () => {
+      prisma.product.findMany.mockResolvedValue([]);
+
+      await service.listAvailableForPromotion();
+
+      const args = prisma.product.findMany.mock.calls[0][0];
+      expect(args.where).toEqual({
+        status: "ACTIVE",
+        OR: [{ offers: { some: { status: "ACTIVE" } } }, { externalRedirectUrl: { not: null } }],
+      });
+    });
+  });
+
   describe("findOneOrThrow", () => {
     it("throws a typed NOT_FOUND when the product doesn't exist", async () => {
       prisma.product.findUnique.mockResolvedValue(null);

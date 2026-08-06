@@ -146,9 +146,13 @@ export default function StreamsPage() {
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <span className="font-numeric text-lg font-bold tabular-nums text-accent">
-                      {formatMoneyMinor(product.offers?.[0]?.priceMinor ?? 0)}
-                    </span>
+                    {product.externalRedirectUrl ? (
+                      <Badge tone="accent">Sherik dastur</Badge>
+                    ) : (
+                      <span className="font-numeric text-lg font-bold tabular-nums text-accent">
+                        {formatMoneyMinor(product.offers?.[0]?.priceMinor ?? 0)}
+                      </span>
+                    )}
                     {product.type === "PHYSICAL_PRODUCT" ? (
                       <Badge tone="success">
                         <CheckCircle2 className="mr-1 size-3" />
@@ -159,9 +163,15 @@ export default function StreamsPage() {
 
                   <div className="rounded-input border border-success/30 bg-success/5 px-3 py-2">
                     <p className="font-body text-xs text-text-secondary">Siz ishlab olasiz</p>
-                    <p className="font-numeric text-base font-bold tabular-nums text-success">
-                      {formatMoneyMinor(computeEarningsMinor(product))}
-                    </p>
+                    {product.externalRedirectUrl ? (
+                      <p className="font-body text-sm font-medium text-success">
+                        Har bir pullik faollashtirishdan bonus (sherik hisoblaydi)
+                      </p>
+                    ) : (
+                      <p className="font-numeric text-base font-bold tabular-nums text-success">
+                        {formatMoneyMinor(computeEarningsMinor(product))}
+                      </p>
+                    )}
                   </div>
 
                   {flow ? (

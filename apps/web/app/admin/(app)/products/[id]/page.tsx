@@ -57,18 +57,26 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
           <CardTitle>Narx va sotuv holati</CardTitle>
         </CardHeader>
         {relatedOffers.length === 0 ? (
-          <div className="flex flex-col gap-2">
-            <Alert tone="warning">
-              Bu mahsulot uchun hali narx belgilanmagan — shu sababli u buyerlarga ham, creatorlarga ham
-              ko&apos;rinmaydi.
+          product.externalRedirectUrl ? (
+            <Alert tone="info">
+              Bu mahsulot Sofsavdo checkout&apos;idan o&apos;tmaydi — Flow havolasi to&apos;g&apos;ridan-to&apos;g&apos;ri sherik
+              platformaga ({product.externalRedirectUrl}) yo&apos;naltiradi, shu sababli narx/Offer kerak emas.
+              Creatorlarga allaqachon ko&apos;rinadi.
             </Alert>
-            <Link
-              href={`/admin/products/launch?productId=${product.id}`}
-              className="w-fit font-body text-sm text-accent underline"
-            >
-              Narx va komissiya kiritish (bir necha maydon, darhol jonli)
-            </Link>
-          </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              <Alert tone="warning">
+                Bu mahsulot uchun hali narx belgilanmagan — shu sababli u buyerlarga ham, creatorlarga ham
+                ko&apos;rinmaydi.
+              </Alert>
+              <Link
+                href={`/admin/products/launch?productId=${product.id}`}
+                className="w-fit font-body text-sm text-accent underline"
+              >
+                Narx va komissiya kiritish (bir necha maydon, darhol jonli)
+              </Link>
+            </div>
+          )
         ) : (
           <ul className="divide-y divide-border">
             {relatedOffers.map((o) => (

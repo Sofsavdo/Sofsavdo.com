@@ -87,11 +87,11 @@ export class ProductsService {
     return this.prisma.product.findMany({
       where: {
         status: "ACTIVE",
-        offers: {
-          some: {
-            status: "ACTIVE",
-          },
-        },
+        // A product is promotable either the normal way (has a live Offer to check out through)
+        // or as a partner-platform redirect (externalRedirectUrl set — see Product's schema
+        // comment) — the latter is never sold through an Offer at all, so requiring one would
+        // make it permanently invisible in the creator-facing picker.
+        OR: [{ offers: { some: { status: "ACTIVE" } } }, { externalRedirectUrl: { not: null } }],
       },
       orderBy: [{ isPinned: "desc" }, { pinnedAt: "desc" }, { createdAt: "desc" }],
       select: {
