@@ -1506,6 +1506,10 @@ model Order {
   @@index([campaignId])
   @@index([flowId])
   @@index([productId])
+  // OrdersService.list filters status+createdAt-range together (the admin order list's default
+  // view) — the single-column indexes above can't be combined as efficiently as one composite for
+  // that exact query shape once order volume grows past a few thousand rows.
+  @@index([status, createdAt])
   // Phase 13 (Analytics) — every analytics KPI is a date-range query; this was the single
   // biggest gap ANALYTICS.md's design flagged (Finding #1). A plain column index lets Postgres
   // bitmap-scan it together with the existing status/offerId/campaignId indexes rather than
@@ -1693,6 +1697,10 @@ model Commission {
   // Launch-readiness fix — [creatorId, status] above can't serve NotificationSweepService's
   // global (non-creator-scoped) status sweep at all; this can, and also bounds it by recency.
   @@index([status, updatedAt])
+  // lockPayableCommissions/settleLockedCommissions/releaseLockedCommissions/reconcileRefundedOrders
+  // all filter or join on payoutId with no index to serve it — a sequential scan once commissions
+  // reach the thousands, on the exact hot path every payout action runs through.
+  @@index([payoutId])
 }
 
 enum CommissionSource {

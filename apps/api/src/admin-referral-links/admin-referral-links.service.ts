@@ -27,6 +27,11 @@ interface LinkStatsRow {
   revenueMinor: bigint | null;
 }
 
+// Same "cap a flat, non-paginated admin list response" convention as AdminVisitorsService's
+// VISITORS_LIMIT — this endpoint has no `take`/`skip` at all today, so it returns every
+// ReferralLink ever created on every single page load, unbounded and only growing.
+const REFERRAL_LINKS_LIMIT = 200;
+
 @Injectable()
 export class AdminReferralLinksService {
   constructor(private prisma: PrismaService) {}
@@ -35,6 +40,7 @@ export class AdminReferralLinksService {
     const [links, statsRows] = await Promise.all([
       this.prisma.referralLink.findMany({
         orderBy: { createdAt: "desc" },
+        take: REFERRAL_LINKS_LIMIT,
         include: { creator: { select: { displayName: true } }, campaign: { select: { name: true } }, offer: { select: { name: true } } },
       }),
       this.clickAndRevenueByLink(),

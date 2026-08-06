@@ -25,6 +25,10 @@ export interface AdminPromoCodeResponse {
   isActive: boolean;
 }
 
+// Same "cap a flat, non-paginated admin list response" convention as AdminVisitorsService's
+// VISITORS_LIMIT — this had no `take`/`skip` at all, returning every PromoCode ever created.
+const PROMO_CODES_LIMIT = 200;
+
 @Injectable()
 export class PromoCodesService {
   constructor(private prisma: PrismaService) {}
@@ -32,6 +36,7 @@ export class PromoCodesService {
   async listAdmin(): Promise<AdminPromoCodeResponse[]> {
     const rows = await this.prisma.promoCode.findMany({
       orderBy: { createdAt: "desc" },
+      take: PROMO_CODES_LIMIT,
       include: { creator: { select: { displayName: true } }, campaign: { select: { name: true } } },
     });
     return rows.map((p) => ({

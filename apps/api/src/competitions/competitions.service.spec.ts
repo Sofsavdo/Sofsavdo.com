@@ -13,6 +13,8 @@ describe("CompetitionsService", () => {
     competition: { findUnique: jest.Mock; findMany: jest.Mock; count: jest.Mock; create: jest.Mock; update: jest.Mock };
     competitionParticipant: { findUnique: jest.Mock; findMany: jest.Mock; create: jest.Mock; update: jest.Mock };
     creatorProfile: { findUniqueOrThrow: jest.Mock };
+    commission: { findMany: jest.Mock };
+    creatorReferral: { findMany: jest.Mock };
   };
   let cache: { buildKey: jest.Mock; get: jest.Mock; set: jest.Mock };
   let audit: { record: jest.Mock };
@@ -43,6 +45,8 @@ describe("CompetitionsService", () => {
       competition: { findUnique: jest.fn(), findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0), create: jest.fn(), update: jest.fn() },
       competitionParticipant: { findUnique: jest.fn(), findMany: jest.fn().mockResolvedValue([]), create: jest.fn(), update: jest.fn() },
       creatorProfile: { findUniqueOrThrow: jest.fn().mockResolvedValue({ displayName: "Creator" }) },
+      commission: { findMany: jest.fn().mockResolvedValue([]) },
+      creatorReferral: { findMany: jest.fn().mockResolvedValue([]) },
     };
     cache = { buildKey: jest.fn().mockReturnValue("comp-key"), get: jest.fn().mockResolvedValue(null), set: jest.fn().mockResolvedValue(undefined) };
     audit = { record: jest.fn().mockResolvedValue(undefined) };
@@ -186,6 +190,60 @@ describe("CompetitionsService", () => {
       );
       expect(result.top.map((r) => r.creatorId)).toEqual(["c1", "c2"]);
       expect(result.top[0]).toMatchObject({ ordersCount: 500, rank: 1 });
+    });
+
+    // Regression coverage for collapsing what used to be 2 Prisma calls PER participant into 2
+    // calls total (see rankCreatorsByOrderCountWithJoinDate/fetchCommissionsInWindow) — the tricky
+    // part is that each participant's own joinedAt (clamped to competitionStart) must still filter
+    // correctly even though the DB query itself can no longer express a per-row lower bound.
+    it("for ORDER_COUNT, counts only orders on/after each participant's own joinedAt (not competitionStart) — batched, not per-participant", async () => {
+      prisma.competition.findUnique.mockResolvedValue({ ...base, metric: "ORDER_COUNT" });
+      prisma.competitionParticipant.findMany.mockResolvedValue([
+        { creatorId: "c1", joinedAt: new Date("2026-08-01T00:00:00Z"), creator: { displayName: "Early Joiner" } },
+        { creatorId: "c2", joinedAt: new Date("2026-08-10T00:00:00Z"), creator: { displayName: "Late Joiner" } },
+      ]);
+      prisma.commission.findMany.mockResolvedValue([
+        { creatorId: "c1", amountMinor: 10_000_00, order: { createdAt: new Date("2026-08-02T00:00:00Z") } },
+        { creatorId: "c1", amountMinor: 20_000_00, order: { createdAt: new Date("2026-08-15T00:00:00Z") } },
+        // c2 joined 2026-08-10 - an order from before that must not count for them, even though
+        // it's well within the competition's overall [startAt, endAt] window.
+        { creatorId: "c2", amountMinor: 30_000_00, order: { createdAt: new Date("2026-08-05T00:00:00Z") } },
+        { creatorId: "c2", amountMinor: 40_000_00, order: { createdAt: new Date("2026-08-12T00:00:00Z") } },
+      ]);
+
+      const result = await service.getLeaderboard("comp1", "c1");
+
+      // One batched call, not one per participant.
+      expect(prisma.commission.findMany).toHaveBeenCalledTimes(1);
+      expect(prisma.commission.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { creatorId: { in: ["c1", "c2"] }, order: { status: "PAID", createdAt: { gte: base.startAt, lte: base.endAt } } },
+        }),
+      );
+
+      const c1 = result.top.find((r) => r.creatorId === "c1")!;
+      const c2 = result.top.find((r) => r.creatorId === "c2")!;
+      expect(c1).toMatchObject({ ordersCount: 2, commissionMinor: 30_000_00 });
+      expect(c2).toMatchObject({ ordersCount: 1, commissionMinor: 40_000_00 }); // the pre-joinedAt order excluded
+    });
+
+    it("for REFERRAL_COUNT, counts only referrals on/after each participant's own joinedAt — one batched query", async () => {
+      prisma.competition.findUnique.mockResolvedValue({ ...base, metric: "REFERRAL_COUNT" });
+      prisma.competitionParticipant.findMany.mockResolvedValue([
+        { creatorId: "c1", joinedAt: new Date("2026-08-01T00:00:00Z"), creator: { displayName: "Early Joiner" } },
+      ]);
+      prisma.creatorReferral.findMany.mockResolvedValue([
+        { referrerCreatorId: "c1", createdAt: new Date("2026-08-02T00:00:00Z") },
+        { referrerCreatorId: "c1", createdAt: new Date("2026-08-03T00:00:00Z") },
+      ]);
+
+      const result = await service.getLeaderboard("comp1", "c1");
+
+      expect(prisma.creatorReferral.findMany).toHaveBeenCalledTimes(1);
+      expect(prisma.creatorReferral.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { referrerCreatorId: { in: ["c1"] }, createdAt: { gte: base.startAt, lte: base.endAt } } }),
+      );
+      expect(result.top[0]).toMatchObject({ creatorId: "c1", ordersCount: 2 });
     });
   });
 

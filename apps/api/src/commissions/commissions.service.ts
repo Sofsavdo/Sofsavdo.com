@@ -144,19 +144,28 @@ export class CommissionsService {
       select: { id: true, status: true, amountMinor: true },
     });
     if (stale.length === 0) return;
-    for (const c of stale) {
-      await this.prisma.$transaction(async (tx) => {
-        // Only APPROVED/PAYABLE ever had an ACCRUAL entry written (see approve()) — a still-PENDING
-        // commission has nothing to reverse in the ledger, just the status flip.
-        if (c.status === "APPROVED" || c.status === "PAYABLE") {
-          await tx.commissionLedger.create({
-            data: { commissionId: c.id, type: "REVERSAL", amountMinor: -c.amountMinor, reason: "Order refunded" },
-          });
-        }
-        await tx.commission.update({ where: { id: c.id }, data: { status: "REFUNDED" } });
-      });
-      await this.audit.record({ actorId: null, action: "COMMISSION_REVERSED", entityType: "Commission", entityId: c.id, after: { status: "REFUNDED", reason: "Order refunded" } });
-    }
+    // This runs inline on every admin commission list/detail view and every creator wallet-balance
+    // check (see the three call sites below) — a per-row loop of $transaction+create+update+audit
+    // meant the backlog got replayed serially on every single one of those reads. Batched into one
+    // transaction: a single createMany for the reversal ledger entries and a single updateMany for
+    // the status flip, since every row in `stale` is transitioning to the exact same REFUNDED
+    // status regardless of which branch produced it.
+    const reversible = stale.filter((c) => c.status === "APPROVED" || c.status === "PAYABLE");
+    await this.prisma.$transaction(async (tx) => {
+      // Only APPROVED/PAYABLE ever had an ACCRUAL entry written (see approve()) — a still-PENDING
+      // commission has nothing to reverse in the ledger, just the status flip.
+      if (reversible.length > 0) {
+        await tx.commissionLedger.createMany({
+          data: reversible.map((c) => ({ commissionId: c.id, type: "REVERSAL" as const, amountMinor: -c.amountMinor, reason: "Order refunded" })),
+        });
+      }
+      await tx.commission.updateMany({ where: { id: { in: stale.map((c) => c.id) } }, data: { status: "REFUNDED" } });
+    });
+    await Promise.all(
+      stale.map((c) =>
+        this.audit.record({ actorId: null, action: "COMMISSION_REVERSED", entityType: "Commission", entityId: c.id, after: { status: "REFUNDED", reason: "Order refunded" } }),
+      ),
+    );
   }
 
   // ---- Admin settlement ----
@@ -459,11 +468,15 @@ export class CommissionsService {
   // each (append-only, mirrors ACCRUAL/REVERSAL).
   async settleLockedCommissions(tx: Prisma.TransactionClient, payoutId: string): Promise<void> {
     const locked = await tx.commission.findMany({ where: { payoutId }, select: { id: true, amountMinor: true } });
+    if (locked.length === 0) return;
     const now = new Date();
-    for (const c of locked) {
-      await tx.commission.update({ where: { id: c.id }, data: { status: "PAID", paidAt: now } });
-      await tx.commissionLedger.create({ data: { commissionId: c.id, type: "PAYOUT", amountMinor: -c.amountMinor, reason: `Payout ${payoutId}` } });
-    }
+    // Every row here writes the identical {status:"PAID", paidAt:now} — one updateMany instead of
+    // a per-row update() keeps a large payout's settlement from holding this transaction open
+    // proportionally to how many commissions it locked.
+    await tx.commission.updateMany({ where: { id: { in: locked.map((c) => c.id) } }, data: { status: "PAID", paidAt: now } });
+    await tx.commissionLedger.createMany({
+      data: locked.map((c) => ({ commissionId: c.id, type: "PAYOUT" as const, amountMinor: -c.amountMinor, reason: `Payout ${payoutId}` })),
+    });
   }
 
   // Payout was rejected/cancelled/permanently failed — release its locked commissions back to
@@ -508,8 +521,10 @@ export class CommissionsService {
     if (result.count !== selected.length) {
       throw new DomainException("INSUFFICIENT_BALANCE", "Balans o'zgardi, iltimos qayta urinib ko'ring.");
     }
-    for (const c of selected) {
-      await tx.commissionLedger.create({ data: { commissionId: c.id, type: "DONATION", amountMinor: -c.amountMinor, reason: `Creator Fund contribution ${fundContributionId}` } });
+    if (selected.length > 0) {
+      await tx.commissionLedger.createMany({
+        data: selected.map((c) => ({ commissionId: c.id, type: "DONATION" as const, amountMinor: -c.amountMinor, reason: `Creator Fund contribution ${fundContributionId}` })),
+      });
     }
   }
 }

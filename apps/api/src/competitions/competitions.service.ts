@@ -587,48 +587,52 @@ export class CompetitionsService {
   }
 
   // Modified ranking functions that consider join date
+  // Shared by both ranking functions below: fetches every PAID order's commission (creatorId +
+  // amountMinor) within the competition's outer [competitionStart, competitionEnd] window for ALL
+  // participants in one query, instead of the previous 2 queries PER participant (a competition
+  // with a few hundred participants meant 400-600 queries per leaderboard view — real risk of
+  // exhausting the Postgres connection pool). Each participant's own joinedAt-clamped lower bound
+  // can't be expressed as a single shared SQL filter (it differs per row), so it's applied here in
+  // memory instead — still O(1) round-trips regardless of participant count.
+  private async fetchCommissionsInWindow(
+    prisma: PrismaService,
+    creatorIds: string[],
+    competitionStart: Date,
+    competitionEnd: Date,
+  ): Promise<{ creatorId: string; amountMinor: number; orderCreatedAt: Date }[]> {
+    const commissions = await prisma.commission.findMany({
+      where: { creatorId: { in: creatorIds }, order: { status: "PAID", createdAt: { gte: competitionStart, lte: competitionEnd } } },
+      select: { creatorId: true, amountMinor: true, order: { select: { createdAt: true } } },
+    });
+    return commissions.filter((c) => c.order).map((c) => ({ creatorId: c.creatorId, amountMinor: c.amountMinor, orderCreatedAt: c.order!.createdAt }));
+  }
+
   private async rankCreatorsByOrderCountWithJoinDate(
     prisma: PrismaService,
     competitionId: string,
     competitionStart: Date,
     competitionEnd: Date,
   ): Promise<RankedCreator[]> {
-    // Get all participants with their join dates
     const participants = await prisma.competitionParticipant.findMany({
       where: { competitionId },
       include: { creator: true },
     });
+    if (participants.length === 0) return [];
+    const creatorIds = participants.map((p: any) => p.creatorId);
 
-    // For each participant, count orders from their join date
-    const results = await Promise.all(
-      participants.map(async (p: any) => {
-        const from = p.joinedAt > competitionStart ? p.joinedAt : competitionStart;
-        const ordersCount = await prisma.order.count({
-          where: {
-            commission: { creatorId: p.creatorId },
-            status: "PAID",
-            createdAt: { gte: from, lte: competitionEnd },
-          },
-        });
+    const rows = await this.fetchCommissionsInWindow(prisma, creatorIds, competitionStart, competitionEnd);
 
-        const commissions = await prisma.commission.aggregate({
-          where: {
-            creatorId: p.creatorId,
-            order: { status: "PAID", createdAt: { gte: from, lte: competitionEnd } },
-          },
-          _sum: { amountMinor: true },
-        });
+    const results = participants.map((p: any) => {
+      const from = p.joinedAt > competitionStart ? p.joinedAt : competitionStart;
+      const forCreator = rows.filter((r) => r.creatorId === p.creatorId && r.orderCreatedAt >= from);
+      return {
+        creatorId: p.creatorId,
+        displayName: p.creator.displayName,
+        ordersCount: forCreator.length,
+        commissionMinor: forCreator.reduce((sum, r) => sum + r.amountMinor, 0),
+      };
+    });
 
-        return {
-          creatorId: p.creatorId,
-          displayName: p.creator.displayName,
-          ordersCount,
-          commissionMinor: commissions._sum.amountMinor || 0,
-        };
-      }),
-    );
-
-    // Sort by orders count descending
     return results.sort((a: any, b: any) => b.ordersCount - a.ordersCount);
   }
 
@@ -638,41 +642,33 @@ export class CompetitionsService {
     competitionStart: Date,
     competitionEnd: Date,
   ): Promise<RankedCreator[]> {
-    // Get all participants with their join dates
     const participants = await prisma.competitionParticipant.findMany({
       where: { competitionId },
       include: { creator: true },
     });
+    if (participants.length === 0) return [];
+    const creatorIds = participants.map((p: any) => p.creatorId);
 
-    // For each participant, count referrals from their join date
-    const results = await Promise.all(
-      participants.map(async (p: any) => {
-        const from = p.joinedAt > competitionStart ? p.joinedAt : competitionStart;
-        const referralCount = await prisma.creatorReferral.count({
-          where: {
-            referrer: { id: p.creatorId },
-            createdAt: { gte: from, lte: competitionEnd },
-          },
-        });
-
-        const commissions = await prisma.commission.aggregate({
-          where: {
-            creatorId: p.creatorId,
-            order: { status: "PAID", createdAt: { gte: from, lte: competitionEnd } },
-          },
-          _sum: { amountMinor: true },
-        });
-
-        return {
-          creatorId: p.creatorId,
-          displayName: p.creator.displayName,
-          ordersCount: referralCount, // Use referralCount as the metric
-          commissionMinor: commissions._sum.amountMinor || 0,
-        };
+    const [referrals, commissionRows] = await Promise.all([
+      prisma.creatorReferral.findMany({
+        where: { referrerCreatorId: { in: creatorIds }, createdAt: { gte: competitionStart, lte: competitionEnd } },
+        select: { referrerCreatorId: true, createdAt: true },
       }),
-    );
+      this.fetchCommissionsInWindow(prisma, creatorIds, competitionStart, competitionEnd),
+    ]);
 
-    // Sort by referral count descending
+    const results = participants.map((p: any) => {
+      const from = p.joinedAt > competitionStart ? p.joinedAt : competitionStart;
+      const referralCount = referrals.filter((r) => r.referrerCreatorId === p.creatorId && r.createdAt >= from).length;
+      const forCreator = commissionRows.filter((r) => r.creatorId === p.creatorId && r.orderCreatedAt >= from);
+      return {
+        creatorId: p.creatorId,
+        displayName: p.creator.displayName,
+        ordersCount: referralCount, // Use referralCount as the metric
+        commissionMinor: forCreator.reduce((sum, r) => sum + r.amountMinor, 0),
+      };
+    });
+
     return results.sort((a: any, b: any) => b.ordersCount - a.ordersCount);
   }
 

@@ -570,7 +570,9 @@ export class ReferralsService {
   }
 
   async listRules(): Promise<ReferralRuleResponse[]> {
-    return this.prisma.creatorReferralRule.findMany({ orderBy: { createdAt: "desc" } });
+    // Low cardinality in practice (admin-authored reward rules, not per-order/per-commission
+    // rows) — capped anyway for consistency with every other unbounded-admin-list fix this pass.
+    return this.prisma.creatorReferralRule.findMany({ orderBy: { createdAt: "desc" }, take: 200 });
   }
 
   async createRule(dto: CreateReferralRuleDto): Promise<ReferralRuleResponse> {

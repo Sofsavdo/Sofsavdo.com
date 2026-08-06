@@ -11,7 +11,7 @@ describe("CommissionsService", () => {
     commissionLedger: { findMany: jest.Mock; create: jest.Mock; count: jest.Mock };
     $transaction: jest.Mock;
   };
-  let tx: { commission: { update: jest.Mock; updateMany: jest.Mock; findMany: jest.Mock }; commissionLedger: { create: jest.Mock } };
+  let tx: { commission: { update: jest.Mock; updateMany: jest.Mock; findMany: jest.Mock }; commissionLedger: { create: jest.Mock; createMany: jest.Mock } };
   let audit: { record: jest.Mock };
 
   const baseCommission = {
@@ -45,7 +45,10 @@ describe("CommissionsService", () => {
       commissionLedger: { findMany: jest.fn(), create: jest.fn(), count: jest.fn() },
       $transaction: jest.fn(),
     };
-    tx = { commission: { update: jest.fn(), updateMany: jest.fn().mockResolvedValue({ count: 1 }), findMany: jest.fn() }, commissionLedger: { create: jest.fn() } };
+    tx = {
+      commission: { update: jest.fn(), updateMany: jest.fn().mockResolvedValue({ count: 1 }), findMany: jest.fn() },
+      commissionLedger: { create: jest.fn(), createMany: jest.fn() },
+    };
     // Array-form $transaction([...]) calls the outer prisma client directly (each element is
     // already a promise from e.g. `this.prisma.commission.update(...)`), unlike the callback form
     // `$transaction(async (tx) => ...)` used everywhere else in this service, which gets the
@@ -181,8 +184,10 @@ describe("CommissionsService", () => {
 
       await service.getWalletBalance("creator1");
 
-      expect(tx.commissionLedger.create).toHaveBeenCalledWith({ data: { commissionId: "commission1", type: "REVERSAL", amountMinor: -10_000_00, reason: "Order refunded" } });
-      expect(tx.commission.update).toHaveBeenCalledWith({ where: { id: "commission1" }, data: { status: "REFUNDED" } });
+      expect(tx.commissionLedger.createMany).toHaveBeenCalledWith({
+        data: [{ commissionId: "commission1", type: "REVERSAL", amountMinor: -10_000_00, reason: "Order refunded" }],
+      });
+      expect(tx.commission.updateMany).toHaveBeenCalledWith({ where: { id: { in: ["commission1"] } }, data: { status: "REFUNDED" } });
     });
 
     it("reverses a still-PENDING commission with no ledger entry (nothing to reverse)", async () => {
@@ -192,8 +197,8 @@ describe("CommissionsService", () => {
 
       await service.getWalletBalance("creator1");
 
-      expect(tx.commissionLedger.create).not.toHaveBeenCalled();
-      expect(tx.commission.update).toHaveBeenCalledWith({ where: { id: "commission2" }, data: { status: "REFUNDED" } });
+      expect(tx.commissionLedger.createMany).not.toHaveBeenCalled();
+      expect(tx.commission.updateMany).toHaveBeenCalledWith({ where: { id: { in: ["commission2"] } }, data: { status: "REFUNDED" } });
     });
 
     it("never touches a commission already locked into an in-flight payout", async () => {
@@ -249,8 +254,12 @@ describe("CommissionsService", () => {
         where: { id: { in: ["c1", "c2"] }, payoutId: null, fundContributionId: null },
         data: { status: "DONATED", donatedAt: expect.any(Date), fundContributionId: "fund1" },
       });
-      expect(tx.commissionLedger.create).toHaveBeenCalledWith({ data: { commissionId: "c1", type: "DONATION", amountMinor: -5_000_00, reason: "Creator Fund contribution fund1" } });
-      expect(tx.commissionLedger.create).toHaveBeenCalledWith({ data: { commissionId: "c2", type: "DONATION", amountMinor: -5_000_00, reason: "Creator Fund contribution fund1" } });
+      expect(tx.commissionLedger.createMany).toHaveBeenCalledWith({
+        data: [
+          { commissionId: "c1", type: "DONATION", amountMinor: -5_000_00, reason: "Creator Fund contribution fund1" },
+          { commissionId: "c2", type: "DONATION", amountMinor: -5_000_00, reason: "Creator Fund contribution fund1" },
+        ],
+      });
     });
 
     it("throws INSUFFICIENT_BALANCE when PAYABLE commissions don't cover the requested amount", async () => {
@@ -272,8 +281,13 @@ describe("CommissionsService", () => {
     it("settles every locked commission to PAID with a PAYOUT ledger entry each", async () => {
       tx.commission.findMany.mockResolvedValue([{ id: "c1", amountMinor: 5_000_00 }, { id: "c2", amountMinor: 5_000_00 }]);
       await service.settleLockedCommissions(tx as never, "payout1");
-      expect(tx.commission.update).toHaveBeenCalledWith({ where: { id: "c1" }, data: { status: "PAID", paidAt: expect.any(Date) } });
-      expect(tx.commissionLedger.create).toHaveBeenCalledWith({ data: { commissionId: "c1", type: "PAYOUT", amountMinor: -5_000_00, reason: "Payout payout1" } });
+      expect(tx.commission.updateMany).toHaveBeenCalledWith({ where: { id: { in: ["c1", "c2"] } }, data: { status: "PAID", paidAt: expect.any(Date) } });
+      expect(tx.commissionLedger.createMany).toHaveBeenCalledWith({
+        data: [
+          { commissionId: "c1", type: "PAYOUT", amountMinor: -5_000_00, reason: "Payout payout1" },
+          { commissionId: "c2", type: "PAYOUT", amountMinor: -5_000_00, reason: "Payout payout1" },
+        ],
+      });
     });
 
     it("releases locked commissions back to unlocked PAYABLE with no ledger entry", async () => {
