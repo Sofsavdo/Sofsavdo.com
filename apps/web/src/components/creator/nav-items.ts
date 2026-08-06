@@ -10,6 +10,7 @@ import {
   Gift,
   Layers,
   TrendingUp,
+  Award,
 } from "lucide-react";
 
 export interface CreatorNavItem {
@@ -30,6 +31,7 @@ export const CREATOR_NAV_ITEMS: CreatorNavItem[] = [
   { href: "/creator/streams", label: "Mahsulotlar", icon: Package, bottomNav: true, approvedOnly: true },
   { href: "/creator/my-streams", label: "Mening oqimlarim", icon: Layers, approvedOnly: true },
   { href: "/creator/launch-bonus", label: "Bonus", icon: Gift, approvedOnly: true },
+  { href: "/creator/competitions", label: "Musobaqalar", icon: Award, approvedOnly: true },
   { href: "/creator/leaderboard", label: "Reyting", icon: Trophy, approvedOnly: true },
   { href: "/creator/referrals", label: "Do'stlar", icon: HeartHandshake, approvedOnly: true },
   { href: "/creator/earnings", label: "Balans", icon: Wallet, bottomNav: true, approvedOnly: true },
