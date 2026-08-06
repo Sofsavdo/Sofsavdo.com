@@ -1,29 +1,33 @@
-# Production Readiness — Phase 14 master checklist
+# Production Readiness — master checklist
 
 One consolidated view of "is Sofsavdo actually ready for real creators, real customers, and real Click
 payments" — the detail behind each line lives in the linked document. This file is the index;
 update it as items move, don't duplicate their detail here.
 
-**Bottom line as of this writing: not yet launch-ready.** Two external, environment-caused blockers
-remain (below), plus two operator actions that have to happen for real, not just be documented.
+> **Status as of 2026-08-06: live in production.** Real Railway deployment serving real traffic at
+> `sofsavdo.com`/`api.sofsavdo.com`, real Click.uz credentials active, real creators and orders
+> flowing through the system. The "Blockers" section below is preserved as history — all four were
+> resolved as of Phase R (2026-07-30, see `PROJECT_STATUS.md`). Everything below that predates this
+> notice was written for a pre-launch audience; treat `PROJECT_STATUS.md`'s Phase entries (newest at
+> the bottom) as the current source of truth for what's actually been verified, especially Phase T
+> (2026-08-06), which fixed a live financial race condition, hardened the system for scale, and
+> added/verified the Fidem partner integration.
 
-## Blockers — must be resolved before launch
+## Blockers — resolved as of Phase R (2026-07-30)
 
-1. **Docker images have never been through a real `docker build`.** Both Dockerfiles are written
-   and hand-reviewed, but this development sandbox has no working Docker engine. Build both for
-   real (a developer machine, or by running `deploy.yml` against `staging` on a GitHub-hosted
-   runner) before trusting either image. See [DEPLOYMENT.md](DEPLOYMENT.md#docker--built-hand-reviewed-not-yet-build-verified).
-2. **No real Railway project, domain, or GitHub Environment secrets exist yet.** The CI/CD pipeline
-   is real and tested at the workflow-definition level, but `deploy.yml` cannot actually deploy
-   anything until `RAILWAY_TOKEN` and the target environment's `DATABASE_URL` are configured as real
-   GitHub Environment secrets. See [DEPLOYMENT.md](DEPLOYMENT.md#railway-project-setup-once-a-real-project-exists).
-3. **Real Click.uz production credentials have never been activated or tested.** Every Click code
-   path (signature verification, amount validation, replay protection, atomicity) has been built and
-   tested against test credentials only. See [RUNBOOK.md §1](RUNBOOK.md#1-clickuz-go-live-checklist)
-   for the full checklist — none of it has been executed against real credentials.
-4. **No production database has ever been bootstrapped.** `bootstrap-admin.ts` exists and is
-   tested at the code level, but no one has run it against a real production database yet. See
-   [RUNBOOK.md §2](RUNBOOK.md#2-first-super-admin-production-bootstrap).
+All four originally listed here are done for real, not just documented:
+
+1. ~~Docker images have never been through a real `docker build`.~~ Done — verified per
+   `PROJECT_STATUS.md`'s Phase Q entry.
+2. ~~No real Railway project, domain, or GitHub Environment secrets exist yet.~~ Done — the system
+   has been serving real traffic at the real domain since Phase R.
+3. ~~Real Click.uz production credentials have never been activated or tested.~~ Done — real
+   credentials entered and processing real payments.
+4. ~~No production database has ever been bootstrapped.~~ Done — the production database has a
+   bootstrapped admin account and real data.
+
+See [RUNBOOK.md](RUNBOOK.md) for the checklists that were executed, and `PROJECT_STATUS.md`'s "A
+note on production launch itself" (end of the Phase Q/R section) for the original confirmation.
 
 ## Audit findings — summary
 
@@ -170,7 +174,8 @@ above.
 
 ## Remaining blockers before real production launch
 
-Restated from the top of this file, for anyone reading only this section: (1) Docker build
-verification, (2) Railway/GitHub Environment provisioning, (3) real Click.uz credential activation
-and end-to-end test, (4) real production database bootstrap. Everything else audited this phase is
-either fixed, or a documented, deliberate, non-blocking deferral.
+None — see the status note at the top of this file. All four items originally listed here (Docker
+build verification, Railway/GitHub Environment provisioning, real Click.uz credential activation,
+real production database bootstrap) were completed as of Phase R (2026-07-30); the system has been
+live since. For what's been found and fixed in production since launch, see `PROJECT_STATUS.md`'s
+Phase R onward (Phase T, 2026-08-06, is the most recent as of this writing).

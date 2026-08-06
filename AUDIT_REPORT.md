@@ -1,5 +1,13 @@
 # SOFSAVDO PRODUCTION AUDIT REPORT
 
+> **This report is historical and stale as of 2026-08-06.** It was written during an early,
+> pre-launch exploratory pass (references "no seed data," "admin login fails," a Supabase storage
+> decision later superseded by S3) — most rows below marked `PENDING` have since shipped or were
+> superseded by later work, but this file was never updated to reflect that, so don't trust its
+> `PENDING`/status markers at face value. For current, verified status, see `PROJECT_STATUS.md`'s
+> dated Phase entries (newest at the bottom) and `PRODUCTION_READINESS.md`'s status note. Kept here
+> for historical record only.
+
 ## ROLE AUDIT TABLE
 
 | PAGE | ROLE | BUG | ROOT CAUSE | FIX | VERIFIED |

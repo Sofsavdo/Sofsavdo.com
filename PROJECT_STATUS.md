@@ -3550,3 +3550,105 @@ correctly grouped. The creator-join→referral-link chain was verified via targe
 exercising the real transaction shape rather than a full live walkthrough — the pre-existing 8-step
 creator-onboarding wizard it depends on was out of scope for this pass; disclosed rather than
 implied as covered.
+
+## Phase T — Fidem Partner Integration, Financial Race Fixes, Scale Hardening, Production Data Remediation — DONE (2026-08-06)
+
+One long session covering real bugs reported directly from production use, a new partner
+integration, a self-initiated 3-track audit (backend correctness/security, creator UX, scale/
+performance), and the resulting fix pass — all against the live Railway production database.
+
+- **Fidem partner integration ("Sofsavdo → Fidem" external redirect)**: `Product.externalRedirectUrl`
+  + `Product.estimatedEarningLabel` let a Product point at a partner's own funnel instead of
+  Sofsavdo's checkout. `ReferralController.handleReferral` mints a signed, stateless click-token
+  (`fidem-click-token.util.ts`) bound to the Flow and redirects to Fidem's Telegram bot; Fidem's
+  own backend (`sofsavdo_integration.py`) captures the token at `/start`, computes its own
+  tier-capped reward on the user's first paid conversion (50% of payment, capped at 29,900 so'm at
+  bronze tier), and POSTs a signed webhook to `POST /integrations/fidem/webhook`
+  (`FidemIntegrationService.recordConversion`), which verifies the signature and click-token,
+  checks idempotency on `externalPaymentId`, and creates an `EXTERNAL`-source `Commission`. The
+  Fidem product's price range (17,500–29,900 so'm), commission messaging, and creator-facing copy
+  were updated per the operator's request so creators understand exactly what they earn and
+  customers understand what Fidem is before clicking through. Verified end-to-end at the wire
+  level: read both implementations side by side and confirmed identical signature construction,
+  field names, and route; confirmed both Railway services have the matching
+  `FIDEM_INTEGRATION_SECRET`/`SOFSAVDO_INTEGRATION_SECRET`; confirmed the live production webhook
+  endpoint correctly rejects an invalid signature (`400`, not a silent accept); confirmed no failed
+  delivery attempts in Fidem's logs. A real financial write against production was deliberately
+  avoided for this verification — the static/wire check plus the existing unit-test coverage
+  (below) was judged sufficient without needing to mint a real Commission row to prove it.
+- **Nullable-field/zod-optional mismatches** (reported directly by the operator): `ProductForm`'s
+  `defaultValues` read nullable API fields (`shortDescription`, `sku`, `creatorProfileId`, etc.)
+  directly into a zod schema whose `.optional()` only tolerates `undefined`, not `null` — every
+  nullable field needed `?? undefined`. Separately, blank form fields were submitting `""` instead
+  of `null`, which collided with `sku`'s `@unique` constraint and failed `creatorProfileId`'s
+  foreign-key lookup, making SKU/Creator feel mandatory when editing. Fixed at both the payload
+  layer and defensively in `ProductsService` (`emptyToNull` helper).
+- **Flow-detail page**: fixed the earning box showing a hardcoded `0 so'm` for external-redirect
+  products (now shows the product's `estimatedEarningLabel`); replaced the multi-image grid (which
+  filled the whole screen and was confusing with several images) with a horizontal scroll-snap
+  carousel with dot indicators; added a video-URL field to the admin product form (previously image-
+  only).
+- **Referral custom promo codes silently never attributing** (reported directly by the operator,
+  with a real creator's screenshot): root cause was `resolveReferrerForAttribution` force-
+  uppercasing every input before matching `customPromoCode`, while creators' codes are stored
+  exactly as typed — a lowercase code like "nuroy15" could never match. Fixed with case-insensitive
+  matching on `customPromoCode` specifically (kept `referralCode` uppercase-normalized, since that
+  one really is always system-generated uppercase). Confirmed via direct production query that
+  creator "Lola" (customPromoCode `nuroy15`) had zero successful referrals despite the feature
+  being live and in active use. **Production data remediation**: identified 9 real accounts that had
+  registered via `nuroy15` but never got attributed or their launch bonus upgraded; per the
+  operator's explicit instruction, re-attributed all 9 to Lola and upgraded each to the
+  referred-tier launch bonus (2,500,000 so'm), via an idempotent, explicitly-scoped script
+  (hardcoded list of the 9 confirmed IDs, re-runnable safely) — 5 other candidates (internal QA/
+  duplicate-profile test accounts) were identified and deliberately excluded.
+- **Launch Bonus double-spend race** (self-initiated audit finding, fixed immediately given
+  severity — a live financial exploit): `PayoutsService.requestPayout` read the unlocked bonus and
+  claimed it as `PAID` in a separate, unguarded `update()` outside the balance-checking
+  transaction — two concurrent payout requests could each read `UNLOCKED` and both fold the same
+  bonus into their balance, double-spending it. Fixed with the same guarded-`updateMany`+count-check
+  pattern used everywhere else in the codebase's financial code: the claim now happens inside the
+  transaction, and a lost race correctly reports the bonus as unavailable instead of double-counting
+  it.
+- **Onboarding/profile fixes**: removed the entire "save as draft" flow from creator registration
+  per explicit operator instruction ("yarmida qolmaslik kerak" — no leaving things half-finished);
+  removed dead unreachable code in the wizard's step logic; fixed `payoutCardNumber` validation
+  silently failing when the field kept its placeholder spacing; fixed the review-step summary
+  showing a blank name (was reading an unset form field instead of the applicant's real display
+  name); rebuilt the profile page's social-links editor, which previously edited local state only
+  and never called any API — now genuinely persists via `useUpdateApplication`.
+- **Fidem webhook duplicate-delivery 500**: `recordConversion`'s idempotency check ran outside its
+  `$transaction`, so two near-simultaneous retries of the same webhook could both pass the check
+  before either committed; the unique index on `externalRef` still prevented a duplicate row, but
+  the losing request surfaced a raw, unhandled `P2002` as a `500` instead of the clean
+  `{status:"duplicate"}` the method promises callers. Fixed by catching `P2002` specifically inside
+  the transaction call.
+- **Scale hardening** (self-initiated audit findings): batched several per-row transaction loops
+  (`reconcileRefundedOrders`, `settleLockedCommissions`, `contributeToFund`) into single
+  `updateMany`/`createMany` calls; added indexes on `Commission.payoutId` and
+  `Order(status, createdAt)`; capped three previously-unbounded admin list queries (referral links,
+  promo codes, referral rules) at 200 rows; collapsed the competition leaderboard's per-participant
+  N+1 query pattern (each participant needed a different `joinedAt`-clamped date threshold, so a
+  naive shared-filter query wasn't correct) into one query fetching all relevant rows across the
+  competition's outer date window, with each participant's own threshold applied in memory —
+  O(N) round-trips to O(1).
+- **UX clarity fixes** (self-initiated audit findings): added in-app copy explaining the 14-day
+  return-window hold on pending commissions on `/creator/earnings` (previously only mentioned on
+  the pre-login marketing FAQ, never inside the logged-in app); cross-linked and distinguished the
+  two separate, previously-unexplained creator reward systems — the flat 20,000 so'm-per-referral
+  "Do'stlar" reward and the one-time 1.5M/2.5M Launch Bonus — which share a confusingly-named
+  "referral count" metric but are otherwise unrelated.
+
+**Verification**: full backend unit suite green throughout the session, ending at 943/943 passing
+(74 suites). Both new migrations (`estimatedEarningLabel` column, the two scale indexes) applied to
+the test database and the real production database, in that order, before each corresponding push.
+Frontend `tsc --noEmit` clean after every UI change. The Fidem integration was verified at the wire
+protocol level (see above) rather than via a live financial-write test against production, a
+deliberate choice given the sensitivity of writing real Commission rows outside the normal request
+flow.
+
+**A note on this file's freshness**: `AUDIT_REPORT.md` and the pre-Phase-T portions of
+`PRODUCTION_READINESS.md` predate real production launch and describe a pre-launch state
+("no seed data," "admin login fails," "not yet launch-ready") that stopped being true once Phase R
+(2026-07-30) confirmed a real Railway deployment serving real traffic. Both are now marked stale at
+the top of each file, pointing back here — this file (`PROJECT_STATUS.md`) is the current source of
+truth for what's actually been done and verified.
