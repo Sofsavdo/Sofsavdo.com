@@ -6,6 +6,7 @@ import { formatMoneyMinor } from "@sofsavdo/types";
 import { Alert, Badge, Button, Card, EmptyState, Skeleton, TextField, cn } from "@sofsavdo/ui";
 import { ExternalLink, Trophy, UserPlus } from "lucide-react";
 import { useCompetitionLeaderboard, useMyCompetitions, useJoinCompetition, useSubmitCompetitionVideo } from "@/services/competitions";
+import { PrizeBreakdown } from "@/components/creator/PrizeBreakdown";
 
 function VideoSubmissionForm({ competitionId, rejectionNote }: { competitionId: string; rejectionNote?: string | null }) {
   const [videoUrl, setVideoUrl] = useState("");
@@ -77,35 +78,32 @@ export default function CompetitionDetailPage({ params }: { params: Promise<{ id
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center gap-2 font-body text-sm text-text-secondary">
-        <Link href="/creator/competitions" className="hover:text-text-primary">
+      <div className="flex min-w-0 items-center gap-2 font-body text-sm text-text-secondary">
+        <Link href="/creator/competitions" className="shrink-0 hover:text-text-primary">
           Musobaqalar
         </Link>
-        <span>/</span>
-        <span className="text-text-primary">{competition?.name ?? "Musobaqa"}</span>
+        <span className="shrink-0">/</span>
+        <span className="min-w-0 truncate text-text-primary">{competition?.name ?? "Musobaqa"}</span>
       </div>
 
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex-1">
-          <h1 className="flex items-center gap-2 font-heading text-2xl font-bold text-text-primary">
-            <Trophy className="size-6 text-accent" /> {competition?.name ?? "Musobaqa"}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <h1 className="flex items-start gap-2 font-heading text-2xl font-bold text-text-primary">
+            <Trophy className="mt-1 size-6 shrink-0 text-accent" /> <span className="break-words">{competition?.name ?? "Musobaqa"}</span>
           </h1>
           {competition?.description ? <p className="mt-1 font-body text-sm text-text-secondary">{competition.description}</p> : null}
-          {competition?.prizeDescription ? (
-            <p className="mt-2 rounded-input border border-accent/20 bg-accent/5 p-3 font-body text-sm text-text-primary">
-              🏆 {competition.prizeDescription}
-            </p>
-          ) : null}
         </div>
         {!isVideoCompetition && !hasJoined && competition?.availability === "LIVE" ? (
-          <Button onClick={handleJoin} disabled={joinCompetition.isPending} className="shrink-0">
+          <Button onClick={handleJoin} disabled={joinCompetition.isPending} className="w-fit shrink-0 self-start">
             <UserPlus className="mr-2 size-4" />
             {joinCompetition.isPending ? "Qo'shilmoqda..." : "Qo'shilish"}
           </Button>
         ) : hasJoined ? (
-          <Badge tone="success" className="shrink-0">Qo'shilgan</Badge>
+          <Badge tone="success" className="w-fit shrink-0 self-start">Qo'shilgan</Badge>
         ) : null}
       </div>
+
+      {competition?.prizeDescription ? <PrizeBreakdown prizeDescription={competition.prizeDescription} /> : null}
 
       {isVideoCompetition && myParticipant?.status === "PENDING" ? (
         <Alert tone="info">Videongiz yuborildi — admin ko&apos;rib chiqmoqda. Tasdiqlangach reytingda ko&apos;rinasiz.</Alert>

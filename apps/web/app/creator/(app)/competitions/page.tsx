@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { Award, Gift, UserPlus } from "lucide-react";
+import { Award, UserPlus } from "lucide-react";
 import { Badge, Button, Card, CardHeader, CardTitle, EmptyState, Skeleton } from "@sofsavdo/ui";
 import { competitionAvailabilityMeta } from "@/lib/status";
 import { useMyCompetitions, useJoinCompetition } from "@/services/competitions";
+import { PrizeBreakdown } from "@/components/creator/PrizeBreakdown";
 
 export default function CompetitionsPage() {
   const competitions = useMyCompetitions();
@@ -53,12 +54,7 @@ export default function CompetitionsPage() {
                     </span>
                   </CardHeader>
                   {c.description ? <p className="font-body text-sm text-text-secondary">{c.description}</p> : null}
-                  {c.prizeDescription ? (
-                    <div className="flex items-start gap-2 rounded-input border border-accent/20 bg-accent/5 p-3">
-                      <Gift className="mt-0.5 size-4 shrink-0 text-accent" />
-                      <p className="font-body text-sm text-text-primary">{c.prizeDescription}</p>
-                    </div>
-                  ) : null}
+                  {c.prizeDescription ? <PrizeBreakdown prizeDescription={c.prizeDescription} /> : null}
                   <div className="mt-auto flex items-center justify-between gap-2">
                     <p className="font-body text-xs text-text-muted">
                       {new Date(c.startAt).toLocaleDateString("uz-UZ")} — {new Date(c.endAt).toLocaleDateString("uz-UZ")}
