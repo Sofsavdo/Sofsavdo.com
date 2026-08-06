@@ -2,7 +2,6 @@ import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../prisma/prisma.service";
 import { DomainException } from "../common/errors/domain-error";
-import { applyBasisPoints } from "../common/money/money";
 import { signFidemClickToken, verifyFidemClickToken, verifyFidemWebhookSignature } from "./fidem-click-token.util";
 import type { FidemWebhookDto } from "./dto/fidem-webhook.dto";
 
@@ -31,9 +30,17 @@ export class FidemIntegrationService {
   async recordConversion(dto: FidemWebhookDto): Promise<{ status: "created" | "duplicate" }> {
     const secret = this.requireSecret();
 
-    const validSignature = verifyFidemWebhookSignature(dto.clickToken, dto.externalPaymentId, dto.amountMinor, dto.occurredAt, dto.signature, secret);
+    const validSignature = verifyFidemWebhookSignature(dto.clickToken, dto.externalPaymentId, dto.amountMinor, dto.commissionAmountMinor, dto.occurredAt, dto.signature, secret);
     if (!validSignature) {
       throw new DomainException("INVALID_FIDEM_SIGNATURE", "Imzo noto'g'ri.");
+    }
+
+    // Fidem computes the reward itself (50% of the payment, capped by tier — see
+    // sofsavdo_integration.py) and reports the already-decided amount; Sofsavdo never re-derives
+    // it from a generic product commission rate. This is only a sanity bound against an
+    // implementation bug on either side, not the real authorization — the signature is.
+    if (dto.commissionAmountMinor > dto.amountMinor) {
+      throw new DomainException("INVALID_AMOUNT", "Komissiya to'lov summasidan katta bo'lishi mumkin emas.");
     }
 
     const verifiedToken = verifyFidemClickToken(dto.clickToken, secret);
@@ -49,9 +56,7 @@ export class FidemIntegrationService {
     const flow = await this.prisma.flow.findUnique({
       where: { id: verifiedToken.flowId },
       include: {
-        product: {
-          select: { id: true, name: true, commissionType: true, commissionRateBps: true, commissionAmountMinor: true, externalRedirectUrl: true },
-        },
+        product: { select: { id: true, name: true, externalRedirectUrl: true } },
       },
     });
     if (!flow || flow.status !== "ACTIVE" || !flow.product.externalRedirectUrl) {
@@ -59,12 +64,7 @@ export class FidemIntegrationService {
     }
 
     const baseAmountMinor = dto.amountMinor;
-    let amountMinor = 0;
-    if (flow.product.commissionType === "PERCENTAGE") {
-      amountMinor = applyBasisPoints(baseAmountMinor, flow.product.commissionRateBps ?? 0);
-    } else if (flow.product.commissionType === "FIXED_AMOUNT") {
-      amountMinor = flow.product.commissionAmountMinor ?? 0;
-    }
+    const amountMinor = dto.commissionAmountMinor;
 
     await this.prisma.$transaction(async (tx) => {
       await tx.commission.create({

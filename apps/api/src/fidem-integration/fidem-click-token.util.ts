@@ -43,12 +43,12 @@ export function verifyFidemClickToken(token: string, secret: string): { flowId: 
 // "signature is itself a field of the payload, over specific known values" shape as Click's
 // callback (see ClickPaymentAdapter), chosen over a raw-request-body HMAC header so no raw-body
 // middleware is needed for this one route.
-export function signFidemWebhookPayload(clickToken: string, externalPaymentId: string, amountMinor: number, occurredAt: string, secret: string): string {
-  return sign(`${clickToken}.${externalPaymentId}.${amountMinor}.${occurredAt}`, secret);
+export function signFidemWebhookPayload(clickToken: string, externalPaymentId: string, amountMinor: number, commissionAmountMinor: number, occurredAt: string, secret: string): string {
+  return sign(`${clickToken}.${externalPaymentId}.${amountMinor}.${commissionAmountMinor}.${occurredAt}`, secret);
 }
 
-export function verifyFidemWebhookSignature(clickToken: string, externalPaymentId: string, amountMinor: number, occurredAt: string, signature: string, secret: string): boolean {
-  const expected = signFidemWebhookPayload(clickToken, externalPaymentId, amountMinor, occurredAt, secret);
+export function verifyFidemWebhookSignature(clickToken: string, externalPaymentId: string, amountMinor: number, commissionAmountMinor: number, occurredAt: string, signature: string, secret: string): boolean {
+  const expected = signFidemWebhookPayload(clickToken, externalPaymentId, amountMinor, commissionAmountMinor, occurredAt, secret);
   const actual = Buffer.from(signature, "utf8");
   const expectedBuf = Buffer.from(expected, "utf8");
   return actual.length === expectedBuf.length && timingSafeEqual(actual, expectedBuf);

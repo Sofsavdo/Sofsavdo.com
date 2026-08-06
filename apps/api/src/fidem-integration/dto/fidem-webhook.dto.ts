@@ -15,6 +15,13 @@ export class FidemWebhookDto {
   @IsPositive()
   amountMinor!: number;
 
+  // Fidem's own already-computed referral reward (50% of the payment, capped by tier — see
+  // sofsavdo_integration.py's caller in payments_r.py), not something Sofsavdo re-derives from a
+  // generic commission rate. Recorded as the Commission's amountMinor as-is.
+  @IsInt()
+  @IsPositive()
+  commissionAmountMinor!: number;
+
   @IsISO8601()
   occurredAt!: string;
 

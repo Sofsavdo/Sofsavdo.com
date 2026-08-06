@@ -12,9 +12,10 @@ function buildDto(overrides: Partial<FidemWebhookDto> = {}, flowId = "flow1"): F
   const clickToken = overrides.clickToken ?? signFidemClickToken(flowId, SECRET);
   const externalPaymentId = overrides.externalPaymentId ?? "txn_1";
   const amountMinor = overrides.amountMinor ?? 100_000_00;
+  const commissionAmountMinor = overrides.commissionAmountMinor ?? 29_900_00;
   const occurredAt = overrides.occurredAt ?? "2026-01-01T00:00:00.000Z";
-  const signature = overrides.signature ?? signFidemWebhookPayload(clickToken, externalPaymentId, amountMinor, occurredAt, SECRET);
-  return { clickToken, externalPaymentId, amountMinor, occurredAt, signature, ...overrides };
+  const signature = overrides.signature ?? signFidemWebhookPayload(clickToken, externalPaymentId, amountMinor, commissionAmountMinor, occurredAt, SECRET);
+  return { clickToken, externalPaymentId, amountMinor, commissionAmountMinor, occurredAt, signature, ...overrides };
 }
 
 describe("FidemIntegrationService", () => {
@@ -35,7 +36,7 @@ describe("FidemIntegrationService", () => {
           id: "flow1",
           status: "ACTIVE",
           creatorProfileId: "creator1",
-          product: { id: "prod1", name: "Fidem", commissionType: "PERCENTAGE", commissionRateBps: 3000, commissionAmountMinor: null, externalRedirectUrl: "https://t.me/Fidem_Appbot" },
+          product: { id: "prod1", name: "Fidem", externalRedirectUrl: "https://t.me/Fidem_Appbot" },
         }),
         update: jest.fn(),
       },
@@ -71,6 +72,11 @@ describe("FidemIntegrationService", () => {
       expect(prisma.commission.create).not.toHaveBeenCalled();
     });
 
+    it("throws INVALID_AMOUNT when the reported commission exceeds the payment amount", async () => {
+      await expect(service.recordConversion(buildDto({ amountMinor: 10_000_00, commissionAmountMinor: 20_000_00 }))).rejects.toMatchObject({ code: "INVALID_AMOUNT" });
+      expect(prisma.commission.create).not.toHaveBeenCalled();
+    });
+
     it("throws INVALID_CLICK_TOKEN when the click token is expired", async () => {
       const clickToken = signFidemClickToken("flow1", SECRET, -1);
       await expect(service.recordConversion(buildDto({ clickToken }))).rejects.toMatchObject({ code: "INVALID_CLICK_TOKEN" });
@@ -88,8 +94,8 @@ describe("FidemIntegrationService", () => {
       await expect(service.recordConversion(buildDto())).rejects.toMatchObject({ code: "FLOW_NOT_FOUND" });
     });
 
-    it("creates an EXTERNAL commission priced off the product's PERCENTAGE rate and bumps Flow.commissionEarnedMinor", async () => {
-      const result = await service.recordConversion(buildDto({ amountMinor: 100_000_00 }));
+    it("records the reward Fidem reports as-is, without re-deriving it from any product commission rate", async () => {
+      const result = await service.recordConversion(buildDto({ amountMinor: 100_000_00, commissionAmountMinor: 29_900_00 }));
       expect(result).toEqual({ status: "created" });
       expect(prisma.commission.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
@@ -97,23 +103,12 @@ describe("FidemIntegrationService", () => {
           source: "EXTERNAL",
           externalRef: "txn_1",
           baseAmountMinor: 100_000_00,
-          amountMinor: 30_000_00, // 30% of 100_000_00
+          amountMinor: 29_900_00,
           currency: "UZS",
           status: "PENDING",
         }),
       });
-      expect(prisma.flow.update).toHaveBeenCalledWith({ where: { id: "flow1" }, data: { commissionEarnedMinor: { increment: 30_000_00 } } });
-    });
-
-    it("prices a FIXED_AMOUNT commission product at the flat amount regardless of the payment amount", async () => {
-      prisma.flow.findUnique.mockResolvedValue({
-        id: "flow1",
-        status: "ACTIVE",
-        creatorProfileId: "creator1",
-        product: { id: "prod1", name: "Fidem", commissionType: "FIXED_AMOUNT", commissionRateBps: null, commissionAmountMinor: 50_000_00, externalRedirectUrl: "https://t.me/Fidem_Appbot" },
-      });
-      await service.recordConversion(buildDto({ amountMinor: 200_000_00 }));
-      expect(prisma.commission.create).toHaveBeenCalledWith({ data: expect.objectContaining({ amountMinor: 50_000_00 }) });
+      expect(prisma.flow.update).toHaveBeenCalledWith({ where: { id: "flow1" }, data: { commissionEarnedMinor: { increment: 29_900_00 } } });
     });
   });
 });

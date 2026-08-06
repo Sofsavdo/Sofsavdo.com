@@ -34,13 +34,18 @@ describe("fidem-click-token.util", () => {
 
   describe("signFidemWebhookPayload / verifyFidemWebhookSignature", () => {
     it("verifies a signature computed over the same fields", () => {
-      const sig = signFidemWebhookPayload("sf_flow123_1_abc", "txn_1", 50000, "2026-01-01T00:00:00.000Z", secret);
-      expect(verifyFidemWebhookSignature("sf_flow123_1_abc", "txn_1", 50000, "2026-01-01T00:00:00.000Z", sig, secret)).toBe(true);
+      const sig = signFidemWebhookPayload("sf_flow123_1_abc", "txn_1", 50000, 25000, "2026-01-01T00:00:00.000Z", secret);
+      expect(verifyFidemWebhookSignature("sf_flow123_1_abc", "txn_1", 50000, 25000, "2026-01-01T00:00:00.000Z", sig, secret)).toBe(true);
     });
 
     it("rejects a signature if any field changes", () => {
-      const sig = signFidemWebhookPayload("sf_flow123_1_abc", "txn_1", 50000, "2026-01-01T00:00:00.000Z", secret);
-      expect(verifyFidemWebhookSignature("sf_flow123_1_abc", "txn_1", 99999, "2026-01-01T00:00:00.000Z", sig, secret)).toBe(false);
+      const sig = signFidemWebhookPayload("sf_flow123_1_abc", "txn_1", 50000, 25000, "2026-01-01T00:00:00.000Z", secret);
+      expect(verifyFidemWebhookSignature("sf_flow123_1_abc", "txn_1", 99999, 25000, "2026-01-01T00:00:00.000Z", sig, secret)).toBe(false);
+    });
+
+    it("rejects a signature if the commissionAmountMinor field changes", () => {
+      const sig = signFidemWebhookPayload("sf_flow123_1_abc", "txn_1", 50000, 25000, "2026-01-01T00:00:00.000Z", secret);
+      expect(verifyFidemWebhookSignature("sf_flow123_1_abc", "txn_1", 50000, 49900, "2026-01-01T00:00:00.000Z", sig, secret)).toBe(false);
     });
   });
 });
