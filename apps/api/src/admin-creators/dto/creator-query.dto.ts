@@ -2,6 +2,7 @@ import { ApiPropertyOptional } from "@nestjs/swagger";
 import { IsIn, IsOptional, IsString } from "class-validator";
 import type { CreatorApplicationStatus, UserStatus } from "@prisma/client";
 import { PaginationQueryDto } from "../../common/pagination/pagination.dto";
+import { CREATOR_ACTIVITY_STATUSES, type CreatorActivityStatus } from "../creator-activity";
 
 const ONBOARDING_STATUSES: CreatorApplicationStatus[] = ["DRAFT", "SUBMITTED", "UNDER_REVIEW", "CHANGES_REQUESTED", "APPROVED", "REJECTED"];
 const ACCOUNT_STATUSES: UserStatus[] = ["ACTIVE", "SUSPENDED", "BLOCKED"];
@@ -16,6 +17,11 @@ export class CreatorQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsIn(ACCOUNT_STATUSES)
   accountStatus?: UserStatus;
+
+  @ApiPropertyOptional({ enum: CREATOR_ACTIVITY_STATUSES })
+  @IsOptional()
+  @IsIn(CREATOR_ACTIVITY_STATUSES)
+  activityStatus?: CreatorActivityStatus;
 
   // Matches displayName, email, or city.
   @ApiPropertyOptional()

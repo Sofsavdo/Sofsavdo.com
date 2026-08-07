@@ -322,6 +322,7 @@ export const removeRolePermission = (id: string, permissionKey: string) => realA
 
 export type { RealCreatorQuery } from "./admin-real";
 export const getRealCreatorList = (query?: realAdmin.RealCreatorQuery) => realAdmin.getRealCreatorList(query);
+export const getRealCreatorActivitySummary = () => realAdmin.getRealCreatorActivitySummary();
 export const getRealCreatorDetail = (id: string) => realAdmin.getRealCreatorDetail(id);
 export const getRealCreatorCampaignHistory = (id: string) => realAdmin.getRealCreatorCampaignHistory(id);
 export const getRealCreatorEarningsSummary = (id: string) => realAdmin.getRealCreatorEarningsSummary(id);

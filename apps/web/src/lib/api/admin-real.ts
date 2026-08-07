@@ -46,6 +46,8 @@ import type {
   RealCreatorAdminListItem,
   BioComplianceStatus,
   CreatorTier,
+  CreatorActivityStatus,
+  CreatorActivitySummary,
   RealCreatorAnalyticsDetail,
   RealCreatorAnalyticsListItem,
   RealCustomerAnalytics,
@@ -1892,6 +1894,7 @@ export interface RealCreatorQuery {
   pageSize?: number;
   onboardingStatus?: string;
   accountStatus?: RealUserStatus;
+  activityStatus?: CreatorActivityStatus;
   search?: string;
 }
 
@@ -1903,9 +1906,14 @@ export async function getRealCreatorList(
   if (query.pageSize) params.set("pageSize", String(query.pageSize));
   if (query.onboardingStatus) params.set("onboardingStatus", query.onboardingStatus);
   if (query.accountStatus) params.set("accountStatus", query.accountStatus);
+  if (query.activityStatus) params.set("activityStatus", query.activityStatus);
   if (query.search) params.set("search", query.search);
   const qs = params.toString();
   return apiRequest(`/admin/creators${qs ? `?${qs}` : ""}`);
+}
+
+export async function getRealCreatorActivitySummary(): Promise<CreatorActivitySummary> {
+  return apiRequest<CreatorActivitySummary>(`/admin/creators/activity-summary`);
 }
 
 export async function getRealCreatorDetail(id: string): Promise<RealCreatorAdminDetail | null> {

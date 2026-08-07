@@ -12,6 +12,7 @@ describe("AdminCreatorsService (Phase 12)", () => {
     creatorCampaign: { findMany: jest.Mock };
     commission: { groupBy: jest.Mock };
     payout: { groupBy: jest.Mock };
+    flow: { groupBy: jest.Mock };
     user: { update: jest.Mock };
   };
   let referrals: { getMySummary: jest.Mock };
@@ -35,6 +36,7 @@ describe("AdminCreatorsService (Phase 12)", () => {
       creatorCampaign: { findMany: jest.fn() },
       commission: { groupBy: jest.fn() },
       payout: { groupBy: jest.fn() },
+      flow: { groupBy: jest.fn().mockResolvedValue([]) },
       user: { update: jest.fn() },
     };
     referrals = { getMySummary: jest.fn() };
@@ -69,6 +71,55 @@ describe("AdminCreatorsService (Phase 12)", () => {
       prisma.creatorProfile.findUnique.mockResolvedValue(creatorRow({ applications: [{ status: "SUBMITTED", currentStep: 3, submittedAt: null, reviewedAt: null }] }));
       const result = await service.findOneOrThrow("creator1");
       expect(result.verified).toBe(false);
+    });
+  });
+
+  describe("list — activity classification", () => {
+    it("merges per-creator flow aggregates and classifies EARNING when a flow has orders", async () => {
+      prisma.creatorProfile.findMany.mockResolvedValue([creatorRow()]);
+      prisma.creatorProfile.count.mockResolvedValue(1);
+      prisma.flow.groupBy.mockResolvedValue([
+        { creatorProfileId: "creator1", _count: { _all: 2 }, _sum: { clickCount: 40, orderCount: 3, commissionEarnedMinor: 90000 }, _max: { updatedAt: new Date() } },
+      ]);
+      const result = await service.list({ skip: 0, take: 20, page: 1, pageSize: 20 } as never);
+      expect(result.items[0]!.activityStatus).toBe("EARNING");
+      expect(result.items[0]!.flowCount).toBe(2);
+      expect(result.items[0]!.totalClicks).toBe(40);
+      expect(result.items[0]!.totalEarnedMinor).toBe(90000);
+    });
+
+    it("classifies a creator with no flow rows (absent from the aggregate map) past the grace window as NO_FLOW", async () => {
+      const old = new Date(Date.now() - 30 * 86_400_000);
+      prisma.creatorProfile.findMany.mockResolvedValue([creatorRow({ createdAt: old })]);
+      prisma.creatorProfile.count.mockResolvedValue(1);
+      prisma.flow.groupBy.mockResolvedValue([]);
+      const result = await service.list({ skip: 0, take: 20, page: 1, pageSize: 20 } as never);
+      expect(result.items[0]!.activityStatus).toBe("NO_FLOW");
+      expect(result.items[0]!.flowCount).toBe(0);
+      expect(result.items[0]!.lastActivityAt).toEqual(old);
+    });
+
+    it("translates an activityStatus filter into a relation where-clause on the creator query", async () => {
+      prisma.creatorProfile.findMany.mockResolvedValue([]);
+      prisma.creatorProfile.count.mockResolvedValue(0);
+      await service.list({ skip: 0, take: 20, page: 1, pageSize: 20, activityStatus: "NO_FLOW" } as never);
+      const where = prisma.creatorProfile.findMany.mock.calls[0]![0].where;
+      expect(JSON.stringify(where)).toContain('"none"');
+    });
+  });
+
+  describe("getActivitySummary", () => {
+    it("returns funnel counts, with tookFlow summing the three post-flow buckets", async () => {
+      // count() is called 6× in order: total, NEW, NO_FLOW, FLOW_NO_CLICKS, ACTIVE_NO_EARNINGS, EARNING
+      prisma.creatorProfile.count
+        .mockResolvedValueOnce(100)
+        .mockResolvedValueOnce(10)
+        .mockResolvedValueOnce(30)
+        .mockResolvedValueOnce(20)
+        .mockResolvedValueOnce(15)
+        .mockResolvedValueOnce(25);
+      const result = await service.getActivitySummary();
+      expect(result).toEqual({ total: 100, newCount: 10, noFlow: 30, flowNoClicks: 20, activeNoEarnings: 15, earning: 25, tookFlow: 60 });
     });
   });
 

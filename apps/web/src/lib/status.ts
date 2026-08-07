@@ -4,6 +4,7 @@ import type {
   CampaignApplicationStatus,
   CampaignStatus,
   CommissionStatus,
+  CreatorActivityStatus,
   CreatorTier,
   ContentReviewAction,
   ContentStatus,
@@ -62,6 +63,17 @@ export const applicationStatusMeta: Record<CreatorApplicationStatus, { label: st
   CHANGES_REQUESTED: { label: "Tuzatish talab qilinadi", tone: "warning" },
   APPROVED: { label: "Tasdiqlangan", tone: "success" },
   REJECTED: { label: "Rad etilgan", tone: "error" },
+};
+
+// Flow-centric creator engagement stage (admin creators list). Labels are outreach-oriented — an
+// admin reads them to decide who to nudge. ⚠️ tones (warning) mark the two "started then stopped"
+// groups that are the whole point of the view.
+export const creatorActivityStatusMeta: Record<CreatorActivityStatus, { label: string; tone: Tone }> = {
+  NEW: { label: "Yangi", tone: "neutral" },
+  NO_FLOW: { label: "Oqim olmagan", tone: "warning" },
+  FLOW_NO_CLICKS: { label: "Harakatsiz", tone: "warning" },
+  ACTIVE_NO_EARNINGS: { label: "Faol", tone: "info" },
+  EARNING: { label: "Daromadli", tone: "success" },
 };
 
 export const creatorCampaignStatusMeta: Record<CreatorCampaignStatus, { label: string; tone: Tone }> = {

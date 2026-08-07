@@ -7,6 +7,7 @@ import { DomainException } from "../common/errors/domain-error";
 import { paginate, type PaginatedResult } from "../common/pagination/pagination.dto";
 import { ReferralsService, type ReferralSummaryResponse } from "../referrals/referrals.service";
 import type { CreatorQueryDto } from "./dto/creator-query.dto";
+import { classifyCreatorActivity, NEW_GRACE_DAYS, type CreatorActivityStatus } from "./creator-activity";
 
 const CREATOR_LIST_SELECT = {
   id: true,
@@ -32,6 +33,55 @@ export interface CreatorAdminListItem {
   onboardingStatus: string;
   bioComplianceStatus: BioComplianceStatus;
   tier: CreatorTier;
+  // Flow-centric engagement — see creator-activity.ts. Lets an admin spot who registered and
+  // stopped (NO_FLOW), took a Flow but isn't sharing it (FLOW_NO_CLICKS), etc., and reach out.
+  activityStatus: CreatorActivityStatus;
+  flowCount: number;
+  totalClicks: number;
+  totalOrders: number;
+  totalEarnedMinor: number;
+  lastActivityAt: Date;
+}
+
+interface FlowAggregate {
+  flowCount: number;
+  totalClicks: number;
+  totalOrders: number;
+  totalEarnedMinor: number;
+  lastActivityAt: Date | undefined;
+}
+
+export interface CreatorActivitySummary {
+  total: number;
+  newCount: number;
+  noFlow: number;
+  flowNoClicks: number;
+  activeNoEarnings: number;
+  earning: number;
+  tookFlow: number;
+}
+
+// Not-earning is the shared negation used by several activity filters — a creator counts as earning
+// the moment any Flow has a real order or accrued commission.
+const NOT_EARNING: Prisma.CreatorProfileWhereInput = {
+  NOT: { flows: { some: { OR: [{ orderCount: { gt: 0 } }, { commissionEarnedMinor: { gt: 0 } }] } } },
+};
+
+// Prisma relation filter matching classifyCreatorActivity for a given status, so the paginated
+// list filter and the displayed badge never disagree. `graceThreshold` = now - NEW_GRACE_DAYS.
+function activityWhere(status: CreatorActivityStatus, graceThreshold: Date): Prisma.CreatorProfileWhereInput {
+  switch (status) {
+    case "EARNING":
+      return { flows: { some: { OR: [{ orderCount: { gt: 0 } }, { commissionEarnedMinor: { gt: 0 } }] } } };
+    case "ACTIVE_NO_EARNINGS":
+      return { AND: [{ flows: { some: { clickCount: { gt: 0 } } } }, NOT_EARNING] };
+    case "FLOW_NO_CLICKS":
+      return { AND: [{ flows: { some: {} } }, { NOT: { flows: { some: { clickCount: { gt: 0 } } } } }, NOT_EARNING] };
+    case "NO_FLOW":
+      return { AND: [{ flows: { none: {} } }, { createdAt: { lt: graceThreshold } }] };
+    case "NEW":
+      return { AND: [{ flows: { none: {} } }, { createdAt: { gte: graceThreshold } }] };
+  }
 }
 
 export interface CreatorAdminDetail extends CreatorAdminListItem {
@@ -94,8 +144,14 @@ export class AdminCreatorsService {
     private config: ConfigService,
   ) {}
 
-  private toListItem(row: CreatorListRow): CreatorAdminListItem {
+  // The activity fields need per-creator Flow aggregates, fetched separately (see list()); a row
+  // with no Flow rows simply isn't in the aggregate map, so it reads as zero activity.
+  private toListItem(row: CreatorListRow, agg: FlowAggregate | undefined, now: Date): CreatorAdminListItem {
     const app = row.applications[0];
+    const flowCount = agg?.flowCount ?? 0;
+    const totalClicks = agg?.totalClicks ?? 0;
+    const totalOrders = agg?.totalOrders ?? 0;
+    const totalEarnedMinor = agg?.totalEarnedMinor ?? 0;
     return {
       id: row.id,
       displayName: row.displayName,
@@ -107,13 +163,24 @@ export class AdminCreatorsService {
       onboardingStatus: app?.status ?? "DRAFT",
       bioComplianceStatus: row.bioComplianceStatus,
       tier: row.tier,
+      activityStatus: classifyCreatorActivity({ now, registeredAt: row.createdAt, flowCount, totalClicks, totalOrders, totalEarnedMinor }),
+      flowCount,
+      totalClicks,
+      totalOrders,
+      totalEarnedMinor,
+      // For a creator with no Flow, "last activity" is their registration — the timestamp the admin
+      // measures dormancy against either way.
+      lastActivityAt: agg?.lastActivityAt ?? row.createdAt,
     };
   }
 
   async list(query: CreatorQueryDto): Promise<PaginatedResult<CreatorAdminListItem>> {
+    const now = new Date();
+    const graceThreshold = new Date(now.getTime() - NEW_GRACE_DAYS * 86_400_000);
     const where: Prisma.CreatorProfileWhereInput = {
       user: { status: query.accountStatus },
       ...(query.onboardingStatus ? { applications: { some: { status: query.onboardingStatus } } } : {}),
+      ...(query.activityStatus ? activityWhere(query.activityStatus, graceThreshold) : {}),
       ...(query.search
         ? {
             OR: [
@@ -128,7 +195,51 @@ export class AdminCreatorsService {
       this.prisma.creatorProfile.findMany({ where, select: CREATOR_LIST_SELECT, orderBy: { createdAt: "desc" }, skip: query.skip, take: query.take }),
       this.prisma.creatorProfile.count({ where }),
     ]);
-    return paginate(items.map((r) => this.toListItem(r)), total, query);
+    const aggregates = await this.fetchFlowAggregates(items.map((r) => r.id));
+    return paginate(items.map((r) => this.toListItem(r, aggregates.get(r.id), now)), total, query);
+  }
+
+  // One grouped query for the whole page's creators — turns what would be an N+1 (one flow query
+  // per creator) into a single round-trip, the same batching discipline used across the codebase.
+  private async fetchFlowAggregates(creatorIds: string[]): Promise<Map<string, FlowAggregate>> {
+    if (creatorIds.length === 0) return new Map();
+    const rows = await this.prisma.flow.groupBy({
+      by: ["creatorProfileId"],
+      where: { creatorProfileId: { in: creatorIds } },
+      _count: { _all: true },
+      _sum: { clickCount: true, orderCount: true, commissionEarnedMinor: true },
+      _max: { updatedAt: true },
+    });
+    return new Map(
+      rows.map((r) => [
+        r.creatorProfileId,
+        {
+          flowCount: r._count._all,
+          totalClicks: r._sum.clickCount ?? 0,
+          totalOrders: r._sum.orderCount ?? 0,
+          totalEarnedMinor: r._sum.commissionEarnedMinor ?? 0,
+          lastActivityAt: r._max.updatedAt ?? undefined,
+        },
+      ]),
+    );
+  }
+
+  // Funnel snapshot for the top of the admin creators page — global counts, not affected by the
+  // list's search/filter, so it always shows the whole picture. Each count reuses the same
+  // activityWhere() predicates the per-row badge and filter use, so the tiles and the filtered list
+  // agree by construction.
+  async getActivitySummary(): Promise<CreatorActivitySummary> {
+    const graceThreshold = new Date(Date.now() - NEW_GRACE_DAYS * 86_400_000);
+    const count = (where: Prisma.CreatorProfileWhereInput) => this.prisma.creatorProfile.count({ where });
+    const [total, newCount, noFlow, flowNoClicks, activeNoEarnings, earning] = await Promise.all([
+      count({}),
+      count(activityWhere("NEW", graceThreshold)),
+      count(activityWhere("NO_FLOW", graceThreshold)),
+      count(activityWhere("FLOW_NO_CLICKS", graceThreshold)),
+      count(activityWhere("ACTIVE_NO_EARNINGS", graceThreshold)),
+      count(activityWhere("EARNING", graceThreshold)),
+    ]);
+    return { total, newCount, noFlow, flowNoClicks, activeNoEarnings, earning, tookFlow: flowNoClicks + activeNoEarnings + earning };
   }
 
   private async findRowOrThrow(id: string): Promise<CreatorListRow & { applications: { currentStep: number; submittedAt: Date | null; reviewedAt: Date | null; status: string }[] }> {
@@ -140,8 +251,9 @@ export class AdminCreatorsService {
   async findOneOrThrow(id: string): Promise<CreatorAdminDetail> {
     const row = await this.findRowOrThrow(id);
     const app = row.applications[0];
+    const aggregates = await this.fetchFlowAggregates([row.id]);
     return {
-      ...this.toListItem(row),
+      ...this.toListItem(row, aggregates.get(row.id), new Date()),
       onboardingCurrentStep: app?.currentStep ?? 1,
       onboardingSubmittedAt: app?.submittedAt ?? null,
       onboardingReviewedAt: app?.reviewedAt ?? null,

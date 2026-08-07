@@ -71,6 +71,10 @@ export function useRealCreatorList(query: import("@/lib/api/admin").RealCreatorQ
   return useQuery({ queryKey: ["admin-creators-real", query], queryFn: () => api.getRealCreatorList(query) });
 }
 
+export function useRealCreatorActivitySummary() {
+  return useQuery({ queryKey: ["admin-creators-real", "activity-summary"], queryFn: () => api.getRealCreatorActivitySummary() });
+}
+
 export function useRealCreatorDetail(id: string) {
   return useQuery({ queryKey: ["admin-creators-real", "detail", id], queryFn: () => api.getRealCreatorDetail(id), enabled: !!id });
 }

@@ -1097,6 +1097,19 @@ export interface RealRole {
 export type BioComplianceStatus = "PENDING" | "COMPLIANT" | "NON_COMPLIANT";
 export type CreatorTier = "STANDARD" | "PREMIUM";
 
+// Flow-centric engagement stage — see apps/api/src/admin-creators/creator-activity.ts.
+export type CreatorActivityStatus = "NEW" | "NO_FLOW" | "FLOW_NO_CLICKS" | "ACTIVE_NO_EARNINGS" | "EARNING";
+
+export interface CreatorActivitySummary {
+  total: number;
+  newCount: number;
+  noFlow: number;
+  flowNoClicks: number;
+  activeNoEarnings: number;
+  earning: number;
+  tookFlow: number;
+}
+
 export interface RealCreatorAdminListItem {
   id: string;
   displayName: string;
@@ -1108,6 +1121,12 @@ export interface RealCreatorAdminListItem {
   onboardingStatus: CreatorApplicationStatus;
   bioComplianceStatus: BioComplianceStatus;
   tier: CreatorTier;
+  activityStatus: CreatorActivityStatus;
+  flowCount: number;
+  totalClicks: number;
+  totalOrders: number;
+  totalEarnedMinor: number;
+  lastActivityAt: string;
 }
 
 export interface RealCreatorAdminDetail extends RealCreatorAdminListItem {

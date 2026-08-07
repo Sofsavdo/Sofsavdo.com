@@ -21,6 +21,12 @@ export class AdminCreatorsController {
     return this.creators.list(query);
   }
 
+  @RequirePermissions("creator.read")
+  @Get("activity-summary")
+  activitySummary() {
+    return this.creators.getActivitySummary();
+  }
+
   @RequirePermissions("creator.review")
   @Get(":id")
   findOne(@Param("id") id: string) {
