@@ -22,7 +22,7 @@ describe("AuthService", () => {
   };
   let tokens: { signAccessToken: jest.Mock; issueRefreshToken: jest.Mock };
   let roles: { getRoleKeysAndPermissionsForUser: jest.Mock };
-  let referrals: { resolveReferrerForAttribution: jest.Mock; generateUniqueReferralCode: jest.Mock; attributeAtRegistration: jest.Mock };
+  let referrals: { resolveReferrerForAttribution: jest.Mock; generateUniqueReferralCode: jest.Mock; attributeAtRegistration: jest.Mock; onCreatorApproved: jest.Mock };
   let events: { emitAsync: jest.Mock };
   let config: { get: jest.Mock };
   let launchBonus: { createBonusForCreatorInTransaction: jest.Mock };
@@ -41,6 +41,7 @@ describe("AuthService", () => {
       resolveReferrerForAttribution: jest.fn().mockResolvedValue(null),
       generateUniqueReferralCode: jest.fn().mockResolvedValue("ref-abc123"),
       attributeAtRegistration: jest.fn(),
+      onCreatorApproved: jest.fn(),
     };
     events = { emitAsync: jest.fn().mockResolvedValue([]) };
     launchBonus = { createBonusForCreatorInTransaction: jest.fn().mockResolvedValue(undefined) };
@@ -87,6 +88,21 @@ describe("AuthService", () => {
       await service.register({ email: "aziz@example.uz", password: "Str0ngPass!", displayName: "Aziz Karimov" });
 
       expect(events.emitAsync).toHaveBeenCalledWith("user.registered", { userId: "user1", displayName: "Aziz Karimov" });
+    });
+
+    it("creates the CreatorApplication already APPROVED so the creator is never stuck behind onboarding", async () => {
+      prisma.user.findUnique
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ id: "user1", email: "aziz@example.uz", phone: null, creatorProfile: { id: "creator1" } });
+      prisma.user.create.mockResolvedValue({ id: "user1", creatorProfile: { id: "creator1" } });
+
+      await service.register({ email: "aziz@example.uz", password: "Str0ngPass!", displayName: "Aziz Karimov" });
+
+      const createArgs = prisma.user.create.mock.calls[0][0];
+      expect(createArgs.data.creatorProfile.create.applications.create.status).toBe("APPROVED");
+      // Referral approval milestone fires so a referrer's reward eligibility isn't left waiting on a
+      // wizard the creator never has to open.
+      expect(referrals.onCreatorApproved).toHaveBeenCalledWith("creator1");
     });
   });
 

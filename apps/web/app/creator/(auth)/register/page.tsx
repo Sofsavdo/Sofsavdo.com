@@ -33,9 +33,10 @@ function RegisterForm() {
       // Use promoCode from form if provided, otherwise use referralCode from URL
       const codeToUse = values.promoCode || referralCode;
       await registerAccount(values.email, values.fullName, values.password, codeToUse);
-      // Wait for session to be updated, then redirect
+      // Accounts are APPROVED on registration now (no blocking onboarding gate), so send the new
+      // creator straight to their dashboard where they can start taking flows immediately.
       setTimeout(() => {
-        router.replace("/creator/onboarding");
+        router.replace("/creator/dashboard");
       }, 100);
     } catch {
       // surfaced via registerError below

@@ -75,11 +75,13 @@ export class AuthService {
       const referrer = await this.referrals.resolveReferrerForAttribution(dto.referralCode, tx);
       const referralCode = await this.referrals.generateUniqueReferralCode(tx);
 
-      // A DRAFT CreatorApplication is created in the same write as the CreatorProfile — every
-      // real creator account has one from the moment of registration, exactly like the mock (see
-      // DECISIONS.md ADR-012). This keeps `CreatorUser.application` a non-nullable invariant
-      // across both admin- and creator-facing session reads, rather than pushing null-handling
-      // everywhere.
+      // The CreatorApplication is created already APPROVED — a creator can take flows and earn the
+      // moment they register, with no separate onboarding-wizard gate to get stuck behind (payout
+      // details are collected lazily at first payout via PayoutMethod, social links via the profile
+      // page). This is the "onboarding is not a blocking gate" decision; the wizard still exists for
+      // optional profile enrichment but is no longer on the critical path. Previously this was DRAFT
+      // and only flipped to APPROVED on wizard submit, which left creators who abandoned the wizard
+      // permanently unable to work (see DECISIONS.md ADR-012 for the original DRAFT invariant).
       const user = await tx.user.create({
         data: {
           email,
@@ -90,12 +92,21 @@ export class AuthService {
               displayName: dto.displayName,
               contentNiches: [],
               referralCode,
-              applications: { create: { status: "DRAFT", formData: {} } },
+              applications: {
+                create: {
+                  status: "APPROVED",
+                  formData: {},
+                  submittedAt: new Date(),
+                  reviewedAt: new Date(),
+                  reviewNote: "Avtomatik tasdiqlangan — ro'yxatdan o'tishda.",
+                },
+              },
             },
           },
         },
         include: { creatorProfile: true },
       });
+      creatorProfileId = user.creatorProfile?.id ?? null;
 
       if (referrer && user.creatorProfile) {
         await this.referrals.attributeAtRegistration(tx, user.creatorProfile.id, referrer);
@@ -108,6 +119,12 @@ export class AuthService {
 
       return user.id;
     });
+
+    // The referred creator counts as "approved" the instant they register now, so mark the referral
+    // milestone that gates the referrer's reward eligibility. No-op for a non-referred creator.
+    if (creatorProfileId) {
+      await this.referrals.onCreatorApproved(creatorProfileId);
+    }
 
     // emitAsync, not emit — see creator-applications.service.ts's identical comment. Without this,
     // a caller (or a test) checking for the resulting welcome notification/email immediately after
