@@ -9,6 +9,7 @@ import {
   Settings,
   Trophy,
   Gift,
+  MessageCircle,
 } from "lucide-react";
 
 export interface AdminNavItem {
@@ -36,6 +37,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
       { href: "/admin/products", label: "Mahsulotlar", icon: Package },
       { href: "/admin/orders", label: "Buyurtmalar", icon: ShoppingBag },
       { href: "/admin/creators", label: "Creatorlar", icon: Users },
+      { href: "/admin/chat", label: "Chat", icon: MessageCircle },
       // Creator applications auto-approve on submit (see onboarding.service.ts) — there's no real
       // manual review step, so the review section is hidden from the nav. The page still exists at
       // /admin/creator-applications for direct access if ever needed; it's just not surfaced.

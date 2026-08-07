@@ -1110,6 +1110,28 @@ export interface CreatorActivitySummary {
   tookFlow: number;
 }
 
+// ---- Chat ----
+export type ChatConversationType = "DIRECT" | "GROUP";
+
+export interface ChatConversationView {
+  id: string;
+  type: ChatConversationType;
+  title: string;
+  lastMessage: { body: string; createdAt: string; senderIsAdmin: boolean } | null;
+  hasUnread: boolean;
+}
+
+export interface ChatMessageView {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  senderIsAdmin: boolean;
+  senderName: string | null;
+  body: string;
+  createdAt: string;
+  mine: boolean;
+}
+
 export interface RealCreatorAdminListItem {
   id: string;
   displayName: string;
