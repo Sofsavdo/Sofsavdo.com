@@ -33,6 +33,7 @@ import { PayoutsModule } from "./payouts/payouts.module";
 import { NotificationsModule } from "./notifications/notifications.module";
 import { OnboardingModule } from "./onboarding/onboarding.module";
 import { AdminCreatorsModule } from "./admin-creators/admin-creators.module";
+import { ChatModule } from "./chat/chat.module";
 import { AdminPaymentsModule } from "./admin-payments/admin-payments.module";
 import { AdminRefundsModule } from "./admin-refunds/admin-refunds.module";
 import { SettingsModule } from "./settings/settings.module";
@@ -98,6 +99,7 @@ import configuration from "./config/configuration";
     NotificationsModule,
     OnboardingModule,
     AdminCreatorsModule,
+    ChatModule,
     AdminPaymentsModule,
     AdminRefundsModule,
     SettingsModule,

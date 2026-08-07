@@ -79,6 +79,8 @@ model User {
   competitionsUpdated          Competition[]            @relation("CompetitionUpdatedBy")
   verifiedBonuses              LaunchBonus[]            @relation("BonusVerifier")
   telegramLinkTokens           TelegramLinkToken[]
+  chatParticipants             ChatParticipant[]
+  chatMessagesSent             ChatMessage[]            @relation("ChatMessageSender")
 
   @@index([status])
 }
@@ -205,23 +207,23 @@ model CreatorProfile {
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
 
-  socialAccounts       SocialAccount[]
-  applications         CreatorApplication[]
-  campaigns            CreatorCampaign[]
-  campaignApplications CampaignApplication[]
-  referralLinks        ReferralLink[]
-  promoCodes           PromoCode[]
-  commissions          Commission[]
-  payoutMethods        PayoutMethod[]
-  payouts              Payout[]
-  referralsGiven       CreatorReferral[]         @relation("ReferralReferrer")
-  referralReceived     CreatorReferral?          @relation("ReferralReferred")
-  contents             Content[]                 @relation("ContentByCreator")
-  fundContributions    CreatorFundContribution[]
+  socialAccounts          SocialAccount[]
+  applications            CreatorApplication[]
+  campaigns               CreatorCampaign[]
+  campaignApplications    CampaignApplication[]
+  referralLinks           ReferralLink[]
+  promoCodes              PromoCode[]
+  commissions             Commission[]
+  payoutMethods           PayoutMethod[]
+  payouts                 Payout[]
+  referralsGiven          CreatorReferral[]         @relation("ReferralReferrer")
+  referralReceived        CreatorReferral?          @relation("ReferralReferred")
+  contents                Content[]                 @relation("ContentByCreator")
+  fundContributions       CreatorFundContribution[]
   competitionParticipants CompetitionParticipant[]
-  products             Product[]
-  launchBonuses         LaunchBonus[]
-  flows                Flow[]
+  products                Product[]
+  launchBonuses           LaunchBonus[]
+  flows                   Flow[]
 
   @@index([city])
 }
@@ -241,52 +243,52 @@ enum BonusStatus {
 }
 
 model LaunchBonusSettings {
-  id                   String   @id @default(cuid())
-  bonusAmountMinor     Int      @default(150000000) // 1,500,000 UZS - normal registration
-  referralBonusAmountMinor Int  @default(250000000) // 2,500,000 UZS - referral registration
-  deadlineDays         Int      @default(30)
+  id                       String @id @default(cuid())
+  bonusAmountMinor         Int    @default(150000000) // 1,500,000 UZS - normal registration
+  referralBonusAmountMinor Int    @default(250000000) // 2,500,000 UZS - referral registration
+  deadlineDays             Int    @default(30)
 
   // Configurable requirements
-  minCommissionMinor  Int?     @default(500000000) // 500,000 UZS
-  minReferrals         Int?     @default(3)
-  minOrders            Int?     @default(5)
-  bioLinkRequired      Boolean  @default(true)
+  minCommissionMinor Int?    @default(500000000) // 500,000 UZS
+  minReferrals       Int?    @default(3)
+  minOrders          Int?    @default(5)
+  bioLinkRequired    Boolean @default(true)
 
-  isActive             Boolean  @default(true)
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  bonuses              LaunchBonus[]
+  bonuses LaunchBonus[]
 }
 
 model LaunchBonus {
-  id                   String   @id @default(cuid())
-  creatorProfileId     String   @unique
-  settingsId           String
-  bonusAmountMinor     Int
-  status               BonusStatus @default(LOCKED)
-  deadline             DateTime
-  
+  id               String      @id @default(cuid())
+  creatorProfileId String      @unique
+  settingsId       String
+  bonusAmountMinor Int
+  status           BonusStatus @default(LOCKED)
+  deadline         DateTime
+
   // Progress tracking
-  commissionEarnedMinor Int     @default(0)
-  referralsCount         Int     @default(0)
-  ordersCount            Int     @default(0)
-  bioLinkVerified        Boolean @default(false)
-  bioLinkVerifiedAt      DateTime?
-  bioLinkVerifiedBy      String?
+  commissionEarnedMinor Int       @default(0)
+  referralsCount        Int       @default(0)
+  ordersCount           Int       @default(0)
+  bioLinkVerified       Boolean   @default(false)
+  bioLinkVerifiedAt     DateTime?
+  bioLinkVerifiedBy     String?
   // Set when the creator themselves says "I've added the link" — distinct from bioLinkVerified
   // (the admin's verdict after checking). Without this, admin's pending-review queue could only
   // ever list every non-compliant creator regardless of whether they'd actually done anything yet,
   // with no way to tell "hasn't done it" apart from "says they've done it, please check."
-  bioLinkSubmittedAt     DateTime?
-  
-  unlockedAt            DateTime?
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-  
-  creatorProfile        CreatorProfile @relation(fields: [creatorProfileId], references: [id])
-  settings              LaunchBonusSettings @relation(fields: [settingsId], references: [id])
-  verifier              User? @relation("BonusVerifier", fields: [bioLinkVerifiedBy], references: [id])
+  bioLinkSubmittedAt    DateTime?
+
+  unlockedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  creatorProfile CreatorProfile      @relation(fields: [creatorProfileId], references: [id])
+  settings       LaunchBonusSettings @relation(fields: [settingsId], references: [id])
+  verifier       User?               @relation("BonusVerifier", fields: [bioLinkVerifiedBy], references: [id])
 
   @@index([status])
   @@index([deadline])
@@ -349,21 +351,21 @@ enum ProductStatus {
 }
 
 model Product {
-  id               String        @id @default(cuid())
-  name             String
-  slug             String        @unique
-  type             ProductType
-  shortDescription String?
-  description      String?
-  brand            String?
-  sku              String?       @unique
-  status           ProductStatus @default(DRAFT)
-  images           String[]
-  videos           String[]
-  attributes       Json?
-  costPriceMinor   Int?
-  currency         String        @default("UZS")
-  internalNotes    String?
+  id                    String          @id @default(cuid())
+  name                  String
+  slug                  String          @unique
+  type                  ProductType
+  shortDescription      String?
+  description           String?
+  brand                 String?
+  sku                   String?         @unique
+  status                ProductStatus   @default(DRAFT)
+  images                String[]
+  videos                String[]
+  attributes            Json?
+  costPriceMinor        Int?
+  currency              String          @default("UZS")
+  internalNotes         String?
   // Physical-inventory tracking (Phase 8). null = untracked (digital/course/service products, or a
   // physical product whose stock isn't managed yet) — checkout skips the stock check entirely in
   // that case. A non-null value is decremented atomically when an Order reaches PAID (see
@@ -372,31 +374,31 @@ model Product {
   // concurrency guard — two simultaneous PAID transitions racing past the app-level check can't
   // both succeed, since Postgres will reject whichever commit second. A dedicated
   // Inventory/warehouse model can layer on top of this field later without breaking it.
-  stockQuantity    Int?
+  stockQuantity         Int?
   // Creator who owns this product (for admin-created products to appear in creator dashboard)
-  creatorProfileId String?
-  creatorProfile   CreatorProfile? @relation(fields: [creatorProfileId], references: [id], onDelete: SetNull)
+  creatorProfileId      String?
+  creatorProfile        CreatorProfile? @relation(fields: [creatorProfileId], references: [id], onDelete: SetNull)
   // Commission settings for creators - either percentage (basis points) or fixed amount (minor units)
-  commissionType   String?       @default("PERCENTAGE") // "PERCENTAGE" or "FIXED_AMOUNT"
-  commissionRateBps Int?         // Basis points for percentage commission (e.g., 1000 = 10%)
-  commissionAmountMinor Int?     // Fixed commission amount in minor units (tiyin)
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+  commissionType        String?         @default("PERCENTAGE") // "PERCENTAGE" or "FIXED_AMOUNT"
+  commissionRateBps     Int? // Basis points for percentage commission (e.g., 1000 = 10%)
+  commissionAmountMinor Int? // Fixed commission amount in minor units (tiyin)
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
   // Admin-controlled placement/labeling for the creator-facing product picker
   // (ProductsService.listAvailableForPromotion) — pinned products sort first (most-recently-
   // pinned first among them), everything else falls back to createdAt desc as before. Separate
   // from featuredBadge: a product can be pinned without a badge, or badged without being pinned.
-  isPinned         Boolean       @default(false)
-  pinnedAt         DateTime?
+  isPinned              Boolean         @default(false)
+  pinnedAt              DateTime?
   // "PREMIUM" | "VIP" | null — a label shown next to the product name, not a business-logic gate
   // (no different commission/visibility rules attach to it, purely marketing signal to creators).
-  featuredBadge    String?
+  featuredBadge         String?
   // When set, this product is never sold through Sofsavdo's own checkout — it represents a
   // partner platform's offering (e.g. Fidem). ReferralController redirects a Flow click straight
   // here (with a signed click token appended) instead of to /o/[offerSlug]; the partner reports
   // conversions back via a webhook that creates an EXTERNAL-source Commission. See
   // src/flows/referral.controller.ts and src/fidem-integration/.
-  externalRedirectUrl String?
+  externalRedirectUrl   String?
   // Free-text earning-potential label shown to creators in place of a computed price/commission
   // amount (e.g. "17 500 – 29 900 so'm") — for an external-redirect product there's no Sofsavdo
   // checkout price to multiply commissionRateBps against, so this is admin-entered directly
@@ -405,7 +407,7 @@ model Product {
   estimatedEarningLabel String?
 
   offers Offer[]
-  flows Flow[]
+  flows  Flow[]
 
   @@index([type, status])
   @@index([creatorProfileId])
@@ -415,18 +417,18 @@ model Product {
 // Flow model - Creator's promotion of a Product with a unique referral code
 // Simplified architecture: Creator selects Product -> creates Flow -> gets referral link -> shares link
 model Flow {
-  id               String        @id @default(cuid())
-  creatorProfileId String
-  creatorProfile   CreatorProfile @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
-  productId        String
-  product          Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
-  referralCode     String        @unique // Short code for referral link (e.g., "ABC123")
-  status           String        @default("ACTIVE") // "ACTIVE", "PAUSED"
-  clickCount       Int           @default(0)
-  orderCount       Int           @default(0)
-  commissionEarnedMinor Int      @default(0)
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+  id                    String         @id @default(cuid())
+  creatorProfileId      String
+  creatorProfile        CreatorProfile @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
+  productId             String
+  product               Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  referralCode          String         @unique // Short code for referral link (e.g., "ABC123")
+  status                String         @default("ACTIVE") // "ACTIVE", "PAUSED"
+  clickCount            Int            @default(0)
+  orderCount            Int            @default(0)
+  commissionEarnedMinor Int            @default(0)
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
 
   orders Order[]
 
@@ -937,30 +939,30 @@ enum CompetitionStatus {
 }
 
 model Competition {
-  id               String            @id @default(cuid())
-  name             String
-  description      String?
-  startAt          DateTime
-  endAt            DateTime
-  status           CompetitionStatus @default(DRAFT)
+  id          String            @id @default(cuid())
+  name        String
+  description String?
+  startAt     DateTime
+  endAt       DateTime
+  status      CompetitionStatus @default(DRAFT)
   // Metrika turi: buyurtma soni yoki taklif qilingan do'stlar soni
-  metric           String            @default("ORDER_COUNT")
+  metric      String            @default("ORDER_COUNT")
   // 3 ta o'rin sovrinlari
-  firstPrize       String
-  secondPrize      String
-  thirdPrize       String
+  firstPrize  String
+  secondPrize String
+  thirdPrize  String
   // Reklama rasm URL
-  imageUrl         String?
+  imageUrl    String?
   // Set only by the archive transition, cleared never — same convention as Offer.archivedAt.
-  archivedAt       DateTime?
-  createdById      String?
-  createdBy        User?             @relation("CompetitionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  updatedById      String?
-  updatedBy        User?             @relation("CompetitionUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  archivedAt  DateTime?
+  createdById String?
+  createdBy   User?             @relation("CompetitionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById String?
+  updatedBy   User?             @relation("CompetitionUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
 
-  participants     CompetitionParticipant[]
+  participants CompetitionParticipant[]
 
   @@index([status])
   @@index([startAt, endAt])
@@ -978,13 +980,13 @@ enum CompetitionParticipantStatus {
 // Competition participants - tracks when a creator joins a competition
 // This allows competition-specific scoring (orders/referrals counted from join date)
 model CompetitionParticipant {
-  id            String   @id @default(cuid())
+  id            String         @id @default(cuid())
   competitionId String
-  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  competition   Competition    @relation(fields: [competitionId], references: [id], onDelete: Cascade)
   creatorId     String
   creator       CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
-  joinedAt      DateTime @default(now())
-  createdAt     DateTime @default(now())
+  joinedAt      DateTime       @default(now())
+  createdAt     DateTime       @default(now())
 
   // Video-submission fields (INSTAGRAM_VIEWS competitions only) —
   status             CompetitionParticipantStatus @default(APPROVED)
@@ -997,7 +999,7 @@ model CompetitionParticipant {
   // explicitly OAuth-connected (with Meta App Review sign-off for `instagram_manage_insights`),
   // which isn't a same-week integration. viewCountSource keeps this swappable later without a
   // schema change — a real adapter would just start writing "API" instead of "MANUAL" here.
-  viewCount          Int       @default(0)
+  viewCount          Int                          @default(0)
   viewCountUpdatedAt DateTime?
   viewCountSource    String?
 
@@ -1330,7 +1332,7 @@ model Attribution {
   orderId         String            @unique
   order           Order             @relation(fields: [orderId], references: [id])
   creatorId       String
-  campaignId      String?           // Nullable for Flow-based attribution
+  campaignId      String? // Nullable for Flow-based attribution
   offerId         String?
   source          AttributionSource
   // NOT unique: one ReferralVisit (one click) legitimately backs multiple Orders/Attributions
@@ -1485,9 +1487,9 @@ model Order {
   fraudRiskFlags String[]
   // Simplified attribution - Flow-based instead of Campaign-based
   flowId         String?
-  flow           Flow?      @relation(fields: [flowId], references: [id])
-  referralCode   String?    // The referral code used (from Flow)
-  productId      String?     // Direct product reference for simplified architecture
+  flow           Flow?       @relation(fields: [flowId], references: [id])
+  referralCode   String? // The referral code used (from Flow)
+  productId      String? // Direct product reference for simplified architecture
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
@@ -1653,39 +1655,39 @@ enum CommissionStatus {
 }
 
 model Commission {
-  id                 String                   @id @default(cuid())
+  id                  String                   @id @default(cuid())
   // Nullable because EXTERNAL-source commissions (e.g. Fidem conversions reported via webhook)
   // have no Sofsavdo Order at all — see `source` below. ORDER-source rows always have one.
-  orderId            String?                  @unique
-  order              Order?                   @relation(fields: [orderId], references: [id])
+  orderId             String?                  @unique
+  order               Order?                   @relation(fields: [orderId], references: [id])
   // Where this commission came from. ORDER = normal checkout attribution (the only kind that
   // existed before this field). EXTERNAL = a partner platform (Fidem) reported a conversion via
   // webhook for a click that started on a creator's Flow link — externalRef/externalDescription
   // are only set for this kind.
-  source             CommissionSource         @default(ORDER)
-  externalRef        String?                  @unique // partner's transaction id — idempotency key for webhook retries
-  externalDescription String?                 // human label shown instead of an order, e.g. "Fidem — VIP yillik obuna"
-  creatorId          String
-  creator            CreatorProfile           @relation(fields: [creatorId], references: [id])
-  commissionRuleId   String?                  // Nullable for Flow-based attribution
-  commissionRule     CommissionRule?          @relation(fields: [commissionRuleId], references: [id])
-  baseAmountMinor    Int // order subtotal after discount, before shipping/tax/fees
-  amountMinor        Int
-  currency           String                   @default("UZS")
-  status             CommissionStatus         @default(PENDING)
-  approvedAt         DateTime?
-  payableAt          DateTime?
-  paidAt             DateTime?
-  payoutId           String?
-  payout             Payout?                  @relation(fields: [payoutId], references: [id])
+  source              CommissionSource         @default(ORDER)
+  externalRef         String?                  @unique // partner's transaction id — idempotency key for webhook retries
+  externalDescription String? // human label shown instead of an order, e.g. "Fidem — VIP yillik obuna"
+  creatorId           String
+  creator             CreatorProfile           @relation(fields: [creatorId], references: [id])
+  commissionRuleId    String? // Nullable for Flow-based attribution
+  commissionRule      CommissionRule?          @relation(fields: [commissionRuleId], references: [id])
+  baseAmountMinor     Int // order subtotal after discount, before shipping/tax/fees
+  amountMinor         Int
+  currency            String                   @default("UZS")
+  status              CommissionStatus         @default(PENDING)
+  approvedAt          DateTime?
+  payableAt           DateTime?
+  paidAt              DateTime?
+  payoutId            String?
+  payout              Payout?                  @relation(fields: [payoutId], references: [id])
   // Phase N (Creator Fund) — mirrors payoutId's lock-then-settle shape exactly, but for a
   // contribution instead of a withdrawal. A commission is locked by exactly one of
   // payoutId/fundContributionId at a time, never both.
-  donatedAt          DateTime?
-  fundContributionId String?
-  fundContribution   CreatorFundContribution? @relation(fields: [fundContributionId], references: [id])
-  createdAt          DateTime                 @default(now())
-  updatedAt          DateTime                 @updatedAt
+  donatedAt           DateTime?
+  fundContributionId  String?
+  fundContribution    CreatorFundContribution? @relation(fields: [fundContributionId], references: [id])
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
 
   ledgerEntries CommissionLedger[]
 
@@ -2062,4 +2064,70 @@ model CreatorReferralReward {
 
   @@unique([referralId, ruleId, sourceType, sourceId])
   @@index([status])
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Chat (real-time messaging) — creator↔admin support DMs + one global group.
+// ────────────────────────────────────────────────────────────────────────────
+
+enum ChatConversationType {
+  // A creator's private support thread. One per creator; any admin can read/reply (a shared admin
+  // inbox), so admins are NOT modelled as participants — admin access is by role, and the shared
+  // admin read cursor lives on adminLastReadAt below.
+  DIRECT
+  // The single platform-wide group every creator and admin can post in. Read state per user lives on
+  // ChatParticipant.lastReadAt.
+  GROUP
+}
+
+model ChatConversation {
+  id              String               @id @default(cuid())
+  type            ChatConversationType
+  title           String? // set for GROUP; a DIRECT thread is titled by its creator's name in the UI
+  // Only meaningful for DIRECT: the creator this support thread belongs to. Unique so a creator has
+  // exactly one support thread. Null for GROUP.
+  creatorUserId   String?              @unique
+  // Shared admin-side read cursor for a DIRECT thread — the whole admin team reads from one inbox, so
+  // one marker (rather than per-admin) matches how the inbox actually works. Null/unused for GROUP.
+  adminLastReadAt DateTime?
+  createdAt       DateTime             @default(now())
+  // Bumped on every new message so conversation lists sort by most-recent activity cheaply.
+  lastMessageAt   DateTime             @default(now())
+
+  participants ChatParticipant[]
+  messages     ChatMessage[]
+
+  @@index([type])
+  @@index([lastMessageAt])
+}
+
+model ChatParticipant {
+  id             String           @id @default(cuid())
+  conversationId String
+  conversation   ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // This user's own read cursor — messages after it are unread. For DIRECT this is the creator's
+  // cursor; the admin side uses ChatConversation.adminLastReadAt instead.
+  lastReadAt     DateTime?
+  createdAt      DateTime         @default(now())
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+}
+
+model ChatMessage {
+  id             String           @id @default(cuid())
+  conversationId String
+  conversation   ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String
+  sender         User             @relation("ChatMessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  // Denormalized so the shared admin inbox can show "creator wrote" vs "an admin replied" and compute
+  // DIRECT unread (admin unread = creator-sent messages after adminLastReadAt) without re-reading each
+  // sender's roles per message.
+  senderIsAdmin  Boolean
+  body           String
+  createdAt      DateTime         @default(now())
+
+  @@index([conversationId, createdAt])
 }
