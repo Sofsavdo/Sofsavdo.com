@@ -30,6 +30,15 @@ export class ChatController {
     return this.chat.listConversations(this.identityOf(user));
   }
 
+  // Admin opens (creating if needed) a given creator's DM thread — used by the "message this creator"
+  // action on the admin creators list. Admin-only.
+  @Post("direct/by-creator/:creatorId")
+  openCreatorDirect(@Param("creatorId") creatorId: string, @CurrentUser() user: AuthenticatedUser) {
+    const who = this.identityOf(user);
+    if (!who.isAdmin) throw new DomainException("FORBIDDEN", "Bu amal faqat adminlar uchun.");
+    return this.chat.openCreatorDirectByProfile(creatorId);
+  }
+
   @Get("conversations/:id/messages")
   getMessages(@Param("id") id: string, @Query("before") before: string | undefined, @CurrentUser() user: AuthenticatedUser) {
     return this.chat.getMessages(id, this.identityOf(user), before);

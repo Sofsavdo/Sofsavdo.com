@@ -38,6 +38,15 @@ export function useSendMessage(conversationId: string | null) {
   });
 }
 
+// Admin-only: open (creating if needed) a specific creator's DM thread by their CreatorProfile id.
+export function useOpenCreatorDirect() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (creatorId: string) => apiRequest<{ conversationId: string }>(`/chat/direct/by-creator/${creatorId}`, { method: "POST" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["chat", "conversations"] }),
+  });
+}
+
 export function useMarkRead() {
   const qc = useQueryClient();
   return useMutation({

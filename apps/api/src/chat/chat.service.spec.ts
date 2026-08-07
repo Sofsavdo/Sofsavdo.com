@@ -10,6 +10,7 @@ describe("ChatService", () => {
     chatMessage: { findUnique: jest.Mock; findMany: jest.Mock; create: jest.Mock };
     chatParticipant: { upsert: jest.Mock; updateMany: jest.Mock };
     user: { findUnique: jest.Mock; findMany: jest.Mock };
+    creatorProfile: { findUnique: jest.Mock };
     $transaction: jest.Mock;
   };
   let roles: { getRoleKeysAndPermissionsForUser: jest.Mock };
@@ -23,6 +24,7 @@ describe("ChatService", () => {
       chatMessage: { findUnique: jest.fn(), findMany: jest.fn(), create: jest.fn() },
       chatParticipant: { upsert: jest.fn(), updateMany: jest.fn() },
       user: { findUnique: jest.fn(), findMany: jest.fn() },
+      creatorProfile: { findUnique: jest.fn() },
       $transaction: jest.fn(),
     };
     roles = { getRoleKeysAndPermissionsForUser: jest.fn() };
@@ -92,6 +94,19 @@ describe("ChatService", () => {
       ]);
       const result = await service.sendMessage("conv1", admin, "javob");
       expect(result.senderIsAdmin).toBe(true);
+    });
+  });
+
+  describe("openCreatorDirectByProfile", () => {
+    it("throws NOT_FOUND for an unknown creator profile", async () => {
+      prisma.creatorProfile.findUnique.mockResolvedValue(null);
+      await expect(service.openCreatorDirectByProfile("missing")).rejects.toMatchObject({ code: "NOT_FOUND" });
+    });
+
+    it("resolves the creator's userId and returns their (existing) DIRECT thread id", async () => {
+      prisma.creatorProfile.findUnique.mockResolvedValue({ userId: "u-creator" });
+      prisma.chatConversation.findUnique.mockResolvedValue({ id: "conv-existing", type: "DIRECT", creatorUserId: "u-creator" });
+      expect(await service.openCreatorDirectByProfile("c1")).toEqual({ conversationId: "conv-existing" });
     });
   });
 

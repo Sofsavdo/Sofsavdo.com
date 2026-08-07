@@ -3,15 +3,13 @@
 import { ChatView } from "@/components/chat/ChatView";
 
 export default function CreatorChatPage() {
+  // Fixed height so the page itself never scrolls — only the message list inside ChatView does.
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="font-heading text-2xl font-bold text-text-primary">Chat</h1>
-        <p className="font-body text-sm text-text-secondary">
-          Admin bilan shaxsiy yozishuv va umumiy guruh — savollaringizni bevosita yozing.
-        </p>
+    <div className="flex h-[calc(100dvh-11rem)] flex-col md:h-[calc(100dvh-7rem)]">
+      <h1 className="mb-2 shrink-0 font-heading text-xl font-bold text-text-primary">Chat</h1>
+      <div className="min-h-0 flex-1">
+        <ChatView variant="creator" />
       </div>
-      <ChatView />
     </div>
   );
 }

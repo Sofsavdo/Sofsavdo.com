@@ -67,6 +67,16 @@ export class ChatService {
     return earliest?.id ?? created.id;
   }
 
+  // Admin-initiated: open (creating if needed) a specific creator's support thread by their
+  // CreatorProfile id — powers the "message this creator" action on the admin creators list, so an
+  // admin can reach a creator who has never opened chat themselves (e.g. one who took no flow).
+  async openCreatorDirectByProfile(creatorProfileId: string): Promise<{ conversationId: string }> {
+    const profile = await this.prisma.creatorProfile.findUnique({ where: { id: creatorProfileId }, select: { userId: true } });
+    if (!profile) throw new DomainException("NOT_FOUND", "Creator topilmadi.");
+    const conversationId = await this.ensureCreatorDirect(profile.userId);
+    return { conversationId };
+  }
+
   async ensureCreatorDirect(creatorUserId: string): Promise<string> {
     const existing = await this.prisma.chatConversation.findUnique({ where: { creatorUserId } });
     if (existing) return existing.id;

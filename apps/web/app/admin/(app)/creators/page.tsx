@@ -151,6 +151,7 @@ export default function AdminCreatorsPage() {
             <th className="whitespace-nowrap px-4 py-2.5 font-medium">Daromad</th>
             <th className="whitespace-nowrap px-4 py-2.5 font-medium">Oxirgi faollik</th>
             <th className="whitespace-nowrap px-4 py-2.5 font-medium">Hisob</th>
+            <th className="whitespace-nowrap px-4 py-2.5 font-medium">Amal</th>
           </tr>
         </thead>
         <tbody>
@@ -178,6 +179,11 @@ export default function AdminCreatorsPage() {
                 <td className="whitespace-nowrap px-4 py-2.5 text-text-secondary">{daysAgoLabel(c.lastActivityAt)}</td>
                 <td className="whitespace-nowrap px-4 py-2.5">
                   <StatusBadge tone={accountMeta.tone} label={accountMeta.label} />
+                </td>
+                <td className="whitespace-nowrap px-4 py-2.5">
+                  <Link href={`/admin/chat?creatorId=${c.id}`} className="font-body text-sm text-accent hover:underline">
+                    💬 Xabar
+                  </Link>
                 </td>
               </tr>
             );
