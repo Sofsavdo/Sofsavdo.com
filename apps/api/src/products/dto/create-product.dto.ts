@@ -12,12 +12,13 @@ import {
   Min,
   MinLength,
 } from "class-validator";
-import type { ProductStatus, ProductType } from "@prisma/client";
+import type { ExternalPartner, ProductStatus, ProductType } from "@prisma/client";
 
 const PRODUCT_TYPES: ProductType[] = ["PHYSICAL_PRODUCT", "DIGITAL_PRODUCT", "COURSE", "SERVICE", "CONSULTATION"];
 const PRODUCT_STATUSES: ProductStatus[] = ["DRAFT", "ACTIVE", "ARCHIVED"];
 const COMMISSION_TYPES = ["PERCENTAGE", "FIXED_AMOUNT"] as const;
 const FEATURED_BADGES = ["PREMIUM", "VIP"] as const;
+const EXTERNAL_PARTNERS: ExternalPartner[] = ["FIDEM", "IZDOSH"];
 
 export class CreateProductDto {
   @ApiProperty()
@@ -159,6 +160,14 @@ export class CreateProductDto {
   @IsString()
   @IsUrl({ require_tld: false })
   externalRedirectUrl?: string | null;
+
+  // Which partner's click-token signer/redirect query-param shape to use — required whenever
+  // externalRedirectUrl is set (Fidem is a Telegram bot and needs `?start=`; Izdosh is a normal
+  // website and takes `?ref=`). See ReferralController.handleReferral.
+  @ApiPropertyOptional({ enum: EXTERNAL_PARTNERS, description: "Sherik platforma turi — externalRedirectUrl to'ldirilganda majburiy." })
+  @IsOptional()
+  @IsIn(EXTERNAL_PARTNERS)
+  externalPartner?: ExternalPartner | null;
 
   @ApiPropertyOptional({ description: "Creator-picker'da ko'rsatiladigan daromad taxmini, masalan \"17 500 – 29 900 so'm\" (ixtiyoriy)." })
   @IsOptional()

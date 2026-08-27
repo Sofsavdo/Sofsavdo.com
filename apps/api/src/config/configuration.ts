@@ -129,6 +129,13 @@ export interface AppConfig {
     // convention as Telegram's webhookSecret above.
     integrationSecret: string;
   };
+  izdosh: {
+    // Shared HMAC key with the Izdosh backend (a separate Railway service/repo, marketpro) — a
+    // deliberately separate secret from Fidem's own (izdosh.integrationSecret above), so a leak on
+    // one partner integration never compromises the other. Same empty-means-unconfigured
+    // fail-loudly convention.
+    integrationSecret: string;
+  };
 }
 
 // Fails fast on missing secrets in non-development environments — a backend that silently
@@ -236,5 +243,8 @@ export default (): AppConfig => ({
   },
   fidem: {
     integrationSecret: process.env.FIDEM_INTEGRATION_SECRET ?? "",
+  },
+  izdosh: {
+    integrationSecret: process.env.IZDOSH_INTEGRATION_SECRET ?? "",
   },
 });

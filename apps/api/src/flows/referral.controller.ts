@@ -3,6 +3,7 @@ import { ConfigService } from "@nestjs/config";
 import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
 import { FlowsService } from "./flows.service";
 import { FidemIntegrationService } from "../fidem-integration/fidem-integration.service";
+import { IzdoshIntegrationService } from "../izdosh-integration/izdosh-integration.service";
 import { Public } from "../common/decorators/public.decorator";
 import type { Response } from "express";
 
@@ -13,6 +14,7 @@ export class ReferralController {
     private readonly flowsService: FlowsService,
     private readonly config: ConfigService,
     private readonly fidem: FidemIntegrationService,
+    private readonly izdosh: IzdoshIntegrationService,
   ) {}
 
   @Public()
@@ -25,12 +27,19 @@ export class ReferralController {
     try {
       const flow = await this.flowsService.getFlowByReferralCode(code);
 
-      // Partner-platform product (e.g. Fidem) — never sold through Sofsavdo's own checkout. A
-      // signed click token binds this click to the Flow so the partner's later conversion webhook
-      // can attribute a commission back to the right creator (see FidemIntegrationService).
+      // Partner-platform product (e.g. Fidem, Izdosh) — never sold through Sofsavdo's own
+      // checkout. A signed click token binds this click to the Flow so the partner's later
+      // conversion webhook can attribute a commission back to the right creator. Which partner's
+      // signer and redirect query-param shape to use depends on externalPartner: Fidem is a
+      // Telegram bot and expects `?start=` (a Telegram deep-link start param); Izdosh is a normal
+      // website and takes `?ref=`.
       if (flow.product.externalRedirectUrl) {
-        const clickToken = this.fidem.signClickToken(flow.id);
         const separator = flow.product.externalRedirectUrl.includes("?") ? "&" : "?";
+        if (flow.product.externalPartner === "IZDOSH") {
+          const clickToken = this.izdosh.signClickToken(flow.id);
+          return res.redirect(302, `${flow.product.externalRedirectUrl}${separator}ref=${clickToken}`);
+        }
+        const clickToken = this.fidem.signClickToken(flow.id);
         return res.redirect(302, `${flow.product.externalRedirectUrl}${separator}start=${clickToken}`);
       }
 

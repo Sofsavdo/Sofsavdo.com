@@ -54,6 +54,7 @@ import { PublicActivityModule } from "./public-activity/public-activity.module";
 import { LaunchBonusModule } from "./launch-bonus/launch-bonus.module";
 import { FlowsModule } from "./flows/flows.module";
 import { FidemIntegrationModule } from "./fidem-integration/fidem-integration.module";
+import { IzdoshIntegrationModule } from "./izdosh-integration/izdosh-integration.module";
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "./common/guards/permissions.guard";
 import { RequestLoggingInterceptor } from "./common/interceptors/request-logging.interceptor";
@@ -113,6 +114,7 @@ import configuration from "./config/configuration";
     CreatorLeaderboardModule,
     CompetitionsModule,
     FidemIntegrationModule,
+    IzdoshIntegrationModule,
     AdminDashboardModule,
     AdminReferralLinksModule,
     ActivityTickerModule,

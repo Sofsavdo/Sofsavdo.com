@@ -350,6 +350,12 @@ enum ProductStatus {
   ARCHIVED
 }
 
+// Which partner platform an externalRedirectUrl product belongs to — see Product.externalPartner.
+enum ExternalPartner {
+  FIDEM
+  IZDOSH
+}
+
 model Product {
   id                    String          @id @default(cuid())
   name                  String
@@ -394,11 +400,17 @@ model Product {
   // (no different commission/visibility rules attach to it, purely marketing signal to creators).
   featuredBadge         String?
   // When set, this product is never sold through Sofsavdo's own checkout — it represents a
-  // partner platform's offering (e.g. Fidem). ReferralController redirects a Flow click straight
-  // here (with a signed click token appended) instead of to /o/[offerSlug]; the partner reports
-  // conversions back via a webhook that creates an EXTERNAL-source Commission. See
-  // src/flows/referral.controller.ts and src/fidem-integration/.
+  // partner platform's offering (e.g. Fidem, Izdosh). ReferralController redirects a Flow click
+  // straight here (with a signed click token appended) instead of to /o/[offerSlug]; the partner
+  // reports conversions back via a webhook that creates an EXTERNAL-source Commission. See
+  // src/flows/referral.controller.ts and src/fidem-integration/ / src/izdosh-integration/.
   externalRedirectUrl   String?
+  // Which partner integration owns this product's click-token signing/verification and the
+  // redirect query-param shape (Fidem is a Telegram bot and needs `?start=`; Izdosh is a normal
+  // website and takes `?ref=`). Null for a product with no externalRedirectUrl. Existing rows
+  // (only the one Fidem product predates this field) are backfilled to FIDEM — see this field's
+  // migration.
+  externalPartner       ExternalPartner?
   // Free-text earning-potential label shown to creators in place of a computed price/commission
   // amount (e.g. "17 500 – 29 900 so'm") — for an external-redirect product there's no Sofsavdo
   // checkout price to multiply commissionRateBps against, so this is admin-entered directly

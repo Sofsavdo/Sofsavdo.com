@@ -4,9 +4,10 @@ import { FlowsController } from "./flows.controller";
 import { ReferralController } from "./referral.controller";
 import { PrismaModule } from "../prisma/prisma.module";
 import { FidemIntegrationModule } from "../fidem-integration/fidem-integration.module";
+import { IzdoshIntegrationModule } from "../izdosh-integration/izdosh-integration.module";
 
 @Module({
-  imports: [PrismaModule, FidemIntegrationModule],
+  imports: [PrismaModule, FidemIntegrationModule, IzdoshIntegrationModule],
   controllers: [FlowsController, ReferralController],
   providers: [FlowsService],
   exports: [FlowsService],
