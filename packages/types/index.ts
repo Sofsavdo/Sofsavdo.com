@@ -596,8 +596,11 @@ export interface Product {
   pinnedAt?: string | null;
   featuredBadge?: "PREMIUM" | "VIP" | null;
   // When set, this product is never sold through Sofsavdo's own checkout — a Flow link redirects
-  // straight here instead (a partner platform, e.g. Fidem's Telegram Mini App).
+  // straight here instead (a partner platform, e.g. Fidem's Telegram Mini App, or an Izdosh course).
   externalRedirectUrl?: string | null;
+  // Which partner integration owns the click-token signing for externalRedirectUrl above — see
+  // that field's schema comment. Null/undefined for a product with no externalRedirectUrl.
+  externalPartner?: "FIDEM" | "IZDOSH" | null;
   // Free-text earning-potential label shown to creators in place of a computed price/commission
   // amount, e.g. "17 500 – 29 900 so'm" — see the schema field's own comment.
   estimatedEarningLabel?: string | null;

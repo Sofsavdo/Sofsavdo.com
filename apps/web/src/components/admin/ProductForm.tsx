@@ -82,6 +82,7 @@ export function ProductForm({
           creatorProfileId: (existing as any).creatorProfileId ?? undefined,
           featuredBadge: existing.featuredBadge ?? "",
           externalRedirectUrl: existing.externalRedirectUrl ?? "",
+          externalPartner: existing.externalPartner ?? "",
           estimatedEarningLabel: existing.estimatedEarningLabel ?? "",
         }
       : { type: "PHYSICAL_PRODUCT" },
@@ -121,6 +122,7 @@ export function ProductForm({
       creatorProfileId: values.creatorProfileId || null,
       featuredBadge: values.featuredBadge || null,
       externalRedirectUrl: values.externalRedirectUrl || null,
+      externalPartner: values.externalPartner || null,
       estimatedEarningLabel: values.estimatedEarningLabel || null,
     };
     if (existing) {
@@ -188,11 +190,21 @@ export function ProductForm({
         </SelectField>
         <TextField
           label="Sherik platforma havolasi (ixtiyoriy)"
-          hint="Bo'lsa, bu mahsulotning Flow havolasi Sofsavdo checkout o'rniga to'g'ridan-to'g'ri shu manzilga (masalan, Fidem Telegram botiga) yo'naltiradi."
-          placeholder="https://t.me/Fidem_Appbot"
+          hint="Bo'lsa, bu mahsulotning Flow havolasi Sofsavdo checkout o'rniga to'g'ridan-to'g'ri shu manzilga (masalan, Fidem Telegram botiga yoki Izdosh kurs sahifasiga) yo'naltiradi."
+          placeholder="https://t.me/Fidem_Appbot yoki https://izdosh.uz/courses/uzum-market"
           error={errors.externalRedirectUrl?.message}
           {...register("externalRedirectUrl")}
         />
+        <SelectField
+          label="Sherik platforma turi"
+          hint="Sherik platforma havolasi to'ldirilganda majburiy — qaysi partner integratsiyasi click-token imzolashini belgilaydi."
+          error={errors.externalPartner?.message}
+          {...register("externalPartner")}
+        >
+          <option value="">Sherik emas</option>
+          <option value="FIDEM">Fidem (Telegram bot)</option>
+          <option value="IZDOSH">Izdosh (kurs sayti)</option>
+        </SelectField>
         <TextField
           label="Daromad taxmini (ixtiyoriy)"
           hint="Sherik platforma mahsulotlari uchun — creator-picker'da hisoblangan narx/komissiya o'rniga shu matn ko'rsatiladi."
