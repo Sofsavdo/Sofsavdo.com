@@ -46,7 +46,10 @@ export function ProductForm({
   const updateProduct = useUpdateProduct();
   const uploadImage = useUploadImage();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { data: creators } = useRealCreatorList({ pageSize: 1000 });
+  // pageSize is capped at 100 by PaginationQueryDto (@Max(100)) — asking for 1000 made this
+  // request fail validation with a 400, so the creator picker silently came back empty on every
+  // product create/edit. 100 is the largest page the API will serve.
+  const { data: creators } = useRealCreatorList({ pageSize: 100 });
   // Before this, this form silently carried forward `existing?.images` with no way to actually
   // add or remove one — creating a new product always ended up with zero images, and editing one
   // could never change them. Real, editable state now; the admin uploads a file directly instead
